@@ -1,0 +1,14 @@
+numpy
+pandas
+scipy
+scikit-learn
+tqdm
+matplotlib
+pyyaml
+gym
+stable-baselines3
+
+# Optional methods
+# iisignature
+# dcor
+# p_tqdm

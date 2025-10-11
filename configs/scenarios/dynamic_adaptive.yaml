@@ -1,0 +1,19 @@
+extends: ../base.yaml
+
+run:
+  run_name: dynamic_adaptive
+
+dynamic:
+  min_lookback: 10
+  max_lookback: 120
+  step: 5
+
+analysis:
+  # Base analysis params used inside each window computation
+  method: ccf_at_lag
+  lookback: 30  # only used for analyzer init; dynamic baseline overrides per-step window
+  update_freq: 1
+  ccf_at_lag:
+    lag: 1
+    correlation_method: pearson
+

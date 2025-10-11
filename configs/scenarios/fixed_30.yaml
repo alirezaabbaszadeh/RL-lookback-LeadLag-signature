@@ -1,0 +1,13 @@
+extends: ../base.yaml
+
+analysis:
+  lookback: 30
+  update_freq: 1
+  method: ccf_at_lag
+  ccf_at_lag:
+    lag: 1
+    correlation_method: pearson
+
+run:
+  run_name: fixed_30
+

@@ -1,0 +1,33 @@
+extends: ../base.yaml
+
+run:
+  run_name: rl_ppo
+
+analysis:
+  method: ccf_at_lag
+  lookback: 60
+  update_freq: 1
+  ccf_at_lag:
+    lag: 1
+    correlation_method: pearson
+
+rl:
+  min_lookback: 10
+  max_lookback: 120
+  discrete_actions: true
+  policy: MlpPolicy
+  total_timesteps: 50000
+  n_steps: 512
+  batch_size: 256
+  learning_rate: 0.0003
+  gamma: 0.99
+  ent_coef: 0.0
+  eval_freq: 0
+  verbose: false
+  reward_weights:
+    alpha: 1.0
+    beta: 0.3
+    gamma: 0.08
+  penalty_same: 0.05
+  penalty_step: 10
+
