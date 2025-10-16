@@ -1,7 +1,7 @@
 ROADMAP {
   METADATA {
     VERSION: "2.0"
-    LAST_UPDATED: "2025-10-11"
+    LAST_UPDATED: "2025-10-16"
     MAINTAINER: "roadmap_bot"
     SCOPE: "LeadLag-signature RL project"
   }
@@ -63,40 +63,7 @@ ROADMAP {
       NAME: "SignatureCore"
       OBJECTIVE: "Efficient, modular extraction and featureization of signature-based lead-lag matrices"
       OWNER: "analysis_team"
-      TASKS [
-        TASK {
-          ID: "SC-01"
-          TITLE: "Refactor LeadLagAnalyzer"
-          ACTIONS: [
-            "Split into signature_extractor, window_processor, matrix_builder",
-            "Implement caching + NumPy/Numba acceleration",
-            "Add batch interface for multiple time windows"
-          ]
-          DEPENDENCIES: []
-          OUTPUTS: ["signature_extractor.py", "performance_profile.json", "tests/test_signature.py"]
-          SUCCESS: {
-            SPEEDUP: ">= 2x",
-            COVERAGE: ">= 80% module coverage"
-          }
-          RISKS: ["signature library limitations", "memory pressure for high order"]
-        }
-        TASK {
-          ID: "SC-02"
-          TITLE: "Signature Feature Engineering"
-          ACTIONS: [
-            "Implement Top-K selector and configurable signature orders",
-            "Provide compression options (PCA / Autoencoder)",
-            "Expose feature pipeline through YAML"
-          ]
-          DEPENDENCIES: ["SC-01"]
-          OUTPUTS: ["signature_features.json", "configs/features/signature.yaml"]
-          SUCCESS: {
-            VARIANCE_RETENTION: "≥ 95%",
-            LATENCY_OVERHEAD: "< 10%"
-          }
-          RISKS: ["information loss", "hyperparameter explosion"]
-        }
-      ]
+      TASKS []
     }
 
     MODULE {
@@ -105,40 +72,6 @@ ROADMAP {
       OWNER: "rl_team"
       TASKS [
         TASK {
-          ID: "RL-01"
-          TITLE: "Environment Upgrade"
-          ACTIONS: [
-            "Implement multi-episode, random-start environment",
-            "Support action modes {absolute, relative, hybrid}",
-            "Enhance observation vector (signature features, regime stats, previous decisions)",
-            "Add EMA smoothing toggle"
-          ]
-          DEPENDENCIES: ["SC-02"]
-          OUTPUTS: ["LeadLagEnv_v2.py", "env_contract.md"]
-          SUCCESS: {
-            RESET_VARIANTS: "≥ 3",
-            OBS_SCHEMA: "auto-generated"
-          }
-          RISKS: ["non-stationarity", "state dimensionality"]
-        }
-        TASK {
-          ID: "RL-02"
-          TITLE: "Policy Suite"
-          ACTIONS: [
-            "Integrate PPO-LSTM (sb3-contrib)",
-            "Design attention-based policy",
-            "Create policy factory with YAML mapping",
-            "Benchmark default hyperparameters"
-          ]
-          DEPENDENCIES: ["RL-01"]
-          OUTPUTS: ["policy_factory.py", "policies/attention_policy.py", "benchmarks/policy_report.csv"]
-          SUCCESS: {
-            POLICY_COUNT: "≥ 3",
-            BENCHMARK_LOG: "present"
-          }
-          RISKS: ["training instability", "GPU demand"]
-        }
-        TASK {
           ID: "RL-03"
           TITLE: "Reward Templates"
           ACTIONS: [
@@ -146,7 +79,7 @@ ROADMAP {
             "Allow weighted combinations via YAML",
             "Add unit tests for edge cases"
           ]
-          DEPENDENCIES: ["RL-01"]
+          DEPENDENCIES: []
           OUTPUTS: ["rewards.py", "configs/rewards/*.yaml", "tests/test_rewards.py"]
           SUCCESS: {
             TEMPLATE_COUNT: "≥ 4",
@@ -375,10 +308,8 @@ ROADMAP {
   ]
 
   STATUS_TRACKER {
-    LAST_REVIEW: "2025-10-11"
+    LAST_REVIEW: "2025-10-16"
     OPEN_ITEMS [
-      ITEM {MODULE: "SC-01", ISSUE: "Signature modules added; profiling & batch interface pending", NEXT_STEP: "Implement performance_profile + batched API"}
-      ITEM {MODULE: "RL-01", ISSUE: "Single-episode env", NEXT_STEP: "Prototype multi-reset"}
       ITEM {MODULE: "EO-01", ISSUE: "Hydra presets (fast_smoke, research_full) added; automated validation pending", NEXT_STEP: "Add scenario list tests + config validation"}
       ITEM {MODULE: "EO-02", ISSUE: "Bootstrap CI added; Welch pending", NEXT_STEP: "Add Welch-test comparison when multiple scenarios available"}
       ITEM {MODULE: "IQ-01", ISSUE: "CI/tests absent", NEXT_STEP: "Create minimal pytest suite"}
@@ -403,5 +334,9 @@ ROADMAP {
     ENTRY {DATE: "2025-10-11", DESCRIPTION: "Signature modules introduced; Hydra config & multi-seed runner implemented"}
     ENTRY {DATE: "2025-10-12", DESCRIPTION: "Fast smoke preset added; CLI fallback enhanced"}
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Added STATUS_TRACKER summary tooling and expanded quality gates for financial & safety coverage"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed SC-01 refactor with batch API, caching upgrades, and profiling artifact"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed SC-02 signature feature pipeline with YAML exposure and compression options"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-01 environment upgrade with random starts, action modes, enhanced observations, and EMA toggle"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-02 policy suite with PPO-LSTM integration, attention policy, and YAML-driven factory"}
   ]
 }

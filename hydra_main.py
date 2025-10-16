@@ -31,7 +31,7 @@ BASE_CONFIG = {
         'universe_csv': None,
     },
     'analysis': {
-        'method': 'ccf_at_lag',
+        'method': 'signature',
         'lookback': 30,
         'update_freq': 1,
         'use_parallel': False,
@@ -40,6 +40,11 @@ BASE_CONFIG = {
         'Scaling_Method': 'mean-centering',
         'ccf_at_lag': {
             'lag': 1,
+            'correlation_method': 'pearson',
+            'quantiles': 4,
+        },
+        'signature': {
+            'sig_method': 'levy',
             'correlation_method': 'pearson',
             'quantiles': 4,
         },
@@ -108,13 +113,25 @@ SCENARIO_PRESETS = {
         'raw_config': _merge(
             BASE_CONFIG,
             {
-                'analysis': {'lookback': 60, 'method': 'ccf_at_lag'},
+                'analysis': {
+                    'lookback': 60,
+                    'method': 'signature',
+                    'signature': {'sig_method': 'levy'},
+                },
                 'run': {'run_name': 'rl_ppo'},
                 'rl': {
                     'min_lookback': 10,
                     'max_lookback': 120,
                     'discrete_actions': True,
-                    'policy': 'MlpPolicy',
+                    'action_mode': 'hybrid',
+                    'relative_step': 5,
+                    'episode_length': 252,
+                    'random_start': True,
+                    'ema_alpha': 0.2,
+                    'policy': 'attention',
+                    'policy_kwargs': {
+                        'features_extractor_kwargs': {'features_dim': 96, 'n_heads': 4}
+                    },
                     'total_timesteps': 2000,
                     'n_steps': 256,
                     'batch_size': 128,

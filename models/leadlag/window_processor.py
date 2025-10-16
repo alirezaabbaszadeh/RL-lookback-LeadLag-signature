@@ -1,27 +1,25 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from collections import OrderedDict
+from typing import Iterable, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 
-@dataclass
-class WindowCache:
-    """Lightweight cache for the most recent window log-returns."""
-
-    key: Optional[Tuple[pd.Timestamp, pd.Timestamp]] = None
-    values: Optional[pd.DataFrame] = None
-
-
 class WindowProcessor:
     """Handle universe filtering, preprocessing and log-return computation for windows."""
 
-    def __init__(self, df_universe: Optional[pd.Series] = None, scaling_method: str = "mean-centering") -> None:
+    def __init__(
+        self,
+        df_universe: Optional[pd.Series] = None,
+        scaling_method: str = "mean-centering",
+        cache_size: int = 8,
+    ) -> None:
         self.df_universe = df_universe
         self.scaling_method = scaling_method
-        self._cache = WindowCache()
+        self.cache_size = max(1, int(cache_size))
+        self._cache: "OrderedDict[Tuple[pd.Timestamp, pd.Timestamp], pd.DataFrame]" = OrderedDict()
 
     def get_log_returns(
         self,
@@ -30,8 +28,11 @@ class WindowProcessor:
         window_end: pd.Timestamp,
     ) -> pd.DataFrame:
         cache_key = (pd.Timestamp(window_start), pd.Timestamp(window_end))
-        if self._cache.key == cache_key and self._cache.values is not None:
-            return self._cache.values
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            # Promote hit to the end of the LRU structure
+            self._cache.move_to_end(cache_key)
+            return cached.copy()
 
         processed = self._preprocess_window_data(price_df, window_start, window_end)
         if processed.empty or processed.shape[1] == 0:
@@ -39,8 +40,30 @@ class WindowProcessor:
         else:
             log_returns = self._compute_log_returns(processed)
 
-        self._cache = WindowCache(key=cache_key, values=log_returns)
-        return log_returns
+        stored = log_returns.copy()
+        self._cache[cache_key] = stored
+        if len(self._cache) > self.cache_size:
+            self._cache.popitem(last=False)
+        return stored.copy()
+
+    def get_log_returns_batch(
+        self,
+        price_df: pd.DataFrame,
+        windows: Iterable[Tuple[pd.Timestamp, pd.Timestamp]],
+    ) -> dict[Tuple[pd.Timestamp, pd.Timestamp], pd.DataFrame]:
+        """
+        Compute log-returns for a batch of windows while reusing the internal cache.
+
+        The result dict is keyed by normalized (start, end) timestamps. Each
+        value is a fresh DataFrame instance to avoid accidental mutation.
+        """
+        results: dict[Tuple[pd.Timestamp, pd.Timestamp], pd.DataFrame] = {}
+        for window_start, window_end in windows:
+            key = (pd.Timestamp(window_start), pd.Timestamp(window_end))
+            log_returns = self.get_log_returns(price_df, key[0], key[1])
+            # Return a copy to prevent external mutation from polluting the cache.
+            results[key] = log_returns.copy()
+        return results
 
     # ------------------------------------------------------------------
     # Internal helpers (logic migrated from LeadLagAnalyzer)
@@ -97,4 +120,3 @@ class WindowProcessor:
         if isinstance(universe_value, pd.Series):
             return universe_value.dropna().astype(str).tolist()
         return []
-

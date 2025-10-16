@@ -1,0 +1,16 @@
+{
+  "generated_at": "2025-10-16T15:59:07.133621Z",
+  "dataset": {
+    "rows": 360,
+    "assets": 6,
+    "window_length": 32,
+    "window_stride": 16,
+    "window_count": 21
+  },
+  "timings_seconds": {
+    "sequential": 0.13424699986353517,
+    "batch": 0.0974762998521328,
+    "speedup": 1.3772270805024593
+  },
+  "numba_available": false
+}

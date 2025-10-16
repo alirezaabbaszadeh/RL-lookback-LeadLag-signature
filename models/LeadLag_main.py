@@ -1,14 +1,14 @@
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Union, Optional, Literal, Any
-from dataclasses import dataclass, field
+from typing import Dict, List, Sequence, Tuple, Union, Optional, Literal, Any
+from dataclasses import dataclass
 from sklearn.feature_selection import mutual_info_classif
 import warnings
 from scipy.stats import mode
 
 from models.leadlag import WindowProcessor
-from models.leadlag.matrix_builder import build_matrix
+from models.leadlag.matrix_builder import build_matrix, build_matrices_batch
 from models.leadlag.signature_extractor import SignatureExtractor, SignatureConfig
 
 
@@ -44,6 +44,65 @@ try:
     P_TQDM_AVAILABLE = True
 except ImportError:
     P_TQDM_AVAILABLE = False
+
+try:
+    from numba import njit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+
+if NUMBA_AVAILABLE:
+    @njit(cache=True)
+    def _pearson_corr_numba(x: np.ndarray, y: np.ndarray) -> float:
+        n = x.shape[0]
+        if n == 0:
+            return np.nan
+
+        mean_x = 0.0
+        mean_y = 0.0
+        for i in range(n):
+            mean_x += x[i]
+            mean_y += y[i]
+        mean_x /= n
+        mean_y /= n
+
+        numerator = 0.0
+        denom_x = 0.0
+        denom_y = 0.0
+        for i in range(n):
+            dx = x[i] - mean_x
+            dy = y[i] - mean_y
+            numerator += dx * dy
+            denom_x += dx * dx
+            denom_y += dy * dy
+
+        if denom_x == 0.0 or denom_y == 0.0:
+            return 0.0
+        return numerator / (np.sqrt(denom_x) * np.sqrt(denom_y))
+
+    @njit(cache=True)
+    def _cross_corr_numba(x: np.ndarray, y: np.ndarray, lag: int) -> float:
+        if lag > 0:
+            if lag >= x.shape[0]:
+                return np.nan
+            x_slice = x[:-lag]
+            y_slice = y[lag:]
+        elif lag < 0:
+            lag_abs = -lag
+            if lag_abs >= y.shape[0]:
+                return np.nan
+            x_slice = x[lag_abs:]
+            y_slice = y[:-lag_abs]
+        else:
+            x_slice = x
+            y_slice = y
+
+        if x_slice.shape[0] == 0 or y_slice.shape[0] == 0:
+            return np.nan
+        return _pearson_corr_numba(x_slice, y_slice)
+else:  # pragma: no cover - executed only when numba missing
+    def _cross_corr_numba(x: np.ndarray, y: np.ndarray, lag: int) -> float:
+        raise RuntimeError("Numba is not available")
 
 
 
@@ -94,9 +153,10 @@ class LeaderFollowerConfig:
 
 @dataclass
 class LeadLagConfig:
-    """Configuration class for Lead-Lag analysis parameters with DTW support."""
+    """Configuration parameters for lead-lag analysis (DTW explicitly unsupported—use signature)."""
     
-    method: Literal['ccf_at_lag', 'ccf_auc', 'signature', 'ccf_at_max_lag', 'dtw'] = 'ccf_at_lag'
+    # Reminder: DTW is intentionally unsupported in this codebase—stick to signature or CCF variants.
+    method: Literal['ccf_at_lag', 'ccf_auc', 'signature', 'ccf_at_max_lag'] = 'signature'
     correlation_method: Literal['pearson', 'kendall', 'spearman', 'distance', 'mutual_information', 'squared_pearson'] = 'pearson'
     lookback: Optional[int] = 252
     update_freq: Optional[int] = 1
@@ -113,8 +173,10 @@ class LeadLagConfig:
     
     @classmethod
     def from_dict(cls, config_dict: Dict) -> 'LeadLagConfig':
-        """Create LeadLagConfig from dictionary input with DTW support."""
+        """Create LeadLagConfig from dictionary input (signature is the recommended default)."""
         method = config_dict.get('method', 'ccf_at_lag')
+        if method == 'dtw':
+            raise ValueError("DTW mode is deprecated for this project. Use 'signature' or other supported methods.")
         
         # Get method-specific config
         method_config = config_dict.get(method, {})
@@ -154,7 +216,7 @@ class LeadLagConfig:
         return cls(**common_params)
     
     def __post_init__(self):
-        """Validate configuration parameters with DTW support."""
+        """Validate configuration parameters (DTW intentionally unsupported)."""
 
         if self.method in ['ccf_at_lag'] and self.lag is None:
             raise ValueError("lag parameter is required for ccf_at_lag method")
@@ -270,6 +332,32 @@ class LeadLagAnalyzer():
             # For single matrix, pass the full price DataFrame
             return self._compute_single_lead_lag_matrix(price_df)
 
+    def compute_matrices_batch(
+        self,
+        price_df: pd.DataFrame,
+        windows: Sequence[Tuple[pd.Timestamp, pd.Timestamp]],
+    ) -> Dict[Tuple[pd.Timestamp, pd.Timestamp], pd.DataFrame]:
+        """
+        Compute lead-lag matrices for a batch of windows.
+
+        This is primarily used by RL/analysis pipelines that need to evaluate
+        multiple candidate lookback windows in one pass.
+        """
+        if not isinstance(price_df, pd.DataFrame):
+            raise TypeError("price_df must be a pandas DataFrame")
+        if not isinstance(price_df.index, pd.DatetimeIndex):
+            raise TypeError("price_df must have a DatetimeIndex")
+        if not windows:
+            return {}
+
+        normalized_windows: List[Tuple[pd.Timestamp, pd.Timestamp]] = []
+        for window_start, window_end in windows:
+            normalized_windows.append((pd.Timestamp(window_start), pd.Timestamp(window_end)))
+
+        log_returns_batch = self.window_processor.get_log_returns_batch(price_df, normalized_windows)
+
+        return build_matrices_batch(log_returns_batch, self._compute_lead_lag_measure_optimized)
+
     def _compute_rolling_lead_lag_matrix(self, price_df: pd.DataFrame) -> pd.Series:
         """
         Compute rolling lead-lag matrices over time using optimized numpy operations.
@@ -342,9 +430,7 @@ class LeadLagAnalyzer():
         return build_matrix(data, self._compute_lead_lag_measure_optimized)
     
     def _compute_lead_lag_measure_optimized(self, data_pair: np.ndarray) -> float:
-        """
-        Extended method to include DTW-based lead-lag measures.
-        """
+        """Dispatch to the configured lead-lag measurement routine."""
         if self.config.method == 'ccf_at_lag':
             return self._ccf_at_lag_optimized(data_pair)
         elif self.config.method == 'ccf_auc':
@@ -441,14 +527,17 @@ class LeadLagAnalyzer():
         Returns:
             float: Cross-correlation value
         """
-        # Handle NaN values
+        x = np.asarray(x, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64)
+
+        # Handle NaN values eagerly to simplify downstream code paths.
         if np.any(np.isnan(x)) or np.any(np.isnan(y)):
             valid_mask = ~(np.isnan(x) | np.isnan(y))
             if not np.any(valid_mask):
                 return np.nan
             x = x[valid_mask]
             y = y[valid_mask]
-        
+
         # Apply lag using numpy operations
         if lag > 0:
             if lag >= len(x):
@@ -456,21 +545,24 @@ class LeadLagAnalyzer():
             x_lagged = x[:-lag]
             y_aligned = y[lag:]
         elif lag < 0:
-            if -lag >= len(y):
+            lag_abs = -lag
+            if lag_abs >= len(y):
                 return np.nan
-            x_lagged = x[-lag:]
-            y_aligned = y[:lag]
+            x_lagged = x[lag_abs:]
+            y_aligned = y[:-lag_abs]
         else:
             x_lagged = x
             y_aligned = y
-        
+
         if len(x_lagged) == 0 or len(y_aligned) == 0:
             return np.nan
 
         # Compute correlation based on method
         if self.config.correlation_method == 'pearson':
-            std_x = np.nanstd(x_lagged)
-            std_y = np.nanstd(y_aligned)
+            if NUMBA_AVAILABLE:
+                return float(_cross_corr_numba(x_lagged, y_aligned))
+            std_x = np.std(x_lagged)
+            std_y = np.std(y_aligned)
             if std_x == 0 or std_y == 0:
                 return 0.0
             return np.corrcoef(x_lagged, y_aligned)[0, 1]

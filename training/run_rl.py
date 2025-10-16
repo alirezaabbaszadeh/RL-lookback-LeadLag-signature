@@ -14,12 +14,12 @@ try:
 except Exception:
     yaml = None
 
-from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import set_random_seed
 
 from models.LeadLag_main import LeadLagConfig
 from envs.leadlag_env import LeadLagEnv
+from training.policy_factory import make_algorithm_spec
 from training.run_scenario import (
     _merge_extends,
     _read_prices,
@@ -46,6 +46,9 @@ def _save_config(cfg: Dict[str, Any], out_dir: Path):
 def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
     ll_cfg = _config_to_leadlag(cfg)
     rl_cfg = cfg.get('rl', {})
+    episode_length = rl_cfg.get('episode_length')
+    if episode_length is not None:
+        episode_length = int(episode_length)
     env = LeadLagEnv(
         price_df=prices,
         leadlag_config=ll_cfg,
@@ -55,6 +58,12 @@ def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
         reward_weights=rl_cfg.get('reward_weights', None),
         penalty_same=float(rl_cfg.get('penalty_same', 0.05)),
         penalty_step=int(rl_cfg.get('penalty_step', 10)),
+        action_mode=rl_cfg.get('action_mode', 'absolute'),
+        relative_step=int(rl_cfg.get('relative_step', 5)),
+        episode_length=episode_length,
+        random_start=rl_cfg.get('random_start', True),
+        random_seed=rl_cfg.get('random_seed'),
+        ema_alpha=rl_cfg.get('ema_alpha'),
     )
     return env
 
@@ -107,20 +116,22 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
 
     env = _instantiate_env(prices, cfg)
 
-    policy = rl_cfg.get('policy', 'MlpPolicy')
+    algo_spec = make_algorithm_spec(rl_cfg)
     total_timesteps = int(rl_cfg.get('total_timesteps', 50000))
 
-    model = PPO(
-        policy,
-        env,
-        learning_rate=rl_cfg.get('learning_rate', 3e-4),
-        n_steps=int(rl_cfg.get('n_steps', 512)),
-        batch_size=int(rl_cfg.get('batch_size', 256)),
-        gamma=float(rl_cfg.get('gamma', 0.99)),
-        ent_coef=float(rl_cfg.get('ent_coef', 0.0)),
-        verbose=1 if rl_cfg.get('verbose', False) else 0,
-        seed=seed,
-    )
+    algo_kwargs = {
+        'learning_rate': rl_cfg.get('learning_rate', 3e-4),
+        'n_steps': int(rl_cfg.get('n_steps', 512)),
+        'batch_size': int(rl_cfg.get('batch_size', 256)),
+        'gamma': float(rl_cfg.get('gamma', 0.99)),
+        'ent_coef': float(rl_cfg.get('ent_coef', 0.0)),
+        'verbose': 1 if rl_cfg.get('verbose', False) else 0,
+        'seed': seed,
+    }
+    if algo_spec.policy_kwargs:
+        algo_kwargs['policy_kwargs'] = algo_spec.policy_kwargs
+
+    model = algo_spec.algo_cls(algo_spec.policy, env, **algo_kwargs)
 
     # optional evaluation callback (self-play, so reuse env)
     eval_freq = int(rl_cfg.get('eval_freq', 0))

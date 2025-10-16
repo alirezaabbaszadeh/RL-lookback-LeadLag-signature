@@ -1,0 +1,16 @@
+orders:
+  - 2
+  - 3
+sig_method: levy
+scaling_method: mean-centering
+top_k: 12
+min_magnitude: 0.0
+compression:
+  method: pca
+  n_components: 6
+  autoencoder_hidden_dims:
+    - 64
+    - 32
+  autoencoder_epochs: 75
+  autoencoder_batch_size: 64
+  autoencoder_learning_rate: 0.0005
