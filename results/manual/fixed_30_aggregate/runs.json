@@ -1,0 +1,14 @@
+[
+  {
+    "seed": 42,
+    "output_dir": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\results\\manual\\fixed_30_seed42_20251011_211857"
+  },
+  {
+    "seed": 52,
+    "output_dir": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\results\\manual\\fixed_30_seed52_20251011_212658"
+  },
+  {
+    "seed": 62,
+    "output_dir": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\results\\manual\\fixed_30_seed62_20251011_213510"
+  }
+]

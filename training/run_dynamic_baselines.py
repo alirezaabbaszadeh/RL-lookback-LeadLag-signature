@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import time
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -63,9 +63,29 @@ def _signal_strength(mat: pd.DataFrame) -> float:
     return float(np.nanmean(np.abs(off)))
 
 
-def run_dynamic(config_path: str, out_root: str | None = None) -> Path:
-    cfg_path = Path(config_path)
-    cfg = _merge_extends(cfg_path)
+def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            base[key] = _deep_update(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def run_dynamic(config_path: str, out_root: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None) -> Path:
+    overrides = dict(overrides or {})
+    raw_cfg = overrides.pop('_raw_config', None)
+
+    if raw_cfg is not None:
+        cfg = raw_cfg
+        cfg_path = Path(config_path)
+        if overrides:
+            cfg = _deep_update(cfg, overrides)
+    else:
+        cfg_path = Path(config_path)
+        cfg = _merge_extends(cfg_path)
+        if overrides:
+            cfg = _deep_update(cfg, overrides)
 
     # dynamic params
     dyn = cfg.get('dynamic', {})
@@ -155,4 +175,3 @@ if __name__ == '__main__':
     args = ap.parse_args()
     out = run_dynamic(args.config, args.out)
     print(f"Saved dynamic baseline to: {out}")
-

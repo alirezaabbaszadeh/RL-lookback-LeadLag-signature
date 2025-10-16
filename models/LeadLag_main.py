@@ -1,14 +1,15 @@
 
 import numpy as np
 import pandas as pd
-import itertools
-from functools import partial
 from typing import Dict, List, Tuple, Union, Optional, Literal, Any
 from dataclasses import dataclass, field
 from sklearn.feature_selection import mutual_info_classif
 import warnings
-from tqdm import tqdm
 from scipy.stats import mode
+
+from models.leadlag import WindowProcessor
+from models.leadlag.matrix_builder import build_matrix
+from models.leadlag.signature_extractor import SignatureExtractor, SignatureConfig
 
 
 try:
@@ -32,8 +33,11 @@ except ImportError:
 try:
     from tqdm import tqdm
     TQDM_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover
     TQDM_AVAILABLE = False
+
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
 
 try:
     from p_tqdm import p_map
@@ -189,6 +193,12 @@ class LeadLagAnalyzer():
             self.config = config
         self.lead_lag_matrix_rolling = None
         self.df_universe = df_universe
+        scaling = getattr(self.config, 'Scaling_Method', 'mean-centering')
+        self.window_processor = WindowProcessor(
+            df_universe=df_universe,
+            scaling_method=scaling
+        )
+        self._signature_extractor: Optional[SignatureExtractor] = None
         self._validate_config()
         self.selected_window_info = None
     
@@ -225,126 +235,14 @@ class LeadLagAnalyzer():
         return np.log(price_df).ffill().diff().fillna(0)
     
     def _get_universe_coins_for_date(self, date: pd.Timestamp) -> list:
-        """
-        Get universe coins for a specific date.
-        
-        Args:
-            date: Target date
-            
-        Returns:
-            list: List of coin names for the date
-        """
-        if self.df_universe is None:
-            return None
-        
-        # Convert date to pandas Timestamp if needed
-        if not isinstance(date, pd.Timestamp):
-            date = pd.Timestamp(date)
-        
-        # Find the most recent universe date <= target date
-        universe_index = pd.to_datetime(self.df_universe.index)
-        mask = universe_index <= date
-        available_dates = universe_index[mask]
-        
-        if len(available_dates) == 0:
-            return None
-        
-        latest_date = available_dates.max()
-        universe_coins = self.df_universe.loc[latest_date]
-        
-        if isinstance(universe_coins, str):
-            return [universe_coins]
-        elif hasattr(universe_coins, '__iter__') and not isinstance(universe_coins, str):
-            return list(universe_coins)
-        else:
-            return None
+        return self.window_processor._get_universe_coins_for_date(date)
     
     def _preprocess_window_data(self, price_df: pd.DataFrame, window_start: pd.Timestamp, window_end: pd.Timestamp) -> pd.DataFrame:
-        """
-        Preprocess price data for a specific window by selecting universe coins and applying forward filling.
-        
-        Args:
-            price_df: Full DataFrame with DatetimeIndex and coin names as columns
-            window_start: Start date of the window
-            window_end: End date of the window (target date)
-        
-        Returns:
-            pd.DataFrame: Preprocessed price data for the window with only universe coins
-        """
-        # Convert dates to pandas Timestamps if needed
-        if not isinstance(window_start, pd.Timestamp):
-            window_start = pd.Timestamp(window_start)
-        if not isinstance(window_end, pd.Timestamp):
-            window_end = pd.Timestamp(window_end)
-        
-        if self.df_universe is None:
-            # If no universe data, return window data with standard preprocessing
-            price_index = pd.to_datetime(price_df.index)
-            window_mask = (price_index >= window_start) & (price_index <= window_end)
-            window_data = price_df.loc[window_mask].copy()
-            return window_data.ffill()
-        
-        # Get universe coins for the target date (window_end)
-        universe_coins = self._get_universe_coins_for_date(window_end)
-        
-        if universe_coins is None or len(universe_coins) == 0:
-            # If no universe defined for this date, return empty DataFrame
-            price_index = pd.to_datetime(price_df.index)
-            window_mask = (price_index >= window_start) & (price_index <= window_end)
-            return pd.DataFrame(index=price_df.index[window_mask])
-        
-        # Filter coins that exist in the price data
-        available_coins = [coin for coin in universe_coins if coin in price_df.columns]
-        
-        if len(available_coins) == 0:
-            # No universe coins available in price data
-            price_index = pd.to_datetime(price_df.index)
-            window_mask = (price_index >= window_start) & (price_index <= window_end)
-            return pd.DataFrame(index=price_df.index[window_mask])
-        
-        # Select window and universe coins
-        price_index = pd.to_datetime(price_df.index)
-        window_mask = (price_index >= window_start) & (price_index <= window_end)
-        preprocessed_data = price_df.loc[window_mask, available_coins].copy()
-        
-        # Apply forward filling only within this window
-        preprocessed_data = preprocessed_data.ffill()
-        
-        return preprocessed_data
+        return self.window_processor._preprocess_window_data(price_df, window_start, window_end)
     
     def _compute_log_returns_for_window(self, price_df: pd.DataFrame, window_start: pd.Timestamp, window_end: pd.Timestamp) -> pd.DataFrame:
-        """
-        Compute log returns for a specific window with proper universe filtering and preprocessing.
-        
-        Args:
-            price_df: Full DataFrame with DatetimeIndex and coin names as columns
-            window_start: Start date of the window
-            window_end: End date of the window (target date)
-        
-        Returns:
-            pd.DataFrame: Log returns for the window with only universe coins
-        """
-        # Preprocess price data for this specific window
-        processed_prices = self._preprocess_window_data(price_df, window_start, window_end)
-        
-        if processed_prices.empty or processed_prices.shape[1] == 0:
-            return pd.DataFrame()
-        
-        # Compute log returns
-        log_returns = np.log(processed_prices).diff().fillna(0)
-        
-        return log_returns
+        return self.window_processor.get_log_returns(price_df, window_start, window_end)
     
-    def _standardize(self,array: np.ndarray , scaling_method : str):
-        if array.ndim != 2:
-            raise ValueError("Input array must be 2D (n_samples, n_features)")
-
-        mean = np.mean(array, axis=0)
-        std = np.std(array, axis=0, ddof=1)
-        if scaling_method == 'by_std':
-            return (array - mean)/std
-        return array/std
-
     def analyze(self, 
                 price_df: pd.DataFrame, 
                 return_rolling: bool = False) -> Union[pd.DataFrame, np.ndarray]:
@@ -418,47 +316,11 @@ class LeadLagAnalyzer():
             window_log_returns = self._compute_log_returns_for_window(
                 price_df, window_start, current_date
             )
-            
+
             if window_log_returns.empty or window_log_returns.shape[1] < 2:
-                # Skip this window if insufficient valid assets
                 continue
-            
-            # Get valid columns and data
-            valid_columns = window_log_returns.columns.tolist()
-            window_data = window_log_returns.values
-            n_assets = len(valid_columns)
-            
-            # Initialize lead-lag matrix for this window
-            lead_lag_matrix = np.zeros((n_assets, n_assets))
-            
-            # Generate all unique pairs
-            pairs = list(itertools.combinations(range(n_assets), 2))
-            
-            # Compute lead-lag for all pairs in this window
-            for pair in pairs:
-                i1, j1 = pair
-                # Extract pair data from window
-                pair_data = window_data[:, [i1, j1]]
-                
-                # Skip if either series is all NaN
-                if np.all(np.isnan(pair_data[:, 0])) or np.all(np.isnan(pair_data[:, 1])):
-                    continue
-                
-                # Compute lead-lag measure
-                val = self._compute_lead_lag_measure_optimized(pair_data)
-                
-                if not np.isnan(val):
-                    # Fill symmetric entries (antisymmetric matrix)
-                    lead_lag_matrix[i1, j1] = val
-                    lead_lag_matrix[j1, i1] = -val
-            
-            # Convert to DataFrame with valid columns only
-            matrix_df = pd.DataFrame(
-                lead_lag_matrix,
-                index=valid_columns,
-                columns=valid_columns
-            )
-            
+
+            matrix_df = build_matrix(window_log_returns, self._compute_lead_lag_measure_optimized)
             result_dict[current_date] = matrix_df
     
         # Create result series with DatetimeIndex
@@ -477,35 +339,7 @@ class LeadLagAnalyzer():
         Returns:
             pd.DataFrame: Lead-lag matrix
         """
-        # Store column names for output
-        self.column_names = data.columns.tolist()
-        
-        # Convert to numpy for computation
-        data_values = data.values
-        n_assets = data_values.shape[1]
-        lead_lag_matrix = np.zeros((n_assets, n_assets))
-        
-        # Generate all pairs
-        pairs = list(itertools.combinations(range(n_assets), 2))
-        
-        # Compute lead-lag for all pairs
-        for pair in pairs:
-            i, j = pair
-            pair_data = data_values[:, [i, j]]
-            value = self._compute_lead_lag_measure_optimized(pair_data)
-            
-            # Fill antisymmetric matrix
-            lead_lag_matrix[i, j] = value
-            lead_lag_matrix[j, i] = -value
-        
-        # Convert to DataFrame
-        result = pd.DataFrame(
-            lead_lag_matrix,
-            index=self.column_names,
-            columns=self.column_names
-        )
-        
-        return result
+        return build_matrix(data, self._compute_lead_lag_measure_optimized)
     
     def _compute_lead_lag_measure_optimized(self, data_pair: np.ndarray) -> float:
         """
@@ -582,19 +416,18 @@ class LeadLagAnalyzer():
             return 0.0
     
     def _signature_method_optimized(self, data_pair: np.ndarray) -> float:
-        """Signature method for lead-lag analysis using numpy arrays."""
-        if not SIGNATURE_AVAILABLE:
-            raise ImportError("iisignature package required for signature method")
-        
-        # Convert to cumulative sum and normalize
-        path = np.cumsum(data_pair, axis=0)
-        path = self._standardize(data_pair , self.config.Scaling_Method)
-        # path = path / np.std(path, axis=0 , ddof=1)
-        
-        signature = iisignature.sig(path, 2, 1)
-        if self.config.sig_method == 'levy':
-            return (signature[1][1] - signature[1][2]) * 0.5
-        return signature[1][1] - signature[1][2]
+        extractor = self._get_signature_extractor()
+        return extractor.compute(data_pair)
+
+    def _get_signature_extractor(self) -> SignatureExtractor:
+        if self._signature_extractor is None:
+            config = SignatureConfig(
+                order=2,
+                scaling_method=getattr(self.config, 'Scaling_Method', 'mean-centering'),
+                sig_method=getattr(self.config, 'sig_method', 'custom')
+            )
+            self._signature_extractor = SignatureExtractor(config)
+        return self._signature_extractor
     
     def _cross_correlation_optimized(self, x: np.ndarray, y: np.ndarray, lag: int) -> float:
         """
@@ -633,27 +466,35 @@ class LeadLagAnalyzer():
         
         if len(x_lagged) == 0 or len(y_aligned) == 0:
             return np.nan
-        
+
         # Compute correlation based on method
         if self.config.correlation_method == 'pearson':
+            std_x = np.nanstd(x_lagged)
+            std_y = np.nanstd(y_aligned)
+            if std_x == 0 or std_y == 0:
+                return 0.0
             return np.corrcoef(x_lagged, y_aligned)[0, 1]
-        
+
         elif self.config.correlation_method in ['kendall', 'spearman']:
             # Use pandas for these correlation types
             combined_df = pd.DataFrame({'x': x_lagged, 'y': y_aligned})
             return combined_df.corr(method=self.config.correlation_method).iloc[0, 1]
-        
+
         elif self.config.correlation_method == 'distance':
             if not DCOR_AVAILABLE:
                 raise ImportError("dcor package required for distance correlation")
             return dcor.distance_correlation(x_lagged, y_aligned)
-        
+
         elif self.config.correlation_method == 'mutual_information':
             return self._mutual_information_correlation_optimized(x_lagged, y_aligned)
-        
+
         elif self.config.correlation_method == 'squared_pearson':
+            std_x = np.nanstd(x_lagged**2)
+            std_y = np.nanstd(y_aligned**2)
+            if std_x == 0 or std_y == 0:
+                return 0.0
             return np.corrcoef(x_lagged**2, y_aligned**2)[0, 1]
-        
+
         else:
             raise NotImplementedError(f"Correlation method {self.config.correlation_method} not implemented")
     

@@ -1,0 +1,3 @@
+name: fixed_90
+path: configs/scenarios/fixed_90.yaml
+runner: scenario

@@ -1,0 +1,39 @@
+{
+  "run": {
+    "output_root": "results",
+    "run_name": "fixed_30_seed42",
+    "seed": 42
+  },
+  "data": {
+    "price_csv": "raw_data/daily_price.csv",
+    "universe_csv": null
+  },
+  "analysis": {
+    "method": "ccf_at_lag",
+    "lookback": 30,
+    "update_freq": 1,
+    "use_parallel": false,
+    "num_cpus": 4,
+    "show_progress": false,
+    "Scaling_Method": "mean-centering",
+    "ccf_at_lag": {
+      "lag": 1,
+      "correlation_method": "pearson",
+      "quantiles": 4
+    }
+  },
+  "metrics": {
+    "compute": [
+      "mean_abs_matrix",
+      "max_abs_matrix",
+      "row_sum_range",
+      "row_sum_std",
+      "stability_matrix_corr",
+      "stability_rowsum_corr"
+    ],
+    "plots": [
+      "signal_strength",
+      "stability"
+    ]
+  }
+}

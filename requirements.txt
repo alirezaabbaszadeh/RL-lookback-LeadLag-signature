@@ -1,12 +1,16 @@
-numpy
-pandas
-scipy
-scikit-learn
+numpy==1.23.5
+pandas==1.5.3
+scipy==1.10.1
+scikit-learn==1.2.2
 tqdm
 matplotlib
 pyyaml
 gym
 stable-baselines3
+hydra-core
+
+# Optional integrations
+# mlflow
 
 # Optional methods
 # iisignature

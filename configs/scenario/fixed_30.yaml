@@ -1,0 +1,5 @@
+name: fixed_30
+path: configs/scenarios/fixed_30.yaml
+runner: scenario
+multi_seed:
+  seeds: [42, 52, 62]

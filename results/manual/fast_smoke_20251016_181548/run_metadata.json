@@ -1,0 +1,21 @@
+{
+  "config_path": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml",
+  "data_price_path": "raw_data/daily_price.csv",
+  "created_at": "20251016_181548",
+  "git": {
+    "git_commit": null,
+    "git_branch": null,
+    "git_dirty": null
+  },
+  "env": {
+    "python_version": "3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.27934-SP0",
+    "numpy_version": "2.3.2",
+    "pandas_version": "2.3.1",
+    "scipy_version": "1.16.1",
+    "sklearn_version": "1.7.1",
+    "tqdm_version": null,
+    "iisignature_version": null,
+    "dcor_version": null
+  }
+}

@@ -1,0 +1,407 @@
+ROADMAP {
+  METADATA {
+    VERSION: "2.0"
+    LAST_UPDATED: "2025-10-11"
+    MAINTAINER: "roadmap_bot"
+    SCOPE: "LeadLag-signature RL project"
+  }
+
+  PRINCIPLES [
+    "Signature-first analytics with modular, testable components",
+    "Reinforcement learning experimentation at scale (policies, rewards, states, actions)",
+    "Strict reproducibility (configs, seeds, data hashes, environment snapshots)",
+    "High-standard outputs (research-grade reports, visualizations, statistics)",
+    "Continuous optimization and observability (profiling, monitoring, CI pipelines)"
+  ]
+
+  QUALITY_GATES {
+    GLOBAL: {
+      METRICS: ["unit_test_coverage >= 70%", "CI_status == green", "artifact_metadata == complete"],
+      ENFORCEMENT: "fail build if gate violated"
+    }
+    SIGNATURE: {
+      METRICS: [
+        "runtime_speedup >= 2x baseline",
+        "feature_variance_retained >= 95%",
+        "batch_api_latency <= 1.1x baseline"
+      ],
+      AUDIT: "profile_signature.py"
+    }
+    RL: {
+      METRICS: [
+        "multi_seed_runs >= 3",
+        "reward_metrics_logged >= 10",
+        "policy_benchmarks_recorded",
+        "episode_reset_variants >= 3"
+      ],
+      AUDIT: "rl_quality_report.csv"
+    }
+    INFRA: {
+      METRICS: ["docker_build == success", "repro_steps <= 10", "status_summary_script == passing"],
+      AUDIT: "docs/repro.md"
+    }
+    FINANCIAL: {
+      METRICS: [
+        "annualized_return >= research_target",
+        "max_drawdown <= 12%",
+        "sharpe_ratio >= baseline_sharpe"
+      ],
+      AUDIT: "evaluation/finance_kpis.csv"
+    }
+    SAFETY: {
+      METRICS: [
+        "pii_scan == clean",
+        "config_secrets == encrypted",
+        "data_access_logs reviewed monthly"
+      ],
+      AUDIT: "docs/governance/safety_audit.md"
+    }
+  }
+
+  MODULES [
+    MODULE {
+      NAME: "SignatureCore"
+      OBJECTIVE: "Efficient, modular extraction and featureization of signature-based lead-lag matrices"
+      OWNER: "analysis_team"
+      TASKS [
+        TASK {
+          ID: "SC-01"
+          TITLE: "Refactor LeadLagAnalyzer"
+          ACTIONS: [
+            "Split into signature_extractor, window_processor, matrix_builder",
+            "Implement caching + NumPy/Numba acceleration",
+            "Add batch interface for multiple time windows"
+          ]
+          DEPENDENCIES: []
+          OUTPUTS: ["signature_extractor.py", "performance_profile.json", "tests/test_signature.py"]
+          SUCCESS: {
+            SPEEDUP: ">= 2x",
+            COVERAGE: ">= 80% module coverage"
+          }
+          RISKS: ["signature library limitations", "memory pressure for high order"]
+        }
+        TASK {
+          ID: "SC-02"
+          TITLE: "Signature Feature Engineering"
+          ACTIONS: [
+            "Implement Top-K selector and configurable signature orders",
+            "Provide compression options (PCA / Autoencoder)",
+            "Expose feature pipeline through YAML"
+          ]
+          DEPENDENCIES: ["SC-01"]
+          OUTPUTS: ["signature_features.json", "configs/features/signature.yaml"]
+          SUCCESS: {
+            VARIANCE_RETENTION: "≥ 95%",
+            LATENCY_OVERHEAD: "< 10%"
+          }
+          RISKS: ["information loss", "hyperparameter explosion"]
+        }
+      ]
+    }
+
+    MODULE {
+      NAME: "RLEngine"
+      OBJECTIVE: "Flexible RL environment and policy suite for adaptive lookback"
+      OWNER: "rl_team"
+      TASKS [
+        TASK {
+          ID: "RL-01"
+          TITLE: "Environment Upgrade"
+          ACTIONS: [
+            "Implement multi-episode, random-start environment",
+            "Support action modes {absolute, relative, hybrid}",
+            "Enhance observation vector (signature features, regime stats, previous decisions)",
+            "Add EMA smoothing toggle"
+          ]
+          DEPENDENCIES: ["SC-02"]
+          OUTPUTS: ["LeadLagEnv_v2.py", "env_contract.md"]
+          SUCCESS: {
+            RESET_VARIANTS: "≥ 3",
+            OBS_SCHEMA: "auto-generated"
+          }
+          RISKS: ["non-stationarity", "state dimensionality"]
+        }
+        TASK {
+          ID: "RL-02"
+          TITLE: "Policy Suite"
+          ACTIONS: [
+            "Integrate PPO-LSTM (sb3-contrib)",
+            "Design attention-based policy",
+            "Create policy factory with YAML mapping",
+            "Benchmark default hyperparameters"
+          ]
+          DEPENDENCIES: ["RL-01"]
+          OUTPUTS: ["policy_factory.py", "policies/attention_policy.py", "benchmarks/policy_report.csv"]
+          SUCCESS: {
+            POLICY_COUNT: "≥ 3",
+            BENCHMARK_LOG: "present"
+          }
+          RISKS: ["training instability", "GPU demand"]
+        }
+        TASK {
+          ID: "RL-03"
+          TITLE: "Reward Templates"
+          ACTIONS: [
+            "Generalize reward components {S, C, E, Sharpe, LookbackPenalty}",
+            "Allow weighted combinations via YAML",
+            "Add unit tests for edge cases"
+          ]
+          DEPENDENCIES: ["RL-01"]
+          OUTPUTS: ["rewards.py", "configs/rewards/*.yaml", "tests/test_rewards.py"]
+          SUCCESS: {
+            TEMPLATE_COUNT: "≥ 4",
+            TEST_PASS: "100%"
+          }
+          RISKS: ["reward scaling instability"]
+        }
+      ]
+    }
+
+    MODULE {
+      NAME: "ExperimentOrchestrator"
+      OBJECTIVE: "Configurable, reproducible execution of experiments"
+      OWNER: "platform_team"
+      TASKS [
+        TASK {
+          ID: "EO-01"
+          TITLE: "Hydra Config System"
+          ACTIONS: [
+            "Adopt Hydra for hierarchical configurations",
+            "Define defaults for data/env/agent/reward",
+            "Document overrides and CLI syntax"
+          ]
+          DEPENDENCIES: ["SC-02", "RL-03"]
+          OUTPUTS: ["hydra_main.py", "configs/default.yaml", "docs/config_reference.md"]
+          SUCCESS: {
+            CLI_DEMO: "multi-run command",
+            DOC_COMPLETE: "config reference present"
+          }
+          RISKS: ["config drift", "learning curve"]
+        }
+        TASK {
+          ID: "EO-02"
+          TITLE: "Multi-Seed Runner"
+          ACTIONS: [
+            "Implement runner for N seeds",
+            "Aggregate mean/std/CI",
+            "Perform Welch test and bootstrap",
+            "Store per-seed artifacts with metadata"
+          ]
+          DEPENDENCIES: ["EO-01"]
+          OUTPUTS: ["runner_multiseed.py", "aggregate/stats.csv", "aggregate/significance.csv"]
+          SUCCESS: {
+            MIN_SEEDS: "≥ 3",
+            STAT_REPORT: "generated"
+          }
+          RISKS: ["compute cost", "storage bloat"]
+        }
+        TASK {
+          ID: "EO-03"
+          TITLE: "Profiling & Logging"
+          ACTIONS: [
+            "Integrate MLflow/W&B",
+            "Record profiling data (cProfile, timings)",
+            "Log signature metrics, reward components, lookback",
+            "Automate artifact upload"
+          ]
+          DEPENDENCIES: ["EO-02"]
+          OUTPUTS: ["logging_config.yaml", "profiles/*.json", "mlflow_runs/"]
+          SUCCESS: {
+            LOG_COUNT: "≥ 10 metrics",
+            PROFILE_PER_RUN: "true"
+          }
+          RISKS: ["network limits", "security"]
+        }
+      ]
+    }
+
+    MODULE {
+      NAME: "EvaluationReporting"
+      OBJECTIVE: "Comprehensive analysis and presentation of results"
+      OWNER: "insight_team"
+      TASKS [
+        TASK {
+          ID: "ER-01"
+          TITLE: "Metrics Dashboard"
+          ACTIONS: [
+            "Generate baseline vs RL comparisons",
+            "Create visualizations (time-series, heatmap, distribution)",
+            "Summarize lookback dynamics",
+            "Export LaTeX tables"
+          ]
+          DEPENDENCIES: ["EO-03"]
+          OUTPUTS: ["evaluation/report.ipynb", "plots/*.png", "tables/*.tex"]
+          SUCCESS: {
+            VISUALS: "≥ 5",
+            LATEX_READY: "true"
+          }
+          RISKS: ["interpretation errors"]
+        }
+        TASK {
+          ID: "ER-02"
+          TITLE: "Research Report"
+          ACTIONS: [
+            "Auto-generate PDF/Markdown summary",
+            "Include reproducibility appendix (config, seed, hash)",
+            "Provide citation block"
+          ]
+          DEPENDENCIES: ["ER-01"]
+          OUTPUTS: ["reports/final_report.pdf", "reports/appendix.md"]
+          SUCCESS: {
+            SECTIONS: "intro, methodology, experiments, conclusion",
+            METADATA_INCLUDED: "true"
+          }
+          RISKS: ["formatting issues"]
+        }
+      ]
+    }
+
+    MODULE {
+      NAME: "InfrastructureQuality"
+      OBJECTIVE: "Reliability, reproducibility, and automation"
+      OWNER: "infra_team"
+      TASKS [
+        TASK {
+          ID: "IQ-01"
+          TITLE: "Testing & CI"
+          ACTIONS: [
+            "Add unit + smoke tests (pytest)",
+            "Integrate CI pipeline (GitHub Actions)",
+            "Enforce linting/formatting (ruff, black)"
+          ]
+          DEPENDENCIES: ["SC-01", "RL-01"]
+          OUTPUTS: ["tests/", "ci.yml", "lint_config.toml"]
+          SUCCESS: {
+            COVERAGE: ">= 70%",
+            CI_STATUS: "green"
+          }
+          RISKS: ["flaky tests", "CI duration"]
+        }
+        TASK {
+          ID: "IQ-02"
+          TITLE: "Packaging & Repro"
+          ACTIONS: [
+            "Provide Dockerfile + conda environment",
+            "Create run scripts",
+            "Document reproduction steps"
+          ]
+          DEPENDENCIES: ["IQ-01"]
+          OUTPUTS: ["Dockerfile", "environment.yml", "docs/repro.md", "scripts/run_experiment.*"]
+          SUCCESS: {
+            BUILD_STATUS: "success",
+            REPRO_STEPS: "<= 10"
+          }
+          RISKS: ["image size", "OS compatibility"]
+        }
+      ]
+    }
+
+    MODULE {
+      NAME: "AdvancedResearch"
+      OBJECTIVE: "Explore cutting-edge enhancements"
+      OWNER: "research_team"
+      TASKS [
+        TASK {
+          ID: "AR-01"
+          TITLE: "Meta-RL"
+          ACTIONS: [
+            "Implement context-aware agent for regime shifts",
+            "Create synthetic regime datasets",
+            "Evaluate transfer performance"
+          ]
+          DEPENDENCIES: ["RL-02", "RL-03"]
+          OUTPUTS: ["meta_rl/", "results/meta_analysis.csv"]
+          SUCCESS: {
+            TRANSFER_GAIN: "> 0",
+            DATASETS: "≥ 2"
+          }
+          RISKS: ["data scarcity", "instability"]
+        }
+        TASK {
+          ID: "AR-02"
+          TITLE: "Offline RL"
+          ACTIONS: [
+            "Log offline trajectories",
+            "Train off-policy algorithms",
+            "Benchmark against online PPO"
+          ]
+          DEPENDENCIES: ["EO-03"]
+          OUTPUTS: ["offline_dataset.h5", "offline_results.csv"]
+          SUCCESS: {
+            DATA_VOLUME: "adequate",
+            PERFORMANCE_GAP: "≤ 10%"
+          }
+          RISKS: ["dataset bias"]
+        }
+        TASK {
+          ID: "AR-03"
+          TITLE: "Dashboard & API"
+          ACTIONS: [
+            "Develop Streamlit dashboard",
+            "Expose inference API",
+            "Implement authentication"
+          ]
+          DEPENDENCIES: ["ER-01"]
+          OUTPUTS: ["dashboard/", "api/", "docs/api_usage.md"]
+          SUCCESS: {
+            DASHBOARD_LATENCY: "< 1s",
+            API_AVAILABILITY: ">= 99%"
+          }
+          RISKS: ["security", "scalability"]
+        }
+      ]
+    }
+  ]
+
+  CROSS_MODULE_INITIATIVES [
+    INITIATIVE {
+      NAME: "Observability"
+      ACTIONS: [
+        "Centralize logging format",
+        "Create metrics dictionary",
+        "Expose monitoring dashboard"
+      ]
+      AFFECTS: ["SignatureCore", "RLEngine", "ExperimentOrchestrator"]
+    }
+    INITIATIVE {
+      NAME: "DataGovernance"
+      ACTIONS: [
+        "Track dataset versions with hash",
+        "Document preprocessing steps",
+        "Automate quality checks"
+      ]
+      AFFECTS: ["SignatureCore", "ExperimentOrchestrator", "EvaluationReporting"]
+    }
+  ]
+
+  STATUS_TRACKER {
+    LAST_REVIEW: "2025-10-11"
+    OPEN_ITEMS [
+      ITEM {MODULE: "SC-01", ISSUE: "Signature modules added; profiling & batch interface pending", NEXT_STEP: "Implement performance_profile + batched API"}
+      ITEM {MODULE: "RL-01", ISSUE: "Single-episode env", NEXT_STEP: "Prototype multi-reset"}
+      ITEM {MODULE: "EO-01", ISSUE: "Hydra presets (fast_smoke, research_full) added; automated validation pending", NEXT_STEP: "Add scenario list tests + config validation"}
+      ITEM {MODULE: "EO-02", ISSUE: "Bootstrap CI added; Welch pending", NEXT_STEP: "Add Welch-test comparison when multiple scenarios available"}
+      ITEM {MODULE: "IQ-01", ISSUE: "CI/tests absent", NEXT_STEP: "Create minimal pytest suite"}
+      ITEM {MODULE: "ER-01", ISSUE: "Limited evaluation outputs", NEXT_STEP: "Outline required visuals"}
+    ]
+    NOTE: "Use reporting/status_summary.py for quick snapshots; update STATUS_TRACKER after each roadmap review."
+  }
+
+  REVIEW_PROTOCOL {
+    FREQUENCY: "bi-weekly"
+    STEPS: [
+      "Compare repository state with open items",
+      "Log new findings in STATUS_TRACKER",
+      "Adjust modules/tasks as necessary",
+      "Record decisions in docs/ADR"
+    ]
+  }
+
+  CHANGE_LOG [
+    ENTRY {DATE: "pending", DESCRIPTION: "Initial roadmap v2.0 created"}
+    ENTRY {DATE: "pending", DESCRIPTION: "Status tracker enriched with new improvement opportunities"}
+    ENTRY {DATE: "2025-10-11", DESCRIPTION: "Signature modules introduced; Hydra config & multi-seed runner implemented"}
+    ENTRY {DATE: "2025-10-12", DESCRIPTION: "Fast smoke preset added; CLI fallback enhanced"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Added STATUS_TRACKER summary tooling and expanded quality gates for financial & safety coverage"}
+  ]
+}

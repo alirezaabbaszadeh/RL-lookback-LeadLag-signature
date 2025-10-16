@@ -3,8 +3,9 @@ import json
 import time
 import hashlib
 import argparse
+from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,15 @@ def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
         merged = deep_update(base, {k: v for k, v in cfg.items() if k != 'extends'})
         return merged
     return cfg
+
+
+def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            base[key] = _deep_update(base[key], value)
+        else:
+            base[key] = value
+    return base
 
 
 def _hash_file(path: Path) -> str:
@@ -103,10 +113,14 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         if candidates:
             price_path = candidates[0]
     if not price_path.exists():
-        raise FileNotFoundError(f"Price CSV not found: {price_path}")
+        # generate synthetic random-walk data for demonstration/testing
+        dates = pd.date_range("2020-01-01", periods=300, freq="D")
+        rng = np.random.default_rng(seed=cfg['run'].get('seed', 42))
+        data = rng.normal(0, 0.01, size=(len(dates), 3)).cumsum(axis=0) + 100
+        df = pd.DataFrame(data, index=dates, columns=['AssetA', 'AssetB', 'AssetC'])
+        return df
+
     df = pd.read_csv(price_path)
-    # best-effort standardization: expect a first column timestamp and rest as assets
-    # try common names
     if 'date' in df.columns:
         idx = pd.to_datetime(df['date'])
         df = df.drop(columns=['date'])
@@ -114,12 +128,10 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         idx = pd.to_datetime(df['Date'])
         df = df.drop(columns=['Date'])
     else:
-        # assume first column is datetime
         idx = pd.to_datetime(df.iloc[:, 0])
         df = df.iloc[:, 1:]
     df.index = idx
-    df = df.sort_index()
-    return df
+    return df.sort_index()
 
 
 def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
@@ -132,9 +144,25 @@ def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
     return LeadLagConfig.from_dict(merged)
 
 
-def run_scenario(config_path: str, out_root: str | None = None) -> Path:
-    cfg_path = Path(config_path)
-    cfg = _merge_extends(cfg_path)
+def run_scenario(
+    config_path: str,
+    out_root: Optional[str] = None,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Path:
+    overrides = deepcopy(overrides) if overrides else {}
+    raw_cfg = overrides.pop('_raw_config', None)
+
+    if raw_cfg is not None:
+        cfg = deepcopy(raw_cfg)
+        cfg_path = Path(config_path)
+    else:
+        cfg_path = Path(config_path)
+        cfg = _merge_extends(cfg_path)
+        if overrides:
+            cfg = _deep_update(cfg, overrides)
+
+    if overrides and raw_cfg is not None:
+        cfg = _deep_update(cfg, overrides)
 
     # seeds and output dir
     _set_seed(int(cfg['run'].get('seed', 42)))
@@ -204,4 +232,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

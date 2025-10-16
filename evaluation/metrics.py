@@ -5,7 +5,21 @@ from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    MATPLOTLIB_AVAILABLE = False
+
+
+def _maybe_skip_plot(func):  # pragma: no cover
+    if MATPLOTLIB_AVAILABLE:
+        return func
+
+    def wrapper(*args, **kwargs):
+        return None
+
+    return wrapper
 
 
 def _flatten_offdiag(mat: np.ndarray) -> np.ndarray:
@@ -79,6 +93,7 @@ def summarize_metrics(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+@_maybe_skip_plot
 def plot_signal_strength(df: pd.DataFrame, path: Path):
     plt.figure(figsize=(9, 4))
     plt.plot(df.index, df['mean_abs_matrix'], label='mean|M|')
@@ -92,6 +107,7 @@ def plot_signal_strength(df: pd.DataFrame, path: Path):
     plt.close()
 
 
+@_maybe_skip_plot
 def plot_stability(df: pd.DataFrame, path: Path):
     plt.figure(figsize=(9, 4))
     plt.plot(df.index, df['stability_matrix_corr'], label='corr(M_t, M_{t-1})')
@@ -102,4 +118,3 @@ def plot_stability(df: pd.DataFrame, path: Path):
     plt.tight_layout()
     plt.savefig(path, dpi=150)
     plt.close()
-

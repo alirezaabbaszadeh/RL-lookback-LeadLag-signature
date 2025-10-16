@@ -1,0 +1,31 @@
+{
+  "run": {
+    "output_root": "results",
+    "run_name": "fast_smoke",
+    "seed": 1
+  },
+  "data": {
+    "price_csv": "raw_data/daily_price.csv",
+    "universe_csv": null
+  },
+  "analysis": {
+    "method": "ccf_at_lag",
+    "lookback": 10,
+    "update_freq": 9999,
+    "use_parallel": false,
+    "num_cpus": 4,
+    "show_progress": false,
+    "Scaling_Method": "mean-centering",
+    "ccf_at_lag": {
+      "lag": 1,
+      "correlation_method": "pearson",
+      "quantiles": 4
+    }
+  },
+  "metrics": {
+    "compute": [
+      "mean_abs_matrix"
+    ],
+    "plots": []
+  }
+}
