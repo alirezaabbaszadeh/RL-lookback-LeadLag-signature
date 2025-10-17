@@ -70,24 +70,7 @@ ROADMAP {
       NAME: "RLEngine"
       OBJECTIVE: "Flexible RL environment and policy suite for adaptive lookback"
       OWNER: "rl_team"
-      TASKS [
-        TASK {
-          ID: "RL-03"
-          TITLE: "Reward Templates"
-          ACTIONS: [
-            "Generalize reward components {S, C, E, Sharpe, LookbackPenalty}",
-            "Allow weighted combinations via YAML",
-            "Add unit tests for edge cases"
-          ]
-          DEPENDENCIES: []
-          OUTPUTS: ["rewards.py", "configs/rewards/*.yaml", "tests/test_rewards.py"]
-          SUCCESS: {
-            TEMPLATE_COUNT: "≥ 4",
-            TEST_PASS: "100%"
-          }
-          RISKS: ["reward scaling instability"]
-        }
-      ]
+      TASKS []
     }
 
     MODULE {
@@ -338,5 +321,6 @@ ROADMAP {
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed SC-02 signature feature pipeline with YAML exposure and compression options"}
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-01 environment upgrade with random starts, action modes, enhanced observations, and EMA toggle"}
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-02 policy suite with PPO-LSTM integration, attention policy, and YAML-driven factory"}
+    ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-03 reward templates with YAML configuration and unit tests"}
   ]
 }
