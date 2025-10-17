@@ -10,6 +10,7 @@ import pandas as pd
 from gym import spaces
 
 from models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
+from training.rewards import RewardContext, RewardTemplate, load_reward_template
 
 
 @dataclass
@@ -40,6 +41,7 @@ class LeadLagEnv(gym.Env):
         random_start: bool = True,
         random_seed: Optional[int] = None,
         ema_alpha: Optional[float] = None,
+        reward_template: Optional[Any] = None,
     ) -> None:
         super().__init__()
         if not isinstance(price_df.index, pd.DatetimeIndex):
@@ -65,6 +67,7 @@ class LeadLagEnv(gym.Env):
         self.ema_alpha = None if ema_alpha is None else float(ema_alpha)
 
         self.weights = RewardWeights(**(reward_weights or {}))
+        self._reward_template: Optional[RewardTemplate] = load_reward_template(reward_template)
 
         # Action space depends on action mode
         if self.action_mode == "absolute":
@@ -159,7 +162,7 @@ class LeadLagEnv(gym.Env):
         matrix, metrics, extras = self._compute_matrix_and_metrics(self._current_index, lookback)
         metrics = self._apply_smoothing(metrics)
 
-        reward = self._compute_reward(metrics, lookback)
+        reward, reward_components = self._compute_reward(metrics, extras, lookback)
         self._prev_reward = reward
 
         delta_norm = 0.0
@@ -180,6 +183,7 @@ class LeadLagEnv(gym.Env):
             'delta_norm': self._last_delta_norm,
             'reward': reward,
             'action_mode': self.action_mode,
+            'reward_components': reward_components,
         }
         self.history.append(history_entry)
 
@@ -193,7 +197,7 @@ class LeadLagEnv(gym.Env):
         info = {
             'date': current_date,
             'lookback': lookback,
-            'reward_components': self._reward_components(metrics, lookback),
+            'reward_components': reward_components,
             'episode_end': self._episode_end_index,
         }
 
@@ -395,12 +399,9 @@ class LeadLagEnv(gym.Env):
         self._ema_prev_mean = self._ema_state['mean_abs']
         return smoothed
 
-    def _reward_components(self, metrics: Dict[str, float], lookback: int) -> Dict[str, float]:
-        # S: combine mean_abs and row_range
-        S = 0.5 * metrics['mean_abs'] + 0.5 * metrics['row_range']
-        # C: average of stability metrics
-        C = 0.5 * metrics['stability_matrix'] + 0.5 * metrics['stability_rows']
-        # E: penalty for extremes or large jumps
+    def _legacy_reward_components(self, metrics: Dict[str, float], lookback: int) -> Dict[str, float]:
+        S = 0.5 * metrics.get('mean_abs', 0.0) + 0.5 * metrics.get('row_range', 0.0)
+        C = 0.5 * metrics.get('stability_matrix', 0.0) + 0.5 * metrics.get('stability_rows', 0.0)
         edge_penalty = 1.0 if lookback in (self.min_lookback, self.max_lookback) else 0.0
         jump_penalty = 0.0
         if self._prev_lookback is not None:
@@ -409,17 +410,38 @@ class LeadLagEnv(gym.Env):
                 jump_penalty = jump / self.penalty_step
             if jump == 0:
                 edge_penalty += self.penalty_same
-        E = edge_penalty + jump_penalty
-        return {'S': S, 'C': C, 'E': E}
+        delta_mean = float(metrics.get('delta_mean', 0.0))
+        return {
+            'S': float(S),
+            'C': float(C),
+            'E': float(edge_penalty + jump_penalty),
+            'Sharpe': 0.0,
+            'LookbackPenalty': abs(delta_mean),
+        }
 
-    def _compute_reward(self, metrics: Dict[str, float], lookback: int) -> float:
-        comps = self._reward_components(metrics, lookback)
+    def _compute_reward(
+        self,
+        metrics: Dict[str, float],
+        extras: Dict[str, Dict[str, float]],
+        lookback: int,
+    ) -> tuple[float, Dict[str, float]]:
+        if self._reward_template is not None:
+            context = RewardContext(
+                lookback=lookback,
+                prev_lookback=self._prev_lookback,
+                min_lookback=self.min_lookback,
+                max_lookback=self.max_lookback,
+            )
+            reward, components = self._reward_template.compute(metrics, extras, context)
+            return float(reward), {k: float(v) for k, v in components.items()}
+
+        comps = self._legacy_reward_components(metrics, lookback)
         reward = (
             self.weights.alpha * comps['S']
             + self.weights.beta * comps['C']
             - self.weights.gamma * comps['E']
         )
-        return float(reward)
+        return float(reward), comps
 
     def _make_observation(self, metrics: Dict[str, float], extras: Dict[str, Dict[str, float]], lookback: int) -> np.ndarray:
         range_span = self.max_lookback - self.min_lookback

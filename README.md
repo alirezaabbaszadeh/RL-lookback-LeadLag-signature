@@ -83,6 +83,7 @@
   - طول اپیزود و منطق شروع تصادفی (`episode_length`, `random_start`, `random_seed`)
   - معماری سیاست (`policy`: `mlp`, `ppo_lstm`, `attention` یا هر نامی که در factory تعریف شده؛ برای `ppo_lstm` باید بستهٔ `sb3-contrib` نصب شود)
   - پارامترهای سیاست (`policy_kwargs`) برای تنظیم extractor یا شبکه‌ها (مثلاً `features_extractor_kwargs.features_dim` برای حالت attention)
+  - قالب پاداش (`reward_template`): نام فایل YAML در `configs/rewards/` برای ترکیب وزن‌های اجزای پاداش (S، C، E، Sharpe، LookbackPenalty)
   - هایپرپارامترهای PPO (`total_timesteps`, `n_steps`, `batch_size`, `learning_rate`, `gamma`, `ent_coef`)
   - وزن‌های پاداش (`reward_weights.alpha`, `beta`, `gamma`)
   - جریمه برای بدون تغییر بودن lookback (`penalty_same`) و پرش‌های بزرگ (`penalty_step`).
@@ -106,6 +107,7 @@
 4. **چند-اپیزودی تصادفی:** هر بار `reset` بازهٔ تازه‌ای از داده برمی‌گزیند (قابل غیرفعال‌سازی) و با `episode_length` می‌توان طول اپیزود را محدود کرد؛ تمام محاسبات lookback با رعایت محدودیت داده انجام می‌شود.
 5. **هموارسازی و مانیتورنگ:** پرچم `ema_alpha` میانگین نمایی را روی متریک‌ها اعمال می‌کند و هر گام در `history` علاوه بر متریک‌ها، آمار رژیم و ویژگی‌های امضا را ذخیره می‌کند.
 6. **سوییت سیاست‌ها:** `training/policy_factory.py` نگاشت سیاست‌ها را مدیریت می‌کند (MLP، PPO-LSTM از sb3-contrib و `AttentionPolicy` سفارشی). در صورتی که sb3-contrib نصب نباشد، استفاده از `ppo_lstm` با پیام راهنما متوقف می‌شود.
+7. **قالب‌های پاداش:** با تنظیم `reward_template` می‌توان وزن‌دهی اجزای پاداش (S، C، E، Sharpe، LookbackPenalty) را از فایل YAML خواند و بدون دست‌کاری کد، رفتار پاداش را تغییر داد.
 
 ---
 

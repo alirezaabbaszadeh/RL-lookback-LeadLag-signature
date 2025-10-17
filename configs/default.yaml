@@ -1,0 +1,11 @@
+defaults:
+  - scenario: fixed_30
+  - hydra/job_logging: disabled
+  - hydra/hydra_logging: disabled
+
+output_root: results
+
+multi_seed:
+  enabled: true
+  seeds: [42, 52, 62]
+

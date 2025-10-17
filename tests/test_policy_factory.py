@@ -1,6 +1,13 @@
+import sys
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("stable_baselines3")
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
 
 from training.policy_factory import SB3_CONTRIB_AVAILABLE, make_algorithm_spec
 from training.policies.attention_policy import AttentionPolicy

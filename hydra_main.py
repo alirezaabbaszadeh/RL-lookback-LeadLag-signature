@@ -13,9 +13,7 @@ except ImportError:
     HYDRA_AVAILABLE = False
     OmegaConf = None  # type: ignore
 
-from training.runner_multiseed import run_multiseed
-from training.run_scenario import run_scenario
-from training.run_dynamic_baselines import run_dynamic
+# Avoid importing heavy runtime modules at import time.
 
 
 SCENARIO_DIR = Path("configs/scenario")
@@ -132,6 +130,7 @@ SCENARIO_PRESETS = {
                     'policy_kwargs': {
                         'features_extractor_kwargs': {'features_dim': 96, 'n_heads': 4}
                     },
+                    'reward_template': 'default',
                     'total_timesteps': 2000,
                     'n_steps': 256,
                     'batch_size': 128,
@@ -182,6 +181,45 @@ def _load_scenario_cfg(entry):
     raise TypeError("Scenario entry must be string or dict")
 
 
+def get_available_scenarios() -> List[str]:
+    """Return a list of available scenario names from presets and YAML directory.
+
+    This does not require Hydra to be installed; it inspects file names under
+    configs/scenario and merges with keys from SCENARIO_PRESETS.
+    """
+    names = set(SCENARIO_PRESETS.keys())
+    if SCENARIO_DIR.exists():
+        for p in SCENARIO_DIR.glob("*.yaml"):
+            try:
+                names.add(p.stem)
+            except Exception:
+                continue
+    return sorted(names)
+
+
+def validate_scenario_cfg(cfg: Dict[str, Any]) -> None:
+    """Basic validation to catch common config mistakes early.
+
+    Ensures required fields are present and referenced files exist.
+    """
+    required_top = {"name", "path", "runner"}
+    missing = [k for k in required_top if k not in cfg]
+    if missing:
+        raise ValueError(f"Scenario cfg missing keys: {missing}")
+
+    # path should exist (relative to repo root)
+    path = Path(cfg["path"])  # may be relative
+    if not path.exists():
+        raise FileNotFoundError(f"Scenario path not found: {path}")
+
+    # If raw_config present, check core sections exist
+    raw = cfg.get("raw_config")
+    if isinstance(raw, dict):
+        for section in ("run", "data", "analysis"):
+            if section not in raw:
+                raise ValueError(f"raw_config missing '{section}' section")
+
+
 def _run_single(scenario_cfg, output_root):
     runner = scenario_cfg.get('runner', 'scenario')
     path = scenario_cfg['path']
@@ -189,9 +227,12 @@ def _run_single(scenario_cfg, output_root):
     if 'raw_config' in scenario_cfg:
         overrides['_raw_config'] = scenario_cfg['raw_config']
     if runner == 'dynamic':
+        from training.run_dynamic_baselines import run_dynamic  # lazy import
         return run_dynamic(path, output_root, overrides)
     if runner == 'rl':
+        from training.run_rl import run_rl  # lazy import
         return run_rl(path, output_root, overrides)
+    from training.run_scenario import run_scenario  # lazy import
     return run_scenario(path, output_root, overrides)
 
 
@@ -206,10 +247,16 @@ def _run_workflow(cfg_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     for entry in scenarios:
         scenario_cfg = _load_scenario_cfg(entry)
+        # lightweight validation before running
+        try:
+            validate_scenario_cfg(scenario_cfg)
+        except Exception as e:  # pragma: no cover - runtime guard
+            raise RuntimeError(f"Invalid scenario configuration for '{scenario_cfg.get('name', entry)}': {e}")
         scenario_seeds = scenario_cfg.get('multi_seed', {}).get('seeds', seeds)
         scenario_enabled = scenario_cfg.get('multi_seed', {}).get('enabled', enabled)
 
         if scenario_enabled and scenario_seeds:
+            from training.runner_multiseed import run_multiseed  # lazy import
             agg_dir = run_multiseed(scenario_cfg, scenario_seeds, output_root)
             results.append({'scenario': scenario_cfg.get('name'), 'path': str(agg_dir)})
             print(f"Aggregated results saved to: {agg_dir}")

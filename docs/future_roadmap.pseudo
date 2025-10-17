@@ -1,7 +1,7 @@
-ROADMAP {
+﻿ROADMAP {
   METADATA {
     VERSION: "2.0"
-    LAST_UPDATED: "2025-10-16"
+    LAST_UPDATED: "2025-10-17"
     MAINTAINER: "roadmap_bot"
     SCOPE: "LeadLag-signature RL project"
   }
@@ -104,9 +104,9 @@ ROADMAP {
             "Store per-seed artifacts with metadata"
           ]
           DEPENDENCIES: ["EO-01"]
-          OUTPUTS: ["runner_multiseed.py", "aggregate/stats.csv", "aggregate/significance.csv"]
+          OUTPUTS: ["runner_multiseed.py", "aggregate/stats.csv", "aggregate/significance.csv", "aggregate/welch.csv"]
           SUCCESS: {
-            MIN_SEEDS: "≥ 3",
+            MIN_SEEDS: ">= 3",
             STAT_REPORT: "generated"
           }
           RISKS: ["compute cost", "storage bloat"]
@@ -123,7 +123,7 @@ ROADMAP {
           DEPENDENCIES: ["EO-02"]
           OUTPUTS: ["logging_config.yaml", "profiles/*.json", "mlflow_runs/"]
           SUCCESS: {
-            LOG_COUNT: "≥ 10 metrics",
+            LOG_COUNT: ">= 10 metrics",
             PROFILE_PER_RUN: "true"
           }
           RISKS: ["network limits", "security"]
@@ -148,7 +148,7 @@ ROADMAP {
           DEPENDENCIES: ["EO-03"]
           OUTPUTS: ["evaluation/report.ipynb", "plots/*.png", "tables/*.tex"]
           SUCCESS: {
-            VISUALS: "≥ 5",
+            VISUALS: ">= 5",
             LATEX_READY: "true"
           }
           RISKS: ["interpretation errors"]
@@ -229,7 +229,7 @@ ROADMAP {
           OUTPUTS: ["meta_rl/", "results/meta_analysis.csv"]
           SUCCESS: {
             TRANSFER_GAIN: "> 0",
-            DATASETS: "≥ 2"
+            DATASETS: ">= 2"
           }
           RISKS: ["data scarcity", "instability"]
         }
@@ -245,25 +245,9 @@ ROADMAP {
           OUTPUTS: ["offline_dataset.h5", "offline_results.csv"]
           SUCCESS: {
             DATA_VOLUME: "adequate",
-            PERFORMANCE_GAP: "≤ 10%"
+            PERFORMANCE_GAP: "<= 10%"
           }
           RISKS: ["dataset bias"]
-        }
-        TASK {
-          ID: "AR-03"
-          TITLE: "Dashboard & API"
-          ACTIONS: [
-            "Develop Streamlit dashboard",
-            "Expose inference API",
-            "Implement authentication"
-          ]
-          DEPENDENCIES: ["ER-01"]
-          OUTPUTS: ["dashboard/", "api/", "docs/api_usage.md"]
-          SUCCESS: {
-            DASHBOARD_LATENCY: "< 1s",
-            API_AVAILABILITY: ">= 99%"
-          }
-          RISKS: ["security", "scalability"]
         }
       ]
     }
@@ -291,12 +275,8 @@ ROADMAP {
   ]
 
   STATUS_TRACKER {
-    LAST_REVIEW: "2025-10-16"
+    LAST_REVIEW: "2025-10-17"
     OPEN_ITEMS [
-      ITEM {MODULE: "EO-01", ISSUE: "Hydra presets (fast_smoke, research_full) added; automated validation pending", NEXT_STEP: "Add scenario list tests + config validation"}
-      ITEM {MODULE: "EO-02", ISSUE: "Bootstrap CI added; Welch pending", NEXT_STEP: "Add Welch-test comparison when multiple scenarios available"}
-      ITEM {MODULE: "IQ-01", ISSUE: "CI/tests absent", NEXT_STEP: "Create minimal pytest suite"}
-      ITEM {MODULE: "ER-01", ISSUE: "Limited evaluation outputs", NEXT_STEP: "Outline required visuals"}
     ]
     NOTE: "Use reporting/status_summary.py for quick snapshots; update STATUS_TRACKER after each roadmap review."
   }
@@ -322,5 +302,14 @@ ROADMAP {
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-01 environment upgrade with random starts, action modes, enhanced observations, and EMA toggle"}
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-02 policy suite with PPO-LSTM integration, attention policy, and YAML-driven factory"}
     ENTRY {DATE: "2025-10-16", DESCRIPTION: "Completed RL-03 reward templates with YAML configuration and unit tests"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "EO-02: Added pairwise Welch tests in multi-seed aggregation (welch.csv) and kept bootstrap CI outputs"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "EO-01: Added scenario validation helpers and tests; listed available scenarios without requiring Hydra"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "ER-01: Documented required evaluation visuals and artifacts in docs/evaluation_visuals.md"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "IQ-01: Added CI workflow (.github/workflows/ci.yml) and lint configs (ruff.toml/lint_config.toml)"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "ER-01: Added reporting/compare_scenarios.py for aggregate comparison and initial plots"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "EO-03: Added logging/profiling (logging_config.yaml, profiles JSON/pstats) and MLflow hooks"}
+    ENTRY {DATE: "2025-10-17", DESCRIPTION: "IQ-02: Added environment.yml, Dockerfile, scripts/run_experiment.*, and docs/repro.md"}
   ]
 }
+
+

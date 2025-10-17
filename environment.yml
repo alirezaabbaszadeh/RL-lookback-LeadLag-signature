@@ -1,0 +1,16 @@
+name: leadlag
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - pandas
+  - pyyaml
+  - matplotlib
+  - scipy
+  - pip
+  - pip:
+      - mlflow
+      # Optional RL dependencies (uncomment as needed)
+      # - stable-baselines3
+      # - torch

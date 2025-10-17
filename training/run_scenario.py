@@ -3,6 +3,7 @@ import json
 import time
 import hashlib
 import argparse
+import logging
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -15,6 +16,13 @@ try:
 except Exception:
     yaml = None
 
+try:  # optional MLflow
+    import mlflow  # type: ignore
+    MLFLOW_AVAILABLE = True
+except Exception:  # pragma: no cover
+    mlflow = None  # type: ignore
+    MLFLOW_AVAILABLE = False
+
 from models.LeadLag_main import LeadLagConfig, LeadLagAnalyzer
 from evaluation.metrics import (
     compute_metrics_timeseries,
@@ -22,6 +30,8 @@ from evaluation.metrics import (
     plot_signal_strength,
     plot_stability,
 )
+from reporting.logging_utils import setup_logging
+from reporting.profiling import profile_to
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
@@ -172,6 +182,15 @@ def run_scenario(
     out_dir = Path(out_root) / f"{run_name}_{ts}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # logging setup
+    try:
+        setup_logging(out_dir / "run.log", level="INFO", config_path=Path("logging_config.yaml"))
+    except Exception:
+        # fallback handled in setup_logging
+        pass
+    logger = logging.getLogger("run_scenario")
+    logger.info("Starting scenario run: %s", run_name)
+
     # snapshot configs and metadata
     with open(out_dir / 'config_merged.yaml', 'w', encoding='utf-8') as f:
         if yaml is None:
@@ -189,7 +208,8 @@ def run_scenario(
         json.dump(meta, f, indent=2)
 
     # load data
-    prices = _read_prices(cfg)
+    with profile_to(out_dir, label="load_data"):
+        prices = _read_prices(cfg)
     # optional universe is not wired due to format variability; pass None
 
     # build analyzer
@@ -197,19 +217,50 @@ def run_scenario(
     analyzer = LeadLagAnalyzer(ll_cfg)
 
     # compute rolling matrices
-    rolling = analyzer.analyze(prices, return_rolling=True)
+    with profile_to(out_dir, label="analyze"):
+        rolling = analyzer.analyze(prices, return_rolling=True)
     # compute metrics
-    metrics_df = compute_metrics_timeseries(rolling)
+    with profile_to(out_dir, label="metrics"):
+        metrics_df = compute_metrics_timeseries(rolling)
     metrics_df.to_csv(out_dir / 'metrics_timeseries.csv', index=True)
     summary = summarize_metrics(metrics_df)
     summary.to_csv(out_dir / 'summary.csv', index=False)
 
+    # Log summary metrics to MLflow if available
+    if MLFLOW_AVAILABLE:
+        try:  # pragma: no cover - integration path
+            with mlflow.start_run(run_name=run_name, nested=False):
+                for _, row in summary.iterrows():
+                    metric_name = row.get('metric', 'metric')
+                    for col, val in row.items():
+                        if col == 'metric':
+                            continue
+                        if isinstance(val, (int, float)) and not (val != val):  # NaN check
+                            mlflow.log_metric(f"{metric_name}_{col}", float(val))
+                # log artifacts
+                mlflow.log_artifact(str(out_dir / 'config_merged.yaml'))
+                mlflow.log_artifact(str(out_dir / 'summary.csv'))
+                if (out_dir / 'metrics_timeseries.csv').exists():
+                    mlflow.log_artifact(str(out_dir / 'metrics_timeseries.csv'))
+                for plot in ['fig_signal_strength.png', 'fig_stability.png']:
+                    p = out_dir / plot
+                    if p.exists():
+                        mlflow.log_artifact(str(p))
+        except Exception:
+            logger.warning("MLflow logging failed; continuing without MLflow.")
+
     # plots
     if 'metrics' in cfg and 'plots' in cfg['metrics']:
         if 'signal_strength' in cfg['metrics']['plots']:
-            plot_signal_strength(metrics_df, out_dir / 'fig_signal_strength.png')
+            try:
+                plot_signal_strength(metrics_df, out_dir / 'fig_signal_strength.png')
+            except Exception:
+                logger.warning("Plot generation failed: signal_strength")
         if 'stability' in cfg['metrics']['plots']:
-            plot_stability(metrics_df, out_dir / 'fig_stability.png')
+            try:
+                plot_stability(metrics_df, out_dir / 'fig_stability.png')
+            except Exception:
+                logger.warning("Plot generation failed: stability")
 
     # save a small sample matrix for inspection
     if len(rolling) > 0:
@@ -218,6 +269,7 @@ def run_scenario(
         rolling[first_date].to_csv(out_dir / f"matrix_{first_date.date()}.csv")
         rolling[last_date].to_csv(out_dir / f"matrix_{last_date.date()}.csv")
 
+    logger.info("Scenario run completed: %s", out_dir)
     return out_dir
 
 

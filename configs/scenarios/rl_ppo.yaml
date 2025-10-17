@@ -24,6 +24,7 @@ rl:
     features_extractor_kwargs:
       features_dim: 96
       n_heads: 4
+  reward_template: default
   total_timesteps: 50000
   n_steps: 512
   batch_size: 256
