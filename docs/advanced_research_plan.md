@@ -22,13 +22,13 @@ This plan tracks the two remaining backlog items—AR-01 (Meta-RL) and AR-02 (Of
 ## AR-02 Offline RL – Behaviour Cloning Baseline
 - **Objective**: build an offline training path that approaches online PPO performance within 10% reward gap.
 - **Implementation**:
-  - Trajectory capture via `research/offline_rl/log_trajectories.py`, writing `results/offline/offline_dataset.h5` plus manifest/metadata.
+  - Trajectory capture via `research/offline_rl/log_trajectories.py`, writing `results/offline/offline_dataset.csv` plus manifest/metadata.
   - Behaviour cloning trainer `research/offline_rl/train_offline.py` fits a logistic regression policy, evaluates it inside the environment, and exports `offline_results.{json,csv}` as well as optional comparison against an online PPO `summary.csv`.
   - Dataset governance shared with online runs through `governance/dataset.py` utilities.
 - **Usage**:
   ```
-  python research/offline_rl/log_trajectories.py --episodes 10 --output results/offline/offline_dataset.h5
-  python research/offline_rl/train_offline.py --dataset results/offline/offline_dataset.h5 --online-summary <path-to-online-summary.csv>
+  python research/offline_rl/log_trajectories.py --episodes 10 --output results/offline/offline_dataset.csv
+  python research/offline_rl/train_offline.py --dataset results/offline/offline_dataset.csv --online-summary <path-to-online-summary.csv>
   ```
 - **Validation**:
   - Offline classification accuracy reported in `offline_results.csv` (target ≥ 0.85 for parity).

@@ -5,7 +5,7 @@ All notable changes will be documented in this file. Dates follow YYYY-MM-DD.
 ## Unreleased
 - Initial GitHub packaging: cleaned README, added Kaggle deployment guide, smoke tests, and governance docs.
 - Provide `requirements-kaggle.txt`, `kaggle/starter.py`, and `scripts/smoke_kaggle.py` for lean deployments.
-- Added end-to-end orchestration pipelines (`pipelines/run_ablation.py`, `pipelines/run_full_suite.py`) to cover ablations, audits, meta/offline baselines, and reporting in a single run.
+- Added end-to-end orchestration pipelines (`pipelines/run_ablation.py`, `pipelines/run_full_suite.py`) to cover ablations, audits, meta/offline baselines, and reporting in a single run.\n- Hardened Kaggle pipeline: dependency preflight, dataset quality thresholds, optional RL fallbacks, offline dataset moved to CSV, and artifact validation/report timing.
 
 ## 2025-10-18
 - Completed Observability initiative: structured logging context, metrics dictionary refresh, CLI dashboard.
@@ -30,3 +30,4 @@ All notable changes will be documented in this file. Dates follow YYYY-MM-DD.
 
 ## 2025-10-11
 - Introduced signature modules, Hydra config, and multi-seed runner.
+

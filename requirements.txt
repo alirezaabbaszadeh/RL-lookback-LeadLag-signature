@@ -16,3 +16,5 @@ mlflow
 # iisignature
 # dcor
 # p_tqdm
+# torch
+# sb3-contrib

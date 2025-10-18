@@ -1,0 +1,11 @@
+extends: rl_ppo.yaml
+
+run:
+  run_name: rl_ppo_sharpe
+
+rl:
+  reward_weights:
+    alpha: 1.0    # signal strength
+    beta: 0.5    # Sharpe emphasis
+    gamma: 0.05  # drawdown penalty
+  ent_coef: 0.001

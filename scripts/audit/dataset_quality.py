@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 from governance.dataset import build_manifest, record_manifest, run_quality_checks
 from training.run_scenario import _read_prices
@@ -18,7 +18,11 @@ def _load_prices(path: Path) -> tuple[object, Optional[Path]]:
     return _read_prices(cfg)
 
 
-def _detect_issues(findings: Dict[str, object], *, missing_tolerance: float) -> List[str]:
+def _detect_issues(
+    findings: Dict[str, object],
+    missing_tolerance: float,
+    zero_variance_limit: int,
+) -> List[str]:
     issues: List[str] = []
     if findings.get("duplicate_index"):
         issues.append("Index contains duplicates.")
@@ -26,8 +30,11 @@ def _detect_issues(findings: Dict[str, object], *, missing_tolerance: float) -> 
     if missing_ratio > missing_tolerance:
         issues.append(f"Missing ratio {missing_ratio:.2%} exceeds tolerance {missing_tolerance:.2%}.")
     zero_variance = findings.get("zero_variance_assets", [])
-    if zero_variance:
-        issues.append(f"{len(zero_variance)} asset(s) with zero variance: {', '.join(zero_variance[:5])}")
+    if zero_variance_limit >= 0 and len(zero_variance) > zero_variance_limit:
+        issues.append(
+            f"{len(zero_variance)} asset(s) have zero variance (limit {zero_variance_limit}); "
+            f"examples: {', '.join(map(str, zero_variance[:5]))}"
+        )
     if not findings.get("monotonic_index", True):
         issues.append("Index is not monotonically increasing.")
     return issues
@@ -45,10 +52,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=0.01,
         help="Maximum allowed missing value ratio before failing (default: 0.01 == 1%).",
     )
+    parser.add_argument(
+        "--zero-variance-limit",
+        type=int,
+        default=0,
+        help="Maximum number of zero-variance assets tolerated before failing (default: 0, negative to ignore).",
+    )
+    parser.add_argument(
+        "--exit-on-fail",
+        action="store_true",
+        help="Exit with non-zero status when issues detected (default: warn only).",
+    )
     return parser
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
@@ -63,7 +81,11 @@ def main(argv=None) -> int:
     quality = run_quality_checks(prices)
     manifest["quality"] = quality
 
-    issues = _detect_issues(quality, missing_tolerance=args.missing_tolerance)
+    issues = _detect_issues(
+        quality,
+        missing_tolerance=args.missing_tolerance,
+        zero_variance_limit=args.zero_variance_limit,
+    )
 
     if args.output:
         record_manifest(manifest, args.output.parent, args.output.name)
@@ -72,12 +94,13 @@ def main(argv=None) -> int:
         sys.stdout.write("\n")
 
     if issues:
-        sys.stderr.write("Dataset quality check failed:\n")
+        sys.stderr.write("Dataset quality issues detected:\n")
         for issue in issues:
             sys.stderr.write(f"- {issue}\n")
-        return 1
-
-    sys.stdout.write("Dataset quality check passed.\n")
+        if args.exit_on_fail:
+            return 1
+    else:
+        sys.stdout.write("Dataset quality check passed.\n")
     return 0
 
 

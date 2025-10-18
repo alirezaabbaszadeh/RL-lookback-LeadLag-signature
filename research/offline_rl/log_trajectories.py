@@ -23,7 +23,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scenario", type=Path, default=Path("configs/scenarios/rl_ppo.yaml"))
     parser.add_argument("--episodes", type=int, default=5, help="Number of episodes to record.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--output", type=Path, default=Path("results/offline/offline_dataset.h5"))
+    parser.add_argument("--output", type=Path, default=Path("results/offline/offline_dataset.csv"))
     parser.add_argument(
         "--policy",
         type=Path,
@@ -76,14 +76,20 @@ def _run_episode(env: LeadLagEnv, model) -> List[dict]:
         else:
             action = env.action_space.sample()
         next_obs, reward, done, info = env.step(action)
+        observation_list = np.asarray(obs, dtype=float).tolist()
+        action_raw = action if np.isscalar(action) else np.asarray(action).tolist()
+        if isinstance(action_raw, (list, tuple)):
+            action_value = json.dumps(action_raw)
+        else:
+            action_value = int(action_raw)
         records.append(
             {
                 "step": step,
-                "observation": np.asarray(obs, dtype=float).tolist(),
-                "action": int(action) if np.isscalar(action) else np.asarray(action).tolist(),
+                "observation": json.dumps(observation_list),
+                "action": action_value,
                 "reward": float(reward),
                 "done": bool(done),
-                "info": info,
+                "info": json.dumps(info),
                 "lookback": info.get("lookback"),
             }
         )
@@ -118,7 +124,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     df = pd.DataFrame(trajectories)
     output_path = args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_hdf(output_path, key="transitions", format="table")
+    df.to_csv(output_path, index=False)
 
     manifest_path = record_manifest(manifest, output_path.parent, "data_manifest.json")
     metadata = {

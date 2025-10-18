@@ -55,7 +55,7 @@ def main() -> int:
     if args.keep_offline:
         offline_dir = root / "offline"
         offline_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = offline_dir / "offline_dataset.h5"
+        dataset_path = offline_dir / "offline_dataset.csv"
         _run(
             [
                 "python",

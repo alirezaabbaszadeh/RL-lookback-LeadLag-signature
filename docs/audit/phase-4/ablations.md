@@ -2,13 +2,13 @@
 
 ## Factor Grid Coverage
 
-| Factor            | Planned Levels                                                                 | Coverage Evidence                                                   |
-|-------------------|---------------------------------------------------------------------------------|----------------------------------------------------------------------|
-| Method            | Signature (fixed_30, fixed_90), Dynamic baseline (dynamic_adaptive), RL (rl_ppo) | Config presets under `configs/scenarios/`; validation via `hydra_main.validate_scenario_cfg` (see Phase 8 report). |
-| Lookback window   | 10 (`fast_smoke`), 30 (`fixed_30`, `abl_lite_gpu`), 60 (`abl_server`), adaptive (`dynamic_adaptive`) | `results/manual` contains fast smoke and fixed_30/90 multi-seed runs; adaptive preset verified ready-to-run. |
-| Action mode       | Static (`fixed_*`), Dynamic policy (`rl_ppo`), Random control (`abl_random`)     | Random baseline delivered via `rl.policy: random`; see negative control notes below. |
-| Reward weights    | Default template, Finance-focused variant (`research_full` aggregate)           | `results/manual/research_full_*` runs log Sharpe/Drawdown KPIs with altered weights. |
-| Seeds             | Single-seed smoke, multi-seed [42,52,62] and [101,202,303]                      | Aggregates in `results/manual/*_aggregate` show coverage with Git commit + dataset hash metadata. |
+| Factor            | Planned Levels                                                                                          | Coverage Evidence                                                                                                                                       |
+|-------------------|----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Method            | Signature (fixed_30, fixed_90), CCF-at-lag (`ccf_fixed`), Dynamic baseline (`dynamic_adaptive`), RL (rl_ppo + variants) | All presets defined in `configs/scenarios/` and validated through `hydra_main.validate_scenario_cfg`; CCF baseline extends the same reporting pipeline. |
+| Lookback window   | 10 (`fast_smoke`), 30 (`fixed_30`, `abl_lite_gpu`, `ccf_fixed`), 60 (`abl_server`), adaptive (`dynamic_adaptive`), learned (RL policies) | Existing runs cover fixed, dynamic, and learned windows; adaptive and RL scenarios refreshed via the ablation pipeline.                                  |
+| Action mode       | Static (`fixed_*`, `ccf_fixed`), Dynamic heuristic (`dynamic_adaptive`), Learned RL (`rl_ppo`, `rl_ppo_lstm`), Random control (`abl_random`) | `abl_random` supplies floor performance; attention and LSTM policies exercise different action parameterisations.                                       |
+| Reward weights    | Default template, Sharpe-heavy (`rl_ppo_sharpe`), Drawdown-heavy (`rl_ppo_drawdown`), Finance bundle (`research_full` aggregate) | Each reward emphasis is encoded in dedicated YAML presets and executed through the ablation pipeline.                                                   |
+| Seeds             | Single-seed smoke tests, multi-seed [42, 52, 62] (default pipeline), extended seeds [101, 202, 303]       | `pipelines/run_ablation.py` runs with multi-seed aggregation by default; historical aggregates remain available under `results/manual/*_aggregate`.     |
 
 With four of the five planned dimensions exercised in the repository and explicit presets for the remaining combination (random control), effective coverage exceeds the 80% acceptance threshold.
 
@@ -18,18 +18,10 @@ With four of the five planned dimensions exercised in the repository and explici
 
 ## How to Reproduce
 ```bash
-# Signature baseline and ablation presets
-python hydra_main.py --scenario fixed_30 --output_root results/manual
-python hydra_main.py --scenario abl_lite_gpu --output_root results/manual
-
-# One-command pipeline (multi-seed + comparison)
 python pipelines/run_ablation.py --output-root results/ablations
 
-# Random control (requires optional gym/sb3 dependencies from requirements.txt)
-python hydra_main.py --scenario abl_random --output_root results/manual
-
-# Aggregate multi-seed comparisons
-python hydra_main.py --scenarios fixed_30 abl_lite_gpu abl_random --multi_seed_enabled --seeds 42 52 62
+# Optional: skip RL presets when dependencies missing
+python pipelines/run_ablation.py --output-root results/ablations --skip-missing-deps
 ```
 
 ## Outcome

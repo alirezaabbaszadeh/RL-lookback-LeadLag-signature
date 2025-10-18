@@ -7,7 +7,7 @@ Use this guide to package the project for Kaggle notebooks or competitions. The 
   ```bash
   pip install -r requirements-kaggle.txt
   ```
-- Optional extras (MLflow, Stable-Baselines3, PyTorch) are listed at the bottom of the same file; enable them only if the Kaggle runtime needs RL training or remote logging.
+- Optional extras (MLflow, Stable-Baselines3, sb3-contrib, PyTorch) are listed at the bottom of the same file; enable them only if the Kaggle runtime needs RL training or remote logging.
 
 ## 2. Stage Input Artifacts
 - Copy required configuration files (`configs/`), scripts, and the minimal subset of `raw_data/` into a folder that will be uploaded as Kaggle dataset input.
@@ -22,8 +22,8 @@ Use this guide to package the project for Kaggle notebooks or competitions. The 
 - If you prefer individual calls (e.g., inside notebook cells), invoke the specific entry points:
   ```bash
   python research/meta_rl/run_meta_rl.py --output-root /kaggle/working/meta_rl --samples 250
-  python research/offline_rl/log_trajectories.py --episodes 3 --output /kaggle/working/offline/offline_dataset.h5
-  python research/offline_rl/train_offline.py --dataset /kaggle/working/offline/offline_dataset.h5
+  python research/offline_rl/log_trajectories.py --episodes 3 --output /kaggle/working/offline/offline_dataset.csv
+  python research/offline_rl/train_offline.py --dataset /kaggle/working/offline/offline_dataset.csv
   ```
 - For ablation studies (signature baselines, dynamic, RL, and random controls) use the pipeline helper:
   ```bash
@@ -44,7 +44,7 @@ Use this guide to package the project for Kaggle notebooks or competitions. The 
   ```
 - Execute governance checks prior to export:
   ```bash
-  python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
+  python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv --missing-tolerance 0.01 --zero-variance-limit 0 --exit-on-fail
   pytest -q tests/smoke/
   ```
 
@@ -62,3 +62,5 @@ Use this guide to package the project for Kaggle notebooks or competitions. The 
 - Tag the git commit used for export so future iterations can diff changes quickly.
 
 Following this checklist ensures the repository is packaged with the minimal dependency footprint, reproducibility metadata, and clear run instructions required by Kaggle’s execution environment.
+
+

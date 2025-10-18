@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import json
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -33,13 +34,7 @@ def validate_stats_csv(p: Path) -> List[Finding]:
     if not required.issubset(df.columns):
         missing = sorted(list(required.difference(df.columns)))
         findings.append(Finding(str(p), "ERROR", "stats.csv missing required columns", {"missing": missing}))
-    # At least one of the aggregated columns should exist
-    expected_any = {
-        "mean_mean",
-        "median_mean",
-        "std_mean",
-        "max_mean",
-    }
+    expected_any = {"mean_mean", "median_mean", "std_mean", "max_mean"}
     if expected_any.isdisjoint(df.columns):
         findings.append(Finding(str(p), "WARN", "stats.csv lacks aggregated *_mean columns", {"have": list(df.columns)}))
     return findings
@@ -51,11 +46,11 @@ def validate_significance_csv(p: Path) -> List[Finding]:
     if df is None:
         findings.append(Finding(str(p), "ERROR", "Failed to read significance.csv", {}))
         return findings
-    # Check for truncated bootstrap keys
-    bad_cols = [c for c in df.columns if c.startswith("mea_boot_") or c.startswith("media_boot_") or c.startswith("st_boot_") or c.startswith("ma_boot_") or c.startswith("mi_boot_")]
+    bad_cols = [
+        c for c in df.columns if c.startswith(("mea_boot_", "media_boot_", "st_boot_", "ma_boot_", "mi_boot_"))
+    ]
     if bad_cols:
         findings.append(Finding(str(p), "ERROR", "Truncated bootstrap key names detected", {"columns": bad_cols}))
-    # Prefer mean_boot_low/high presence
     want = {"mean_boot_low", "mean_boot_high"}
     if not want.issubset(df.columns):
         findings.append(Finding(str(p), "WARN", "mean_boot_low/high not present", {"have": list(df.columns)}))
@@ -64,16 +59,20 @@ def validate_significance_csv(p: Path) -> List[Finding]:
 
 def validate_run_dir(run_dir: Path) -> List[Finding]:
     findings: List[Finding] = []
-    # Required files
-    required = ["summary.csv", "run_metadata.json"]
-    for name in required:
+    required_files = ["summary.csv", "run_metadata.json"]
+    for name in required_files:
         if not (run_dir / name).exists():
             findings.append(Finding(str(run_dir), "ERROR", f"Missing required file: {name}", {}))
-    # Optional metrics_timeseries.csv
     mts = run_dir / "metrics_timeseries.csv"
     if not mts.exists():
-        findings.append(Finding(str(run_dir), "WARN", "metrics_timeseries.csv not found (plots & KPIs may be limited)", {}))
-    # Metadata checks
+        findings.append(
+            Finding(
+                str(run_dir),
+                "WARN",
+                "metrics_timeseries.csv not found (plots & KPIs may be limited)",
+                {},
+            )
+        )
     meta_p = run_dir / "run_metadata.json"
     if meta_p.exists():
         try:
@@ -93,18 +92,52 @@ def discover_aggregates(root: Path) -> List[Path]:
 
 
 def discover_run_dirs(root: Path) -> List[Path]:
-    # seed dirs pattern: <name>_seed*
     return [p for p in root.rglob("*_seed*") if p.is_dir()]
 
 
-def main() -> int:
-    results_root = Path("results")
-    out_dir = Path("docs/audit/phase-1")
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Validate experiment artifacts for completeness.")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path("results"),
+        help="Root directory containing run outputs.",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("docs/audit/phase-1"),
+        help="Directory to store validation reports.",
+    )
+    parser.add_argument(
+        "--json-name",
+        type=str,
+        default="scan_report.json",
+        help="Filename for JSON report.",
+    )
+    parser.add_argument(
+        "--markdown-name",
+        type=str,
+        default="scan_report.md",
+        help="Filename for Markdown report.",
+    )
+    parser.add_argument(
+        "--fail-on-error",
+        action="store_true",
+        help="Exit with non-zero status if any ERROR finding is produced.",
+    )
+    return parser
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+
+    results_root = args.root.resolve()
+    out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     all_findings: List[Finding] = []
-
-    # Validate aggregates
     for agg in discover_aggregates(results_root):
         stats_p = agg / "stats.csv"
         if stats_p.exists():
@@ -114,19 +147,15 @@ def main() -> int:
         sig_p = agg / "significance.csv"
         if sig_p.exists():
             all_findings.extend(validate_significance_csv(sig_p))
-        # welch.csv is optional
 
-    # Validate runs
     for run in discover_run_dirs(results_root):
         all_findings.extend(validate_run_dir(run))
 
-    # Write JSON report
     report_json = [asdict(f) for f in all_findings]
-    (out_dir / "scan_report.json").write_text(json.dumps(report_json, indent=2), encoding="utf-8")
+    (out_dir / args.json_name).write_text(json.dumps(report_json, indent=2), encoding="utf-8")
 
-    # Write Markdown report
     lines: List[str] = []
-    lines.append("# Phase 1 — Artifact Scan Report")
+    lines.append("# Artifact Scan Report")
     lines.append("")
     if not all_findings:
         lines.append("No findings.")
@@ -134,19 +163,23 @@ def main() -> int:
         summary: Dict[str, int] = {"INFO": 0, "WARN": 0, "ERROR": 0}
         for f in all_findings:
             summary[f.level] = summary.get(f.level, 0) + 1
-        lines.append(f"Summary: INFO={summary.get('INFO',0)} WARN={summary.get('WARN',0)} ERROR={summary.get('ERROR',0)}")
+        lines.append(
+            f"Summary: INFO={summary.get('INFO',0)} WARN={summary.get('WARN',0)} ERROR={summary.get('ERROR',0)}"
+        )
         lines.append("")
         lines.append("| Level | Path | Message | Details |")
         lines.append("| --- | --- | --- | --- |")
         for f in all_findings:
             details = json.dumps(f.details, ensure_ascii=False)
             lines.append(f"| {f.level} | {f.path} | {f.message} | {details} |")
-    (out_dir / "scan_report.md").write_text("\n".join(lines), encoding="utf-8")
+    (out_dir / args.markdown_name).write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"Wrote {len(all_findings)} findings to {out_dir / 'scan_report.{json,md}'}")
+    error_count = sum(1 for f in all_findings if f.level == "ERROR")
+    print(f"[validate_artifacts] Findings written to {out_dir}")
+    if args.fail_on_error and error_count > 0:
+        return 1
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

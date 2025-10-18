@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import argparse
 from math import sqrt
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import pandas as pd
 
@@ -48,10 +49,26 @@ def compute_kpis(returns: pd.Series) -> dict:
     }
 
 
-def main() -> int:
-    runs_root = Path('results')
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Compute financial KPIs for run directories.")
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        default=Path("results"),
+        help="Root directory containing run outputs (each with metrics_timeseries.csv).",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("evaluation/finance_kpis.csv"),
+        help="Path to write the aggregated KPI table.",
+    )
+    args = parser.parse_args(argv)
+
+    runs_root = args.results_root
     rows: List[dict] = []
-    for run_dir in runs_root.glob('*_*'):
+    for run_dir in runs_root.rglob('*_*'):
         if not run_dir.is_dir() or run_dir.name.endswith('_aggregate'):
             continue
         metrics_path = run_dir / 'metrics_timeseries.csv'
@@ -81,12 +98,12 @@ def main() -> int:
         }
         rows.append(row)
 
-    out_dir = Path('evaluation')
-    out_dir.mkdir(parents=True, exist_ok=True)
+    output_path = args.output
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     if rows:
         df_out = pd.DataFrame(rows)
-        df_out.to_csv(out_dir / 'finance_kpis.csv', index=False)
-        print(f'Wrote finance KPIs for {len(rows)} run(s) to {out_dir / "finance_kpis.csv"}')
+        df_out.to_csv(output_path, index=False)
+        print(f'Wrote finance KPIs for {len(rows)} run(s) to {output_path}')
     else:
         print('No suitable runs found for finance KPIs (missing returns data).')
     return 0
@@ -94,4 +111,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-

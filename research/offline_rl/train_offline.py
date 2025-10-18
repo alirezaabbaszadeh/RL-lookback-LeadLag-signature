@@ -22,7 +22,7 @@ from training.run_scenario import (
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Train a simple offline RL policy via behavior cloning.")
-    parser.add_argument("--dataset", type=Path, default=Path("results/offline/offline_dataset.h5"))
+    parser.add_argument("--dataset", type=Path, default=Path("results/offline/offline_dataset.csv"))
     parser.add_argument("--scenario", type=Path, default=Path("configs/scenarios/rl_ppo.yaml"))
     parser.add_argument("--output-root", type=Path, default=Path("results/offline"))
     parser.add_argument("--test-size", type=float, default=0.25)
@@ -34,12 +34,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def _load_dataset(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"Offline dataset not found: {path}")
-    return pd.read_hdf(path, key="transitions")
+    return pd.read_csv(path)
 
 
 def _prepare_features(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    obs_array = np.stack(df["observation"].apply(np.asarray))
-    actions = df["action"].to_numpy(dtype=int)
+    def _parse_observation(val):
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+            except json.JSONDecodeError:
+                parsed = eval(val)  # legacy fallback for older CSVs
+            val = parsed
+        return np.asarray(val, dtype=float)
+
+    def _parse_action(val):
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+            except json.JSONDecodeError:
+                parsed = val
+            val = parsed
+        if isinstance(val, (list, tuple, np.ndarray)):
+            if len(val) == 0:
+                return 0
+            val = val[0]
+        return int(val)
+
+    obs_array = np.stack(df["observation"].apply(_parse_observation))
+    actions = df["action"].apply(_parse_action).to_numpy(dtype=int)
     return obs_array, actions
 
 

@@ -20,6 +20,8 @@ class ScenarioInfo:
     name: str
     runner: str
     requires_sb3: bool
+    requires_sb3_contrib: bool
+    requires_signature: bool
 
 
 def load_scenario(name: str) -> ScenarioInfo:
@@ -29,7 +31,17 @@ def load_scenario(name: str) -> ScenarioInfo:
     policy = str(rl_cfg.get("policy", "")).lower() if isinstance(rl_cfg, dict) else ""
     random_policy = bool(rl_cfg.get("random_policy")) if isinstance(rl_cfg, dict) else False
     requires_sb3 = runner == "rl" and not (policy == "random" or random_policy)
-    return ScenarioInfo(name=name, runner=runner, requires_sb3=requires_sb3)
+    requires_contrib = requires_sb3 and ("lstm" in policy or "recurrent" in policy)
+    analysis_cfg = cfg.get("analysis", {})
+    method = str(analysis_cfg.get("method", "signature")).lower()
+    requires_signature = method == "signature"
+    return ScenarioInfo(
+        name=name,
+        runner=runner,
+        requires_sb3=requires_sb3,
+        requires_sb3_contrib=requires_contrib,
+        requires_signature=requires_signature,
+    )
 
 
 def run_command(cmd: Sequence[str]) -> None:
@@ -38,16 +50,37 @@ def run_command(cmd: Sequence[str]) -> None:
 
 
 def ensure_dependencies(info: ScenarioInfo, skip_missing: bool) -> bool:
+    if info.requires_signature and importlib.util.find_spec("iisignature") is None:
+        message = (
+            f"Scenario '{info.name}' requires the 'iisignature' package. "
+            "Install via:\n  pip install iisignature"
+        )
+        if skip_missing:
+            print(f"[ablation] Skipping {info.name}: {message}")
+            return False
+        raise SystemExit(message)
+
     if not info.requires_sb3:
         return True
     has_sb3 = importlib.util.find_spec("stable_baselines3") is not None
     has_torch = importlib.util.find_spec("torch") is not None
-    if has_sb3 and has_torch:
+    has_contrib = True
+    if info.requires_sb3_contrib:
+        has_contrib = importlib.util.find_spec("sb3_contrib") is not None
+    if has_sb3 and has_torch and has_contrib:
         return True
+    missing = []
+    if not has_sb3:
+        missing.append("stable-baselines3")
+    if not has_torch:
+        missing.append("torch")
+    if not has_contrib:
+        missing.append("sb3-contrib")
     message = (
-        f"Scenario '{info.name}' requires stable-baselines3 and torch. "
-        "Install optional dependencies via:\n"
-        "  pip install stable-baselines3 torch --extra-index-url https://download.pytorch.org/whl/cu118"
+        f"Scenario '{info.name}' requires optional dependencies: {', '.join(missing)}. "
+        "Install via:\n"
+        "  pip install stable-baselines3 torch --extra-index-url https://download.pytorch.org/whl/cu118\n"
+        "  pip install sb3-contrib   # for PPO-LSTM"
     )
     if skip_missing:
         print(f"[ablation] Skipping {info.name}: {message}")
@@ -105,11 +138,16 @@ def parse_args() -> argparse.Namespace:
         default=[
             "fixed_30",
             "fixed_90",
+            "ccf_fixed",
             "dynamic_adaptive",
             "abl_smoke",
             "abl_lite_gpu",
             "abl_server",
             "abl_random",
+            "rl_ppo",
+            "rl_ppo_sharpe",
+            "rl_ppo_drawdown",
+            "rl_ppo_lstm",
         ],
         help="Scenario names to execute (defaults cover signature, dynamic, RL, and random controls).",
     )
