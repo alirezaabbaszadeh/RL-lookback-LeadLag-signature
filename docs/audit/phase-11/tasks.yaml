@@ -2,11 +2,10 @@ tasks:
   - id: P11-01
     title: Data governance and security checks
     owner: audit_team
-    status: pending
+    status: completed
     description: PII scan, secrets policy, dataset versioning/hashes, access log policy.
     outputs:
       - docs/audit/phase-11/data-governance.md
     acceptance: PII clean; secrets policy enforced; dataset manifest complete.
     created: 2025-10-18
-    updated: 2025-10-18
-
+    updated: 2025-10-19

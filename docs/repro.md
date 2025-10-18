@@ -42,7 +42,7 @@ print(get_available_scenarios())
 
 4) Outputs
 
-- Per-run: `config_merged.yaml`, `run_metadata.json`, `metrics_timeseries.csv`, `summary.csv`, `fig_*.png` (optional), `profiles/*.{pstats,json}`
+- Per-run: `config_merged.yaml`, `run_metadata.json`, `data_manifest.json`, `metrics_timeseries.csv`, `summary.csv`, `fig_*.png` (optional), `profiles/*.{pstats,json}`
 - Aggregates (multi-seed): `stats.csv`, `significance.csv`, `welch.csv` (when multiple scenarios compared), `runs.json`
 
 5) Optional MLflow
@@ -67,6 +67,12 @@ docker run --rm -it -v %CD%:/workspace leadlag-rl:latest \
 
 7) Troubleshooting
 
+- Run governance checks before committing results:
+
+```
+python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
+```
+
 - If plotting fails (no display/matplotlib), artifacts still generate; plots are optional.
 - Some advanced features (RL training) require extra dependencies like `stable-baselines3`.
 - Tests:
@@ -78,6 +84,7 @@ pytest -q
 8) Repro Steps (<= 10)
 
 1. `conda env create -f environment.yml && conda activate leadlag`
-2. `python hydra_main.py --scenario fixed_30 --output_root results`
-3. Inspect `results/` for artifacts; repeat with `--multi_seed_enabled --seeds 42 52 62` for aggregates.
-4. Optional: set MLflow env, rerun for experiment tracking.
+2. `python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv` (adjust path if custom)
+3. `python hydra_main.py --scenario fixed_30 --output_root results`
+4. Inspect `results/` for artifacts; repeat with `--multi_seed_enabled --seeds 42 52 62` for aggregates.
+5. Optional: set MLflow env, rerun for experiment tracking.

@@ -24,8 +24,7 @@ except Exception:  # pragma: no cover
 
 from training.run_scenario import run_scenario
 from training.run_dynamic_baselines import run_dynamic
-import logging
-from reporting.logging_utils import setup_logging
+from reporting.logging_utils import get_logger, setup_logging
 
 
 def _select_runner(config: Dict[str, Any]):
@@ -192,12 +191,17 @@ def run_multiseed(
 
     aggregate_dir = Path(output_root) / f"{scenario_name}_aggregate"
     aggregate_dir.mkdir(parents=True, exist_ok=True)
-    # initialize logging at aggregator level
+    logging_context = {"module": "multiseed", "scenario": scenario_name}
     try:
-        setup_logging(aggregate_dir / "aggregate.log", level="INFO", config_path=Path("logging_config.yaml"))
+        setup_logging(
+            aggregate_dir / "aggregate.log",
+            level="INFO",
+            config_path=Path("logging_config.yaml"),
+            context=logging_context,
+        )
     except Exception:
-        pass
-    logger = logging.getLogger("runner_multiseed")
+        setup_logging(aggregate_dir / "aggregate.log", level="INFO", context=logging_context)
+    logger = get_logger("runner_multiseed", context=logging_context)
     logger.info("Starting multi-seed aggregation for scenario: %s", scenario_name)
 
     summaries = []

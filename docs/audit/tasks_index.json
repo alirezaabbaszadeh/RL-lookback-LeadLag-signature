@@ -44,7 +44,7 @@
     "id": "P10-01",
     "title": "Robustness stress tests",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-10\\tasks.yaml"
   },
   {
@@ -52,7 +52,7 @@
     "id": "P11-01",
     "title": "Data governance and security checks",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-11\\tasks.yaml"
   },
   {
@@ -60,7 +60,7 @@
     "id": "P12-01",
     "title": "Paper readiness and packaging",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-12\\tasks.yaml"
   },
   {
@@ -76,7 +76,7 @@
     "id": "P2-02",
     "title": "Walk-forward validation verification",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-2\\tasks.yaml"
   },
   {
@@ -100,7 +100,7 @@
     "id": "P4-01",
     "title": "Ablation grid design and coverage",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-4\\tasks.yaml"
   },
   {
@@ -108,7 +108,7 @@
     "id": "P4-02",
     "title": "Negative controls (random/frozen policies)",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-4\\tasks.yaml"
   },
   {
@@ -148,7 +148,7 @@
     "id": "P7-01",
     "title": "Reproducibility metadata (dataset hash, commit)",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-7\\tasks.yaml"
   },
   {
@@ -156,7 +156,7 @@
     "id": "P8-01",
     "title": "Scenario discovery unification and validation",
     "owner": "audit_team",
-    "status": "in_progress",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-8\\tasks.yaml"
   },
   {
@@ -164,7 +164,7 @@
     "id": "P9-01",
     "title": "Unify reporting pipelines",
     "owner": "audit_team",
-    "status": "pending",
+    "status": "completed",
     "tasks_file": "docs\\audit\\phase-9\\tasks.yaml"
   }
 ]

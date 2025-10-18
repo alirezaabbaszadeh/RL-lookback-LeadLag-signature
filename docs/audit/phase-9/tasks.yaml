@@ -2,11 +2,10 @@ tasks:
   - id: P9-01
     title: Unify reporting pipelines
     owner: audit_team
-    status: pending
+    status: completed
     description: Single CLI to generate comparison CSV/plots + Welch; deprecate duplicates.
     outputs:
       - docs/audit/phase-9/reporting-unification.md
     acceptance: One canonical path for comparisons; docs updated.
     created: 2025-10-18
-    updated: 2025-10-18
-
+    updated: 2025-10-19

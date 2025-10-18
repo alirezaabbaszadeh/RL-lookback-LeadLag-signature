@@ -1,318 +1,140 @@
-# راهنمای جامع پروژه تحلیل لید–لگ با یادگیری تقویتی
+# LeadLag Signature RL Platform
 
-این مستند به‌صورت راست‌چین و فارسی تنظیم شده تا پژوهشگران، توسعه‌دهندگان و کاربران تازه‌کار بتوانند در کوتاه‌ترین زمان منطق پروژه، ساختار کد و نحوهٔ اجرای آزمایش‌ها را درک کنند. هدف نهایی این است که مخاطب از سطح آشنایی اولیه با تحلیل لید–لگ به سطح متخصص در طراحی سناریوهای پویا و ابلیشن‌های پیشرفته برسد.
-
----
-
-## ۱. معرفی پروژه
-
-- این ریپازیتوری یک خط لولهٔ کامل برای تحلیل روابط لید–لگ میان دارایی‌ها ارائه می‌کند.
-- هستهٔ محاسباتی بر کلاس `LeadLagAnalyzer` در مسیر `models/LeadLag_main.py` متکی است که ماتریس‌های لید–لگ را با روش‌های متنوع (همبستگی در وقفه‌های مختلف، signature و …) تولید می‌کند.
-- بر پایهٔ این تحلیل، یک محیط `gym` با نام `LeadLagEnv` (مسیر `envs/leadlag_env.py`) ساخته شده تا عامل یادگیری تقویتی بتواند طول پنجره (lookback) را به شکل پویا انتخاب کند.
-- کل پایپلاین تنها با یک دستور (`python main.py`) اجرا شده و خروجی‌های استاندارد برای مقالات Q1 (متریک‌ها، نمودارها، جداول LaTeX، وضعیت Git و نسخهٔ کتابخانه‌ها) ایجاد می‌شود.
+End-to-end research environment for analysing lead–lag signatures, experimenting with adaptive lookback policies, and benchmarking reinforcement-learning agents on financial time-series data. The stack is designed for reproducible experiments across local machines, Kaggle notebooks, and CI smoke runs.
 
 ---
 
-## ۲. پیش‌نیازها و نصب
+## Key Capabilities
 
-1. **محیط پایتون ۳.۹ یا بالاتر** پیشنهاد می‌شود.
-2. در صورت استفاده از GPU برای آموزش RL، PyTorch باید با CUDA سازگار نصب شود.
-3. وابستگی‌ها را با دستور زیر نصب کنید:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-   > در صورت نیاز به نسخهٔ LSTM از PPO، بستهٔ `sb3-contrib` و نسخهٔ سازگار `gym==0.21` را نیز اضافه کنید.
+- **Signature-based analytics** – modular feature extraction, distance-correlation variants, and lead–lag matrix visualisation (`models/`, `evaluation/`).
+- **Flexible experimentation** – Hydra-driven configuration for deterministic scenarios, dynamic baselines, and RL policies (`configs/`, `training/`).
+- **Research automation** – multi-seed orchestration, reporting utilities, synthetic meta-RL datasets, and offline RL tooling (`training/runner_multiseed.py`, `research/meta_rl`, `research/offline_rl`).
+- **Governance & reproducibility** – dataset manifests, quality audits, structured logging, and smoke tests tailored for cloud execution (`governance/`, `scripts/smoke_kaggle.py`, `docs/data_preprocessing.md`).
 
 ---
 
-## ۳. ساختار پوشه‌ها
+## Repository Layout
 
-| مسیر | توضیح |
-|------|-------|
-| `configs/` | تنظیمات سناریوها. فایل `base.yaml` مقدارهای پیش‌فرض و `configs/scenarios/*.yaml` سناریوهای مشخص را تعریف می‌کند. |
-| `envs/leadlag_env.py` | محیط RL که lookback را به‌صورت پویا تغییر می‌دهد و پاداش ترکیبی `S`, `C`, `E` را محاسبه می‌کند. |
-| `evaluation/` | محاسبهٔ متریک‌های زمان‌محور و تجمیع نتایج برای تهیهٔ جداول CSV/LaTeX و آزمون‌های آماری. |
-| `models/LeadLag_main.py` | منبع اصلی محاسبهٔ ماتریس‌های لید–لگ و استخراج ویژگی‌ها. |
-| `training/run_scenario.py` | اجرای سناریوهای با lookback ثابت. |
-| `training/run_dynamic_baselines.py` | سناریوی پویا بر مبنای قانون (greedy) که از میان lookbackهای کاندیدا بهترین سیگنال را انتخاب می‌کند. |
-| `training/run_rl.py` | راه‌اندازی و آموزش عامل PPO روی `LeadLagEnv`. |
-| `results/` | خروجی هر سناریو شامل متریک‌ها، نمودارها، تصاویر و اسنپ‌شات تنظیمات. پوشهٔ `results/aggregate` جداول مقایسه و آزمون‌های t-test را نگه می‌دارد. |
-
----
-
-## ۴. اجرای سریع (یک‌کلی)
-
-1. مسیر دادهٔ قیمت را در `configs/base.yaml` بخش `data.price_csv` روی فایل مناسب (مثلاً `raw_data/daily_price.csv`) تنظیم کنید.
-2. دستور زیر را اجرا کنید:
-
-   ```bash
-   python main.py
-   ```
-
-3. نتیجه:
-   - برای هر سناریو (مثلاً `fixed_30`, `fixed_90`, `dynamic_adaptive`, `rl_ppo`) پوشه‌ای با نام `results/<scenario>_YYYYMMDD_HHMMSS/` ایجاد می‌شود.
-   - فایل‌های کلیدی:
-     - `metrics_timeseries.csv`: سری زمانی قدرت سیگنال، پایداری و در سناریوهای پویا مقدار lookback.
-     - `summary.csv`: آمار تجمعی (میانگین، میانه، بیشینه و …).
-     - `fig_signal_strength.png` و `fig_stability.png`: نمودارهای آمادهٔ درج در مقاله.
-     - `config_merged.yaml` و `run_metadata.json`: تضمین بازتولید (snapshots از تنظیمات، commit فعلی Git، وضعیت dirty، نسخهٔ کتابخانه‌ها و پایتون).
-     - در سناریوهای RL فایل `model.zip` ذخیره می‌شود تا مدل آموزش‌دیده در اختیار باشد.
-   - در پایان اجرا، پوشهٔ `results/aggregate/` شامل جداول مقایسه‌ای (`comparison_summary.csv`, `comparison_table.tex`) و آزمون‌های آماری (`significance_mean_abs_matrix.csv`, `significance_stability_matrix_corr.csv`) خواهد بود.
+| Path | Description |
+|------|-------------|
+| `configs/` | Base Hydra configs plus scenario presets (`fixed_30`, `dynamic_adaptive`, `rl_ppo`, `fast_smoke`, …). |
+| `envs/leadlag_env.py` | Gym-compatible environment wrapping the lead–lag analyser for RL agents. |
+| `evaluation/` | Metrics, summaries, visualisation helpers, and statistical comparisons. |
+| `governance/` | Dataset hashing, manifests, and quality checks shared by all runners. |
+| `observability/` | Structured logging utilities and a CLI dashboard for run inspection. |
+| `research/meta_rl/` | Synthetic regime generator, meta-RL agent baseline, and transfer evaluator. |
+| `research/offline_rl/` | Trajectory logger and behaviour cloning trainer for offline pipelines. |
+| `scripts/` | Execution helpers (`run_experiment.*`), audits, and Kaggle smoke tests. |
+| `kaggle/starter.py` | All-in-one entrypoint for Kaggle notebooks (scenario + meta/offline options). |
+| `docs/` | Detailed guides covering reproducibility, deployment, roadmap, and metrics. |
+| `tests/` | Pytest suite validating analyzers, policies, rewards, and runners. |
 
 ---
 
-## ۵. نحوهٔ تعریف سناریوها
+## Quick Start
 
-### ۵.۱. سناریوهای ثابت
-- نمونه: `configs/scenarios/fixed_30.yaml`
-- پارامتر کلیدی: `analysis.lookback` (مثلاً ۳۰ روز)
-- خروجی ماخذی (baseline) برای مقایسه با روش‌های پویا.
-
-### ۵.۲. سناریوهای قانون‌محور پویا (Dynamic Baseline)
-- نمونه: `configs/scenarios/dynamic_adaptive.yaml`
-- بخش `dynamic` حداقل/حداکثر lookback و اندازهٔ گام را تعیین می‌کند.
-- در هر گام سه مقدار (Lookback فعلی، ±گام) بررسی و بهترین بر اساس قدرت سیگنال انتخاب می‌شود.
-
-### ۵.۳. سناریوهای یادگیری تقویتی
-- نمونه: `configs/scenarios/rl_ppo.yaml`
-- بخش `rl` شامل:
-  - محدودهٔ lookback (`min_lookback`, `max_lookback`)
-  - حالت اکشن (`action_mode`: یکی از `absolute`, `relative`, `hybrid`) و اندازهٔ گام نسبی (`relative_step`)
-  - طول اپیزود و منطق شروع تصادفی (`episode_length`, `random_start`, `random_seed`)
-  - معماری سیاست (`policy`: `mlp`, `ppo_lstm`, `attention` یا هر نامی که در factory تعریف شده؛ برای `ppo_lstm` باید بستهٔ `sb3-contrib` نصب شود)
-  - پارامترهای سیاست (`policy_kwargs`) برای تنظیم extractor یا شبکه‌ها (مثلاً `features_extractor_kwargs.features_dim` برای حالت attention)
-  - قالب پاداش (`reward_template`): نام فایل YAML در `configs/rewards/` برای ترکیب وزن‌های اجزای پاداش (S، C، E، Sharpe، LookbackPenalty)
-  - هایپرپارامترهای PPO (`total_timesteps`, `n_steps`, `batch_size`, `learning_rate`, `gamma`, `ent_coef`)
-  - وزن‌های پاداش (`reward_weights.alpha`, `beta`, `gamma`)
-  - جریمه برای بدون تغییر بودن lookback (`penalty_same`) و پرش‌های بزرگ (`penalty_step`).
-  - گزینهٔ هموارسازی شاخص‌ها (`ema_alpha`) برای کاهش نوسان مشاهدات و پاداش.
-- هر سناریوی جدید RL را فقط کافی است با یک فایل YAML جدید مشخص کنید؛ `main.py` به صورت خودکار تشخیص داده و از مسیر آموزش RL استفاده می‌کند.
-
----
-
-## ۶. اجزای کلیدی محیط RL (`LeadLagEnv`)
-
-1. **وضعیت (Observation):** بردار ۱۴ تایی شامل lookback نرمال‌شده، متریک‌های قدرت/پایداری، شاخص‌های امضای لید–لگ (leader/laggard/spread)، آمار رژیم بازده (میانگین، نوسان، پراکندگی)، تغییر تصمیم قبلی و نسخهٔ هموارشدهٔ قدرت سیگنال (EMA).
-2. **کنش (Action):** سه حالت رسمی پشتیبانی می‌شود (از طریق `action_mode`):
-   - `absolute`: انتخاب مستقیم lookback (گسسته یا پیوسته)
-   - `relative`: تغییر گام‌به‌گام lookback بر اساس `relative_step`
-   - `hybrid`: ترکیبی از انتخاب‌های نسبی و پرش به کران‌ها (گسسته) یا ترکیب هدف مطلق/نسبی (پیوسته)
-3. **پاداش:**
-   - \(S\): ترکیب میانگین قدر مطلق ماتریس و دامنهٔ جمع سطرها (نمایندهٔ قدرت لیدر/فالور)
-   - \(C\): میانگین همبستگی ماتریس و جمع سطرها با گام قبل (پایداری علیت)
-   - \(E\): جریمهٔ نزدیک بودن به کران‌های lookback، بدون تغییر ماندن طول پنجره یا پرش‌های بزرگ
-   - فرمول: \( r = \alpha S + \beta C - \gamma E \)
-4. **چند-اپیزودی تصادفی:** هر بار `reset` بازهٔ تازه‌ای از داده برمی‌گزیند (قابل غیرفعال‌سازی) و با `episode_length` می‌توان طول اپیزود را محدود کرد؛ تمام محاسبات lookback با رعایت محدودیت داده انجام می‌شود.
-5. **هموارسازی و مانیتورنگ:** پرچم `ema_alpha` میانگین نمایی را روی متریک‌ها اعمال می‌کند و هر گام در `history` علاوه بر متریک‌ها، آمار رژیم و ویژگی‌های امضا را ذخیره می‌کند.
-6. **سوییت سیاست‌ها:** `training/policy_factory.py` نگاشت سیاست‌ها را مدیریت می‌کند (MLP، PPO-LSTM از sb3-contrib و `AttentionPolicy` سفارشی). در صورتی که sb3-contrib نصب نباشد، استفاده از `ppo_lstm` با پیام راهنما متوقف می‌شود.
-7. **قالب‌های پاداش:** با تنظیم `reward_template` می‌توان وزن‌دهی اجزای پاداش (S، C، E، Sharpe، LookbackPenalty) را از فایل YAML خواند و بدون دست‌کاری کد، رفتار پاداش را تغییر داد.
-
----
-
-## ۷. متریک‌ها و ارزیابی
-
-- فایل `evaluation/metrics.py` متریک‌های زیر را از سری زمانی ماتریس‌ها استخراج می‌کند:
-  - `mean_abs_matrix`: میانگین قدر مطلق عناصر غیرقطری (شدت متوسط رابطه)
-  - `max_abs_matrix`: بیشینهٔ قدر مطلق<br>
-  - `row_sum_range` و `row_sum_std`: شاخص لیدر/فالوئر بر اساس جمع سطرها
-  - `stability_matrix_corr` و `stability_rowsum_corr`: همبستگی ماتریس/جمع سطرها نسبت به گام قبل
-- `evaluation/aggregate.py` علاوه بر تجمیع مقایسه‌ای، آزمون Welch t-test بین سناریوها را نیز منتشر می‌کند تا معناداری امتیازها برای داوران روشن باشد.
-
----
-
-## ۸. مسیر یادگیری برای کاربران با سطوح مختلف
-
-### ۸.۱. کاربران تازه‌کار
-- نصب وابستگی‌ها و اجرای `python main.py`
-- مشاهدهٔ خروجی `results/fixed_30_*` و `results/fixed_90_*`
-- بررسی نمودارها و مقایسهٔ نتایج در `results/aggregate/`
-- هدف: آشنایی با مفهوم لید–لگ و تاثیر lookback ثابت.
-
-### ۸.۲. توسعه‌دهندگان میان‌رده
-- سناریوی پویا `dynamic_adaptive` را بررسی و کد `training/run_dynamic_baselines.py` را مطالعه کنند.
-- با تغییر پارامتر `step` یا انواع معیارهای قدرت سیگنال، اثرات را تحلیل کنند.
-- یاد بگیرند چگونه متریک‌ها و نمودارها را برای گزارش‌های داخلی استفاده کنند.
-
-### ۸.۳. متخصصان و پژوهشگران پیشرفته
-- سناریوهای RL را تغییر داده و انواع پاداش، حالت و اکشن را آزمایش کنند.
-- ابلیشن‌ها:
-  - حذف پایداری (`beta=0`) یا جریمه (`gamma=0`)
-  - جایگزینی ویژگی‌ها (افزودن signature یا Top-K روابط)
-  - استفاده از سیاست LSTM یا اکشن‌های نسبی
-  - تغییر `update_freq` یا افزودن هموارسازی ماتریس‌ها
-- نتایج را با baseline مقایسه و جداول LaTeX را مستقیماً در مقالات استفاده کنند.
-
----
-
-## ۹. نقشهٔ توسعهٔ آینده (پیشنهادها)
-
-- **پایش پیشرفته امضا:** پیوند دادن خروجی‌های `SignatureFeaturePipeline` به داشبوردهای مانیتورینگ آنلاین و ذخیرهٔ نسخهٔ ویژگی‌ها کنار artefactهای RL.
-- **سیاست‌های حافظه‌دار (LSTM / Attention):** برای استفاده از LSTM مقدار `policy` را `ppo_lstm` قرار دهید (نیازمند نصب `sb3-contrib`). جهت آزمایش self-attention کافی است `policy: attention` و در صورت نیاز `policy_kwargs.features_extractor_kwargs` را تغییر دهید.
-- **اکشن‌های نسبی:** توسعهٔ `LeadLagEnv` برای اعمال اکشن‌های `{-5,-1,0,+1,+5}` با توجه به lookback فعلی.
-- **لاگ‌کردن در MLflow یا W&B:** افزودن ماژول لاگر به فایل‌های `training/run_*.py` برای ثبت آنلاین تجربیات.
-- **تقسیم‌ دادهٔ Train/Validation/Test:** اضافه کردن پارامترهای `split` در YAML و اجرای سناریوها روی بخش‌های زمانی مختلف جهت جلوگیری از نشت داده.
-
----
-
-## ۱۰. جمع‌بندی
-
-این مستند تلاش کرده مسیر یادگیری و اجرا را به‌صورت مرحله‌ای ارائه کند:
-- *از دید داوران:* تضمین بازتولید (اسنپ‌شات تنظیمات، commit، نسخه‌ها، آزمون آماری) و ارائهٔ مستقیم جداول LaTeX.
-- *از دید توسعه‌دهندگان:* ساختار پوشه‌ها، سناریوهای تست، و قابلیت توسعهٔ سریع سناریوهای جدید.
-- *از دید کاربران تازه‌کار:* امکان اجرای پروژه با یک دستور و مشاهدهٔ نتایج ملموس.
-
-با دنبال کردن گام‌های یادشده، هر مخاطب می‌تواند از درک اولیهٔ تحلیل لید–لگ به طراحی و ثبت روش‌های جدید در سطح پژوهش‌های پیشرفته برسد.
-
----
-
-## ۱۱. آماده‌سازی داده‌ها
-
-- **فرمت مورد انتظار:**
-  - فایل CSV با شاخص زمانی (ستون `date` یا `Date`) و ستون‌های قیمت برای هر دارایی.
-  - داده‌ها به صورت روزانه (Daily) یا با فرکانس ثابت؛ اگر دادهٔ ساعتی (`1H`) دارید، ابتدا آن را به بازهٔ هدف Resample کنید.
-- **پیش‌پردازش پیشنهادی:**
-  1. پر کردن خلأها با روش Forward Fill (همان‌طور که `_preprocess_window_data` انجام می‌دهد).
-  2. حذف دارایی‌هایی که کمتر از درصد مشخصی از دادهٔ معتبر دارند.
-  3. تقسیم داده به بازه‌های زمانی Train / Validation / Test در صورت نیاز به تحلیل رژیم‌ها (می‌توانید در فایل YAML مسیرهای جدا تعریف کنید).
-- **کنترل کیفیت:** پس از بارگذاری، با اجرای سناریوی ثابت ساده و بررسی `results/fixed_30_*/matrix_*.csv` مطمئن شوید ماتریس‌ها مقادیر منطقی دارند (هم antisymmetric و هم صفر روی قطر).
-
----
-
-## ۱۲. جزئیات پیکربندی YAML
-
-### ۱۲.۱. بخش `run`
-
-| کلید | توضیح |
-|------|-------|
-| `output_root` | مسیر ریشهٔ ذخیرهٔ خروجی‌ها. پیش‌فرض `results`. |
-| `run_name` | پیشوند نام پوشهٔ خروجی. در صورت `auto` از نام سناریو استفاده می‌شود. |
-| `seed` | بذر تصادفی برای numpy، random و الگوریتم‌های RL. |
-
-### ۱۲.۲. بخش `data`
-
-| کلید | توضیح |
-|------|-------|
-| `price_csv` | مسیر فایل قیمت‌ها. اگر تنظیم نشود، اولین فایل تطبیق‌داده‌شده در `raw_data/daily_prices_*.csv` خوانده می‌شود. |
-| `universe_csv` | مسیر فایل یونیورس (اختیاری). اگر مقدار `null` باشد، همهٔ ستون‌های داده استفاده می‌شوند. |
-
-### ۱۲.۳. بخش `analysis`
-
-- `method`: یکی از `ccf_at_lag`, `ccf_auc`, `ccf_at_max_lag`, `signature` (توجه: مسیر `dtw` در این پروژه پشتیبانی نمی‌شود و سناریوهای رسمی بر پایهٔ signature هستند).
-- `lookback`: طول پنجرهٔ پیش‌فرض (سناریوهای پویا می‌توانند آن را در هر گام تغییر دهند). باید کمتر از طول کل داده باشد (مطابق بررسی در `LeadLagAnalyzer`).
-- `update_freq`: فاصلهٔ زمانی بین محاسبهٔ ماتریس‌های متوالی؛ مقادیر بزرگ‌تر ⇒ کاهش هزینهٔ محاسباتی.
-- بلوک‌های زیرمجموعه (مثلاً `ccf_at_lag`) پارامترهای اختصاصی روش را مشخص می‌کنند (lag، نوع همبستگی، تعداد کوانتایل‌ها و ...).
-
-### ۱۲.۴. بخش `dynamic`
-
-- فقط در سناریوهای قانون‌محور استفاده می‌شود (اجرای `run_dynamic`).
-- کلیدها:
-  - `min_lookback`, `max_lookback`: دامنهٔ مجاز.
-  - `step`: میزان تغییر lookback در هر گام هنگام جست‌وجوی محلی.
-
-### ۱۲.۵. بخش `rl`
-
-- `min_lookback`, `max_lookback`: مشابه سناریوی پویا.
-- `discrete_actions`: اگر `true` باشد، اکشن‌ها به صورت عددصحیح مجزا در بازهٔ تعریف‌شده هستند.
-- `policy`: نام سیاست در factory (مثلاً `mlp`, `ppo_lstm`, `attention` یا نام‌های بومی SB3 مثل `MlpPolicy`).
-- `total_timesteps`, `n_steps`, `batch_size`, `learning_rate`, `gamma`, `ent_coef`: هایپرپارامترهای PPO.
-- `reward_weights`: ضرایب `α`, `β`, `γ` در تابع پاداش.
-- `penalty_same`, `penalty_step`: مقادیر جریمه برای عدم تغییر lookback یا جهش بیش از حد.
-
----
-
-## ۱۳. استراتژی آزمون و اطمینان از کیفیت
-
-- **پوشش سناریو:** حداقل یک بار هر نوع سناریو (ثابت، پویا، RL) را اجرا کنید و نتایج را با `results/aggregate/comparison_summary.csv` بررسی نمایید.
-- **بازبینی آماری:** مطمئن شوید آزمون‌های t-test در `results/aggregate/significance_*.csv` مقادیر معتبر (نه `NaN`) تولید کرده‌اند؛ در غیر این صورت ممکن است طول سری زمانی کافی نباشد.
-- **تطابق خروجی با انتظار:** ماتریس‌های نمونه در پوشهٔ هر سناریو را بررسی کنید تا antisymmetric بودن (M_ij = -M_ji) حفظ شده باشد.
-- **بازگشت‌پذیری:** اجرای مجدد `python main.py` با همان داده باید پوشه‌های جدید ایجاد کند ولی خلاصهٔ نهایی (aggregate) نتایج یکسانی ارائه دهد؛ اختلاف قابل‌توجه نشانگر اثر تصادفی یا کمبود نمونه است.
-
----
-
-## ۱۴. راهنمای رفع اشکال
-
-| نشانه | علت رایج | راهکار |
-|-------|----------|--------|
-| `ValueError: lookback period must be less than data length` | مقدار `lookback` بزرگ‌تر از طول داده یا آغاز اپیزود | مقدار lookback را کاهش دهید یا دادهٔ بیشتری بارگذاری کنید. |
-| `LeadLagEnv` پاداش‌های `NaN` می‌دهد | پنجره دارای دادهٔ ناکافی یا همگی صفر/NaN | حداقل lookback را افزایش دهید یا با `dynamic`/`rl` دامنهٔ lookback را محدود کنید. |
-| آموزش PPO متوقف/کند می‌شود | هزینهٔ محاسبهٔ ماتریس بالا است | `update_freq` را بزرگ کنید، تعداد دارایی‌ها را کاهش دهید یا `use_parallel` را فعال نمایید. |
-| خروجی‌های aggregate خالی است | مسیر `results/` سناریو ندارد یا فایل‌ها ناقص‌اند | سناریوها را دوباره اجرا کنید و مطمئن شوید `summary.csv` برای هر پوشه وجود دارد. |
-| خطای `UnicodeEncodeError` هنگام چاپ نتایج فارسی | کنسول سیستم روی کدپیج UTF-8 نیست | فایل‌ها صحیح‌اند؛ برای نمایش در ویندوز از `chcp 65001` یا IDE با پشتیبانی UTF-8 استفاده کنید. |
-
----
-
-## ۱۵. سؤالات متداول (FAQ)
-
-1. **آیا می‌توان از دادهٔ دقیقه‌ای استفاده کرد؟**
-   - بله، اما هزینهٔ محاسباتی افزایش می‌یابد. پیشنهاد می‌شود ابتدا داده را به بازه‌های بزرگ‌تر (مثلاً ۵ دقیقه‌ای) تجمیع کنید یا update_freq را بیشتر بگیرید.
-
-2. **چگونه فضای اکشن نسبی یا هیبرید را فعال کنیم؟**
-   - کافی است در سناریوی RL مقدار `rl.action_mode` را یکی از `relative` یا `hybrid` قرار دهید و در صورت نیاز `relative_step` را تنظیم کنید. برای جهش به کران‌ها یا ترکیب مطلق/نسبی نیز از حالت `hybrid` استفاده کنید.
-
-3. **آیا امکان اتصال به پلتفرم لاگینگ مثل W&B وجود دارد؟**
-   - بله، کافی است داخل `run_rl.py` و `run_scenario.py` روال ثبت متریک را با API دلخواه اضافه کنید (هوک‌های محاسبهٔ متریک در پایان هر سناریو آماده‌اند).
-
-4. **چگونه می‌توان نتایج را در مقاله استناد کرد؟**
-   - از جدول LaTeX تولیدشده در `results/aggregate/comparison_table.tex` استفاده کنید و در متن مقاله به نسخهٔ commit و `run_metadata.json` اشاره نمایید.
-
-5. **مدل RL من پس از چند گام ناپایدار می‌شود؛ چه کنم؟**
-   - نرخ یادگیری را کاهش دهید (`learning_rate`)، وزن پایداری (`β`) را افزایش دهید یا دامنهٔ lookback را محدودتر کنید. همچنین اضافه‌کردن EMA روی متریک‌ها می‌تواند کمک کند.
-
----
-
-## ۱۶. فرهنگ واژگان کلیدی
-
-| واژه | شرح |
-|------|------|
-| لید–لگ (Lead-Lag) | اختلاف زمانی میان حرکت دو دارایی؛ مثبت بودن M_ij نشان می‌دهد دارایی i پیشرو است. |
-| پنجره (Window / Lookback) | تعداد گام‌های زمانی در گذشته که برای محاسبهٔ ماتریس استفاده می‌شود. |
-| ماتریس ضد‌متقارن | ماتریسی که در آن M_ij = -M_ji و M_ii = 0؛ ساختار اصلی ماتریس لید–لگ. |
-| جمع سطرها (Row Sum) | اشاره به لیدر بودن خالص هر دارایی؛ جمع مثبت ⇒ پیشرو، جمع منفی ⇒ دنباله‌رو. |
-| PPO | الگوریتم Proximal Policy Optimization برای یادگیری تقویتی.
-| Signature | بردار ویژگی مبتنی بر امضای مسیر (Path Signature) که ترتیب حرکات سری‌های زمانی را خلاصه می‌کند. |
-
----
-
-## ۱۷. نحوهٔ استناد (Citation)
-
-اگر از این ریپازیتوری در مقاله یا پروژهٔ پژوهشی استفاده کردید، لطفاً به شکل زیر استناد نمایید (اطلاعات را با نام نویسندگان/سال جایگزین کنید):
-
-```
-@software{LeadLagSignatureRL,
-  author    = {نام پژوهشگر(ها)},
-  title     = {LeadLag-signature RL Pipeline},
-  year      = {2025},
-  url       = {https://github.com/.../LeadLag-signature-RL},
-  note      = {Version <commit-id>}
-}
+```bash
+pip install -r requirements.txt        # or use requirements-kaggle.txt for the lean stack
+python hydra_main.py --scenario fixed_30 --output_root results
 ```
 
-اطلاعات commit و نسخهٔ اجراشده در فایل `results/<scenario>/run_metadata.json` ذخیره شده است.
+Multi-scenario or multi-seed runs:
+
+```bash
+python hydra_main.py \
+  --scenarios fixed_30 rl_ppo \
+  --multi_seed_enabled \
+  --seeds 42 52 62 \
+  --output_root results
+```
+
+Generated artifacts include merged configs, dataset manifests, metrics timelines, summary tables, plots, and optional MLflow logs.
 
 ---
 
-## ۱۸. مشارکت و بهترین شیوه‌ها
+## Kaggle Deployment
 
-1. **مسیر توسعهٔ جدید**
-   - قبل از ایجاد Pull Request، یک سناریوی جدید در `configs/scenarios/` اضافه و خروجی آن را در `results/` ذخیره کنید تا reviewers بتوانند عملکرد را بررسی کنند.
-2. **استاندارد کدنویسی**
-   - فایل‌های جدید را با Docstring و توضیح مختصر بنویسید؛ از تایپ‌هینت استفاده کنید.
-   - برای تغییرات در `LeadLagEnv` یا `LeadLagAnalyzer`، تست سریع (حداقل سناریوی ثابت) اجرا و نتایج را ضمیمه کنید.
-3. **مدیریت وابستگی‌ها**
-   - اگر بستهٔ جدیدی اضافه می‌کنید، نسخهٔ دقیق آن را در `requirements.txt` درج کرده و توضیح دهید چرا لازم است.
-4. **گزارش باگ**
-   - گزارش‌ها باید شامل: نسخهٔ commit، سیستم‌عامل، تنظیمات YAML استفاده‌شده، لاگ خطا و در صورت امکان نمونهٔ داده باشد.
-5. **سیاست بازتولیدپذیری**
-   - هر انتشار (Release) باید شامل پوشهٔ نمونهٔ نتایج و سناریوهای مربوط باشد تا داوران و کاربران بتوانند نتایج را سریعاً بازسازی کنند.
+1. Install the lightweight dependency set:
+   ```bash
+   pip install -r requirements-kaggle.txt
+   ```
+2. Use the starter helper inside the Kaggle notebook (internet disabled):
+   ```bash
+   python kaggle/starter.py \
+     --scenario fixed_30 \
+     --run-meta-rl \
+     --run-offline \
+     --output-root /kaggle/working
+   ```
+3. Follow the detailed packaging checklist in `docs/deployment/kaggle_setup.md` (dataset preparation, governance checks, notebook template, final review).
 
 ---
 
-## ۱۹. تماس و پشتیبانی
+## Ablation Pipeline
 
-- برای سؤالات پژوهشی، از ایمیل تیم تحقیقاتی یا Issues در GitHub استفاده کنید.
-- برای مشکلات فنی مربوط به کد، لطفاً Issue را با برچسب `bug` یا `question` ثبت نمایید و مستندات این README را پیوست کنید.
-- در صورت نیاز به همکاری صنعتی یا توسعهٔ سفارشی، می‌توانید از طریق بخش تماس پروژه یا لینکدین تیم اقدام کنید.
+Generate a full ablation suite (baseline, dynamic, RL, and random controls) with one command:
 
-امیدواریم این مستند تمام دیدگاه‌های مورد انتظار داوران، توسعه‌دهندگان و کاربران تازه‌کار را پوشش داده و مسیر تبدیل شدن به متخصص تحلیل لید–لگ پویا را برای شما هموار سازد.
+```bash
+python pipelines/run_ablation.py --output-root /kaggle/working/ablations
+```
+
+- Uses multi-seed aggregation by default (`--seeds 42 52 62`). Add `--single-seed` for quick smoke runs.
+- RL-focused scenarios (`abl_lite_gpu`, `abl_server`, `rl_ppo`) require optional dependencies (`stable-baselines3`, `torch`). Install them or run the script with `--skip-missing-deps`.
+- Outputs are stored under `<output-root>/<scenario>_*` plus comparison CSV/plots inside `<output-root>/ablation_comparison/`.
+
+---
+
+## Full Experiment & Audit Suite
+
+Run the complete set of experiments and audits with one command:
+
+```bash
+python pipelines/run_full_suite.py --output-root /kaggle/working/full_suite
+```
+
+- Executes dataset-quality checks, baseline scenario(s), meta/offline RL baselines, leakage probes, walk-forward verification, the ablation suite, aggregate comparisons, and final report generation.
+- Toggle sections with flags: `--skip-ablation`, `--skip-meta-offline`, `--skip-audit`, `--skip-report`, `--skip-baseline`.
+- Use `--skip-optional-deps` to auto-skip RL ablation presets when `stable-baselines3`/`torch` are unavailable.
+- Outputs are organised under `/core`, `/ablations`, `/robustness`, `/aggregate_comparison`, and `/reports` beneath the chosen output root.
+
+---
+
+## Governance & Smoke Tests
+
+- Dataset audit:
+  ```bash
+  python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
+  ```
+- Kaggle-compatible smoke run (fast scenario, meta-RL, offline baseline):
+  ```bash
+  python scripts/smoke_kaggle.py --output-root dist/kaggle_smoke --keep-meta-rl --keep-offline
+  ```
+- Full test suite:
+  ```bash
+  pytest -q
+  ```
+All runners emit `data_manifest.json` and structured logs, allowing rapid validation of data provenance and run context.
+
+---
+
+## Release Workflow
+
+1. Ensure the repository is clean (`git status`), smoke tests pass, and the governance audit succeeds.
+2. Update `CHANGELOG.md` (to be generated) with the latest roadmap entries (`docs/future_roadmap.pseudo`). Add release bullet points if needed.
+3. Tag and publish:
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin main --tags
+   ```
+4. Draft GitHub release notes summarising major modules and include links to Kaggle instructions.
+
+---
+
+## Helpful References
+
+- `docs/repro.md` – reproducibility guide (conda + Docker + CLI usage).
+- `docs/data_preprocessing.md` – data cleaning steps and governance tooling.
+- `docs/deployment/kaggle_setup.md` – Kaggle-ready checklist and notebook structure.
+- `docs/future_roadmap.pseudo` – roadmap, status tracker, and change log history.
+
+Questions or contributions? Stay tuned for `CONTRIBUTING.md` and `CHANGELOG.md` in the release branch, or open an issue once this repository is published. Happy experimenting!

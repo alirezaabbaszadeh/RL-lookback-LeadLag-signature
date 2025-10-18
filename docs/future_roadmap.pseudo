@@ -1,7 +1,7 @@
 ﻿ROADMAP {
   METADATA {
     VERSION: "2.0"
-    LAST_UPDATED: "2025-10-18"
+    LAST_UPDATED: "2025-10-19"
     MAINTAINER: "roadmap_bot"
     SCOPE: "LeadLag-signature RL project"
   }
@@ -103,75 +103,29 @@
       NAME: "AdvancedResearch"
       OBJECTIVE: "Explore cutting-edge enhancements"
       OWNER: "research_team"
-      STATUS: "pending resource allocation (backlog review 2025-10-18)"
-      TASKS [
-        TASK {
-          ID: "AR-01"
-          TITLE: "Meta-RL"
-          STATUS: "pending (requires dataset design + agent bandwidth)"
-          ACTIONS: [
-            "Implement context-aware agent for regime shifts",
-            "Create synthetic regime datasets",
-            "Evaluate transfer performance"
-          ]
-          DEPENDENCIES: ["RL-02", "RL-03"]
-          OUTPUTS: ["meta_rl/", "results/meta_analysis.csv"]
-          SUCCESS: {
-            TRANSFER_GAIN: "> 0",
-            DATASETS: ">= 2"
-          }
-          RISKS: ["data scarcity", "instability"]
-        }
-        TASK {
-          ID: "AR-02"
-          TITLE: "Offline RL"
-          STATUS: "pending (awaiting offline trajectory logging from EO-03 artifacts)"
-          ACTIONS: [
-            "Log offline trajectories",
-            "Train off-policy algorithms",
-            "Benchmark against online PPO"
-          ]
-          DEPENDENCIES: ["EO-03"]
-          OUTPUTS: ["offline_dataset.h5", "offline_results.csv"]
-          SUCCESS: {
-            DATA_VOLUME: "adequate",
-            PERFORMANCE_GAP: "<= 10%"
-          }
-          RISKS: ["dataset bias"]
-        }
-      ]
+      STATUS: "completed 2025-10-18 (AR-01 meta RL baseline, AR-02 offline RL pipeline)"
+      TASKS []
     }
   ]
 
   CROSS_MODULE_INITIATIVES [
     INITIATIVE {
       NAME: "Observability"
-      STATUS: "in progress (leverages EO-03 logging foundation)"
-      ACTIONS: [
-        "Centralize logging format",
-        "Create metrics dictionary",
-        "Expose monitoring dashboard"
-      ]
+      STATUS: "completed 2025-10-18 (centralized logging, metrics dictionary, monitoring dashboard)"
+      ACTIONS: []
       AFFECTS: ["SignatureCore", "RLEngine", "ExperimentOrchestrator"]
     }
     INITIATIVE {
       NAME: "DataGovernance"
-      STATUS: "planned (kickoff after IQ-02 packaging review)"
-      ACTIONS: [
-        "Track dataset versions with hash",
-        "Document preprocessing steps",
-        "Automate quality checks"
-      ]
+      STATUS: "completed 2025-10-18 (dataset manifest logging, preprocessing docs, audit script)"
+      ACTIONS: []
       AFFECTS: ["SignatureCore", "ExperimentOrchestrator", "EvaluationReporting"]
     }
   ]
 
   STATUS_TRACKER {
-    LAST_REVIEW: "2025-10-18"
-    OPEN_ITEMS [
-      ITEM {MODULE: "AdvancedResearch", TASK: "AR-01", STATUS: "pending"}
-      ITEM {MODULE: "AdvancedResearch", TASK: "AR-02", STATUS: "pending"}
-    ]
+    LAST_REVIEW: "2025-10-19"
+    OPEN_ITEMS []
     NOTE: "Use reporting/status_summary.py for quick snapshots; update STATUS_TRACKER after each roadmap review."
   }
 
@@ -205,6 +159,10 @@
     ENTRY {DATE: "2025-10-17", DESCRIPTION: "IQ-02: Added environment.yml, Dockerfile, scripts/run_experiment.*, and docs/repro.md"}
     ENTRY {DATE: "2025-10-18", DESCRIPTION: "ER-02: Automated research report generation (reporting/generate_report.py) and produced reports/final_report.{md,pdf}, reports/appendix.md"}
     ENTRY {DATE: "2025-10-18", DESCRIPTION: "Roadmap maintenance: marked delivered modules complete and refreshed status tracker"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "Observability initiative completed with structured logging context, metrics refresh, and CLI dashboard"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "DataGovernance initiative completed with dataset manifests, preprocessing documentation, and quality audit script"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "AR-01: Added synthetic regime datasets, meta RL agent, and transfer evaluation outputs (meta_rl/, results/meta_analysis.csv)"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "AR-02: Added offline trajectory logger, behaviour cloning trainer, and offline vs online benchmark outputs"}
   ]
 }
 

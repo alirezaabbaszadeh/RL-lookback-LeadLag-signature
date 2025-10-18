@@ -1,7 +1,6 @@
 ﻿import os
 import json
 import time
-import hashlib
 import argparse
 import logging
 from copy import deepcopy
@@ -30,7 +29,8 @@ from evaluation.metrics import (
     plot_signal_strength,
     plot_stability,
 )
-from reporting.logging_utils import setup_logging
+from governance.dataset import build_manifest, record_manifest, run_quality_checks
+from reporting.logging_utils import get_logger, setup_logging
 from reporting.profiling import profile_to
 
 
@@ -66,14 +66,6 @@ def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, A
         else:
             base[key] = value
     return base
-
-
-def _hash_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _detect_git() -> Dict[str, Any]:
@@ -115,20 +107,21 @@ def _set_seed(seed: int):
     np.random.seed(seed)
 
 
-def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
+def _read_prices(cfg: Dict[str, Any]) -> tuple[pd.DataFrame, Optional[Path]]:
     price_path = Path(cfg['data'].get('price_csv', 'raw_data/daily_price.csv'))
+    resolved_path: Optional[Path] = None
     if not price_path.exists():
-        # try to autodetect a daily_prices_* file
         candidates = list(Path('raw_data').glob('daily_prices_*.csv'))
         if candidates:
             price_path = candidates[0]
-    if not price_path.exists():
-        # generate synthetic random-walk data for demonstration/testing
+    if price_path.exists():
+        resolved_path = price_path
+    else:
         dates = pd.date_range("2020-01-01", periods=300, freq="D")
         rng = np.random.default_rng(seed=cfg['run'].get('seed', 42))
         data = rng.normal(0, 0.01, size=(len(dates), 3)).cumsum(axis=0) + 100
         df = pd.DataFrame(data, index=dates, columns=['AssetA', 'AssetB', 'AssetC'])
-        return df
+        return df, resolved_path
 
     df = pd.read_csv(price_path)
     if 'date' in df.columns:
@@ -141,10 +134,8 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         idx = pd.to_datetime(df.iloc[:, 0])
         df = df.iloc[:, 1:]
     df.index = idx
-    # Baseline: sort chronologically
     df = df.sort_index()
 
-    # Optional: limit rows for walk-forward verification
     try:
         limit_days = cfg.get('data', {}).get('limit_days', None)
     except Exception:
@@ -157,7 +148,6 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         except Exception:
             pass
 
-    # Optional: placebo shuffle to probe leakage (destroys chronological order)
     placebo = False
     try:
         placebo = bool(cfg.get('data', {}).get('placebo_shuffle', False))
@@ -167,9 +157,8 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         rng = np.random.default_rng(seed=cfg.get('run', {}).get('seed', 42))
         idx_perm = rng.permutation(len(df))
         df = df.iloc[idx_perm]
-        # keep the shuffled order (do not sort back)
 
-    return df
+    return df, resolved_path
 
 
 def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
@@ -211,12 +200,21 @@ def run_scenario(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # logging setup
+    logging_context = {
+        "module": "scenario",
+        "run_name": run_name,
+        "seed": cfg["run"].get("seed"),
+    }
     try:
-        setup_logging(out_dir / "run.log", level="INFO", config_path=Path("logging_config.yaml"))
+        setup_logging(
+            out_dir / "run.log",
+            level="INFO",
+            config_path=Path("logging_config.yaml"),
+            context=logging_context,
+        )
     except Exception:
-        # fallback handled in setup_logging
-        pass
-    logger = logging.getLogger("run_scenario")
+        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
+    logger = get_logger("run_scenario", context=logging_context)
     logger.info("Starting scenario run: %s", run_name)
 
     # snapshot configs and metadata
@@ -225,20 +223,21 @@ def run_scenario(
             f.write(json.dumps(cfg, indent=2))
         else:
             yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
-    # compute dataset file hash if file exists
-    data_price_path = cfg['data'].get('price_csv', '')
-    price_path_resolved = Path(data_price_path)
-    data_price_hash = None
-    try:
-        if price_path_resolved.exists():
-            data_price_hash = _hash_file(price_path_resolved)
-    except Exception:
-        data_price_hash = None
+
+    manifest_path: Optional[Path] = None
+    with profile_to(out_dir, label="load_data"):
+        prices, resolved_price_path = _read_prices(cfg)
+    manifest = build_manifest(
+        prices,
+        source_path=resolved_price_path,
+        extras={"quality": run_quality_checks(prices)},
+    )
+    manifest_path = record_manifest(manifest, out_dir)
 
     meta = {
         'config_path': str(cfg_path.resolve()),
-        'data_price_path': data_price_path,
-        'data_price_hash': data_price_hash,
+        'data_source_config': cfg['data'].get('price_csv', ''),
+        'data_manifest': str(manifest_path) if manifest_path else None,
         'created_at': ts,
         'git': _detect_git(),
         'env': _env_info(),
@@ -246,9 +245,6 @@ def run_scenario(
     with open(out_dir / 'run_metadata.json', 'w', encoding='utf-8') as f:
         json.dump(meta, f, indent=2)
 
-    # load data
-    with profile_to(out_dir, label="load_data"):
-        prices = _read_prices(cfg)
     # optional universe is not wired due to format variability; pass None
 
     # build analyzer

@@ -1,0 +1,41 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+
+# Environments
+.venv/
+venv/
+.env/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Experiment artifacts
+results/
+dist/
+meta_rl/
+reports/
+*.log
+
+# Kaggle / smoke outputs
+kaggle/working/
+*.h5
+*-aggregate/
+hydra_runs.json
+
+# Build
+build/
+
+# Coverage / Test
+.pytest_cache/
+.coverage
+coverage.xml

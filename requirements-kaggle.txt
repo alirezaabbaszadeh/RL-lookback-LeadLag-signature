@@ -1,0 +1,17 @@
+# Core analytics stack
+numpy>=1.23
+pandas>=1.5
+scipy>=1.10
+pyyaml>=6.0
+tqdm>=4.64
+matplotlib>=3.6
+dcor>=0.6
+iisignature>=0.24
+hydra-core>=1.3
+scikit-learn>=1.1
+gym>=0.26
+
+# Optional integrations (install on demand)
+# mlflow>=2.7
+# stable-baselines3>=1.8
+# torch>=2.0

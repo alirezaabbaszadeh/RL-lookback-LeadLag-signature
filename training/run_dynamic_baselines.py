@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
@@ -25,6 +26,8 @@ from training.run_scenario import (
     _set_seed,
 )
 from evaluation.metrics import compute_metrics_timeseries, summarize_metrics, plot_signal_strength, plot_stability
+from governance.dataset import build_manifest, record_manifest, run_quality_checks
+from reporting.logging_utils import get_logger, setup_logging
 
 
 def _compute_matrix_for_window(analyzer: LeadLagAnalyzer, price_df: pd.DataFrame,
@@ -101,14 +104,49 @@ def run_dynamic(config_path: str, out_root: Optional[str] = None, overrides: Opt
     out_dir = Path(out_root) / f"{run_name}_{ts}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    logging_context = {
+        "module": "dynamic",
+        "run_name": run_name,
+        "seed": cfg["run"].get("seed"),
+        "scenario": cfg_path.stem,
+    }
+    try:
+        setup_logging(
+            out_dir / "run.log",
+            level="INFO",
+            config_path=Path("logging_config.yaml"),
+            context=logging_context,
+        )
+    except Exception:
+        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
+    logger = get_logger("run_dynamic", context=logging_context)
+    logger.info("Starting dynamic baseline run", context={"output_dir": str(out_dir)})
+
     # write merged config snapshot
     if yaml is not None:
         (out_dir / 'config_merged.yaml').write_text(yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding='utf-8')
     else:
         (out_dir / 'config_merged.yaml').write_text(str(cfg), encoding='utf-8')
 
+    prices, resolved_price_path = _read_prices(cfg)
+    manifest = build_manifest(
+        prices,
+        source_path=resolved_price_path,
+        extras={"quality": run_quality_checks(prices)},
+    )
+    manifest_path = record_manifest(manifest, out_dir)
+    meta = {
+        'config_path': str(cfg_path.resolve()),
+        'created_at': ts,
+        'git': _detect_git(),
+        'env': _env_info(),
+        'data_source_config': cfg.get('data', {}).get('price_csv', ''),
+        'data_manifest': str(manifest_path),
+    }
+    (out_dir / 'run_metadata.json').write_text(json.dumps(meta, indent=2), encoding='utf-8')
+    logger.info("Dataset manifest captured", context={"manifest": str(manifest_path)})
+
     # load data and analyzer
-    prices = _read_prices(cfg)
     ll_cfg = _config_to_leadlag(cfg)
     analyzer = LeadLagAnalyzer(ll_cfg)
 
@@ -164,6 +202,14 @@ def run_dynamic(config_path: str, out_root: Optional[str] = None, overrides: Opt
     # plots
     plot_signal_strength(metrics_df, out_dir / 'fig_signal_strength.png')
     plot_stability(metrics_df, out_dir / 'fig_stability.png')
+
+    logger.info(
+        "Dynamic baseline completed",
+        context={
+            "decisions": len(decisions),
+            "metrics_path": str(out_dir / 'summary.csv'),
+        },
+    )
 
     return out_dir
 

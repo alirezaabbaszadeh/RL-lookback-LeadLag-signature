@@ -38,6 +38,8 @@ from training.run_scenario import (
     _env_info,
 )
 from evaluation.metrics import compute_metrics_timeseries, summarize_metrics, plot_signal_strength, plot_stability
+from governance.dataset import build_manifest, record_manifest, run_quality_checks
+from reporting.logging_utils import get_logger, setup_logging
 
 
 def _ensure_dir(path: Path):
@@ -117,6 +119,24 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
     out_dir = Path(out_root) / f"{run_name}_{ts}"
     _ensure_dir(out_dir)
 
+    logging_context = {
+        "module": "rl",
+        "run_name": run_name,
+        "seed": seed,
+        "scenario": cfg_path.stem,
+    }
+    try:
+        setup_logging(
+            out_dir / "run.log",
+            level="INFO",
+            config_path=Path("logging_config.yaml"),
+            context=logging_context,
+        )
+    except Exception:
+        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
+    logger = get_logger("run_rl", context=logging_context)
+    logger.info("Starting RL run", context={"use_random_policy": use_random_policy})
+
     _save_config(cfg, out_dir)
     metadata = {
         'config_path': str(cfg_path.resolve()),
@@ -124,14 +144,23 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
         'git': _detect_git(),
         'env': _env_info(),
     }
-    with open(out_dir / 'run_metadata.json', 'w', encoding='utf-8') as f:
-        json.dump(metadata, f, indent=2)
 
-    prices = _read_prices(cfg)
+    prices, resolved_price_path = _read_prices(cfg)
+    manifest = build_manifest(
+        prices,
+        source_path=resolved_price_path,
+        extras={"quality": run_quality_checks(prices)},
+    )
+    manifest_path = record_manifest(manifest, out_dir)
+    metadata['data_source_config'] = cfg.get('data', {}).get('price_csv', '')
+    metadata['data_manifest'] = str(manifest_path)
+    (out_dir / 'run_metadata.json').write_text(json.dumps(metadata, indent=2), encoding='utf-8')
 
     env = _instantiate_env(prices, cfg)
 
+    step_count = 0
     if use_random_policy:
+        logger.info("Executing random policy baseline")
         # Random policy baseline (negative control)
         eval_env = _instantiate_env(prices, cfg)
         obs = eval_env.reset()
@@ -139,6 +168,7 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
         while not done:
             action = eval_env.action_space.sample()
             obs, reward, done, info = eval_env.step(action)
+            step_count += 1
     else:
         algo_spec = make_algorithm_spec(rl_cfg)
         total_timesteps = int(rl_cfg.get('total_timesteps', 50000))
@@ -155,6 +185,14 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
         if algo_spec.policy_kwargs:
             algo_kwargs['policy_kwargs'] = algo_spec.policy_kwargs
 
+        logger.info(
+            "Initializing RL algorithm",
+            context={
+                "algo": algo_spec.algo_cls.__name__,
+                "policy": str(algo_spec.policy),
+                "total_timesteps": total_timesteps,
+            },
+        )
         model = algo_spec.algo_cls(algo_spec.policy, env, **algo_kwargs)
 
         # optional evaluation callback (self-play, so reuse env)
@@ -172,7 +210,9 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
                 )
             )
 
+        logger.info("Starting training loop")
         model.learn(total_timesteps=total_timesteps, callback=callbacks if callbacks else None)
+        logger.info("Training loop completed")
 
         model.save(str(out_dir / 'model.zip'))
 
@@ -183,6 +223,7 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
         while not done:
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = eval_env.step(action)
+            step_count += 1
 
     # collect history matrices for metrics
     rolling = eval_env.get_history_matrices()
@@ -198,6 +239,16 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
 
     plot_signal_strength(metrics_df, out_dir / 'fig_signal_strength.png')
     plot_stability(metrics_df, out_dir / 'fig_stability.png')
+
+    model_path = out_dir / 'model.zip'
+    logger.info(
+        "RL run completed",
+        context={
+            "steps": step_count,
+            "summary": str(out_dir / 'summary.csv'),
+            "model_path": str(model_path) if model_path.exists() else "random_policy",
+        },
+    )
 
     return out_dir
 

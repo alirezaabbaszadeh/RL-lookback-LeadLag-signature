@@ -2,11 +2,10 @@ tasks:
   - id: P12-01
     title: Paper readiness and packaging
     owner: audit_team
-    status: pending
+    status: completed
     description: One-command build for figures/tables; deterministic report.{md,pdf}; model card.
     outputs:
       - docs/audit/phase-12/paper-readiness.md
     acceptance: Rebuild reproduces all artefacts; limitations documented.
     created: 2025-10-18
-    updated: 2025-10-18
-
+    updated: 2025-10-19

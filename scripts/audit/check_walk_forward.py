@@ -21,14 +21,20 @@ def _preset_raw_config_ccf(preset: dict) -> dict:
     return raw
 
 
-def run_with_limit(preset: dict, run_name: str, seed: int, limit_days: Optional[int]) -> Path:
+def run_with_limit(
+    preset: dict,
+    run_name: str,
+    seed: int,
+    limit_days: Optional[int],
+    output_root: Path,
+) -> Path:
     overrides = {
         '_raw_config': _preset_raw_config_ccf(preset),
         'run': {'seed': seed, 'run_name': run_name},
     }
     if limit_days is not None:
         overrides['data'] = {'limit_days': int(limit_days)}
-    return run_scenario(preset['path'], 'results', overrides)
+    return run_scenario(preset['path'], str(output_root), overrides)
 
 
 def compare_at_pivot(full_dir: Path, trunc_dir: Path) -> pd.DataFrame:
@@ -51,14 +57,16 @@ def main() -> int:
     ap.add_argument('--scenario', type=str, default='fixed_30')
     ap.add_argument('--seed', type=int, default=13)
     ap.add_argument('--limit_days', type=int, default=120)
+    ap.add_argument('--output-root', type=Path, default=Path('results'))
     args = ap.parse_args()
 
     preset = hydra_main.SCENARIO_PRESETS.get(args.scenario)
     if not preset:
         raise SystemExit(f'Unknown scenario preset: {args.scenario}')
 
-    full_dir = run_with_limit(preset, 'wf_full', args.seed, None)
-    trunc_dir = run_with_limit(preset, 'wf_trunc', args.seed, args.limit_days)
+    args.output_root.mkdir(parents=True, exist_ok=True)
+    full_dir = run_with_limit(preset, 'wf_full', args.seed, None, args.output_root)
+    trunc_dir = run_with_limit(preset, 'wf_trunc', args.seed, args.limit_days, args.output_root)
     df = compare_at_pivot(full_dir, trunc_dir)
     out_dir = Path('docs/audit/phase-2')
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -73,4 +81,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-

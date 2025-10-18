@@ -2,20 +2,20 @@ tasks:
   - id: P4-01
     title: Ablation grid design and coverage
     owner: audit_team
-    status: in_progress
+    status: completed
     description: Define factors (method, lookback, action mode, reward weights) and coverage heatmap.
     outputs:
       - docs/audit/phase-4/ablations.md
-    acceptance: ≥80% planned coverage achieved; negative controls included.
+    acceptance: At least 80 percent of planned coverage achieved; negative controls included.
     created: 2025-10-18
-    updated: 2025-10-18
+    updated: 2025-10-19
   - id: P4-02
     title: Negative controls (random/frozen policies)
     owner: audit_team
-    status: pending
+    status: completed
     description: Add baselines to establish floor performance.
     outputs:
       - docs/audit/phase-4/ablations.md
     acceptance: Negative controls underperform baseline with statistical support.
     created: 2025-10-18
-    updated: 2025-10-18
+    updated: 2025-10-19

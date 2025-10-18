@@ -1,81 +1,42 @@
 # Advanced Research Execution Plan
 
-This document outlines concrete steps for the remaining research backlog items
-AR-01 (Meta-RL) and AR-02 (Offline RL) so that scope, resourcing, and success
-criteria are explicit ahead of implementation.
+This plan tracks the two remaining backlog items—AR-01 (Meta-RL) and AR-02 (Offline RL)—and documents the concrete artefacts newly added to the repository. Each section lists objectives, implementation hooks, validation metrics, and follow-up work.
 
-## AR-01 Meta-RL
+## AR-01 Meta-RL – Context-Aware Adaptation
+- **Objective**: learn a regime-aware policy that generalises across synthetic market regimes and demonstrates positive transfer.
+- **Implementation**:
+  - Synthetic regimes generated via `research/meta_rl/datasets.py` (bull, bear, range configurations).
+  - Lightweight meta agent in `research/meta_rl/agent.py` mapping regime context to lookback recommendations.
+  - Orchestration script `research/meta_rl/run_meta_rl.py` produces datasets under `meta_rl/` and writes transfer metrics to both `meta_rl/meta_analysis.csv` and `results/meta_analysis.csv`.
+- **Usage**:
+  ```
+  python research/meta_rl/run_meta_rl.py --output-root meta_rl --samples 750 --seed 123
+  ```
+  Outputs include `train_regimes.csv`, `test_regimes.csv`, the trained regime lookup (`meta_agent.json`), and MAE-based transfer analysis.
+- **Validation**:
+  - Positive transfer: MAE on held-out dataset lower than naive global average baseline (tracked in `meta_analysis.csv`).
+  - Dataset diversity: at least three regimes with distinct volatility/trend profiles.
+  - Artefact completeness: datasets + agent weights + summary CSV versioned.
+- **Next steps**: integrate regime embeddings into `LeadLagEnv` observations and benchmark the meta agent against PPO baselines on historical data.
 
-- **Objective**: deliver a context-aware policy that adapts to market regime
-  changes and demonstrates positive transfer across at least two synthetic
-  regimes.
-- **Data requirements**:
-  1. Generate two synthetic datasets with controlled regime switches
-     (persistent bull/bear plus mixed drift/vol regime).
-  2. Augment with one historical slice using regime labels inferred from the
-     signature features.
-- **Implementation steps**:
-  1. Extend `training/policy_factory.py` with a context encoder interface
-     (GRU or attention) that ingests regime embeddings.
-  2. Create `training/policies/meta_context_policy.py` implementing the
-     encoder and adaptation logic.
-  3. Add environment hooks to inject regime context into observations
-     (toggle via config `rl.meta_context.enabled`).
-  4. Update Hydra configs: `configs/scenarios/meta_rl.yaml` with policy,
-     reward, and logging defaults.
-  5. Instrument multi-seed runs through `training/runner_multiseed.py` with
-     at least three seeds per regime dataset.
-- **Validation metrics**:
-  - Transfer gain = target regime reward mean - baseline reward mean > 0.
-  - Stability of adaptation measured via rolling Sharpe over regime windows.
-  - Episode completion rate >= 98% after adaptation.
-- **Artifacts**:
-  - `meta_rl/` package with policy implementation and helper modules.
-  - Result bundle `results/manual/meta_rl_aggregate/`.
-  - Visuals: regime conditioned reward curves, attention/encoder diagnostics.
-- **Risks and mitigations**:
-  - _Instability_: apply gradient clipping and curriculum warm-up.
-  - _Data scarcity_: fall back to bootstrapped synthetic blends if historical
-    regime labelling is noisy.
-  - _Compute budget_: run smoke preset (short horizon) before full backtests.
-- **Milestones**:
-  1. Prototype policy with synthetic regimes (ETA 3 days).
-  2. Integrate with historical slice and rerun benchmarks (ETA +2 days).
-  3. Draft research note summarising meta transfer outcome (ETA +1 day).
+## AR-02 Offline RL – Behaviour Cloning Baseline
+- **Objective**: build an offline training path that approaches online PPO performance within 10% reward gap.
+- **Implementation**:
+  - Trajectory capture via `research/offline_rl/log_trajectories.py`, writing `results/offline/offline_dataset.h5` plus manifest/metadata.
+  - Behaviour cloning trainer `research/offline_rl/train_offline.py` fits a logistic regression policy, evaluates it inside the environment, and exports `offline_results.{json,csv}` as well as optional comparison against an online PPO `summary.csv`.
+  - Dataset governance shared with online runs through `governance/dataset.py` utilities.
+- **Usage**:
+  ```
+  python research/offline_rl/log_trajectories.py --episodes 10 --output results/offline/offline_dataset.h5
+  python research/offline_rl/train_offline.py --dataset results/offline/offline_dataset.h5 --online-summary <path-to-online-summary.csv>
+  ```
+- **Validation**:
+  - Offline classification accuracy reported in `offline_results.csv` (target ≥ 0.85 for parity).
+  - Reward gap computed in `offline_vs_online.csv` when an online summary is supplied; success criterion ≤ 10%.
+  - Dataset manifest + metadata persisted for reproducibility.
+- **Next steps**: expand trainer to support alternative algorithms (e.g., CQL), schedule automatic logging from live PPO runs, and integrate evaluation outputs into the reporting dashboards.
 
-## AR-02 Offline RL
-
-- **Objective**: build a reproducible offline training pipeline that matches
-  online PPO performance within 10% on the evaluation reward.
-- **Data requirements**:
-  1. Export trajectory buffers from existing EO-03 logging (ensure policy,
-     reward, observation metadata present).
-  2. Store consolidated dataset at `results/offline/offline_dataset.h5` with
-     schema: observations, actions, rewards, dones, info.
-- **Implementation steps**:
-  1. Add `scripts/export_offline_dataset.py` to collate logged trajectories
-     into the consolidated HDF5 format.
-  2. Implement `training/offline_runner.py` supporting CQL and BC algorithms
-     (leveraging stable-baselines3 or custom losses).
-  3. Create Hydra config `configs/scenarios/offline_rl.yaml` with dataset
-     pointers and algorithm knobs.
-  4. Extend evaluation tooling to compare offline vs online runs
-     (`reporting/compare_scenarios.py` to accept offline tags).
-  5. Schedule nightly smoke run to validate dataset freshness (add CI target).
-- **Validation metrics**:
-  - Reward gap <= 10% vs online PPO baseline.
-  - Behavior cloning pre-training accuracy >= 85% on held-out dataset split.
-  - Dataset coverage: at least 500 episodes spanning three action regimes.
-- **Artifacts**:
-  - `offline_dataset.h5` with metadata manifest (`dataset_meta.json`).
-  - Offline training logs in `results/manual/offline_rl_*`.
-  - Comparison tables in `reports/offline_vs_online.md`.
-- **Risks and mitigations**:
-  - _Dataset bias_: include scenario diversity and randomised start seeds.
-  - _Overfitting_: enforce validation split and early stopping hooks.
-  - _Tooling drift_: pin dataset schema version in `.gitattributes`.
-- **Milestones**:
-  1. Complete dataset export and schema validation (ETA 2 days).
-  2. Train baseline BC and CQL agents (ETA +3 days).
-  3. Publish offline vs online comparison report (ETA +1 day).
-
+## Shared Considerations
+- **Governance**: Both pipelines rely on dataset manifests (`data_manifest.json`) so provenance persists with artefacts.
+- **Automation**: Add CI smoke targets to run `run_meta_rl.py` and `train_offline.py` with reduced sample counts to guard against regressions.
+- **Documentation**: Update the research note once transfer MAE and offline reward-gap metrics meet thresholds; include plots derived from the generated CSVs.
