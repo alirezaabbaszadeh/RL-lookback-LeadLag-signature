@@ -1,0 +1,31 @@
+tasks:
+  - id: P1-01
+    title: Inventory inputs/outputs and locations
+    owner: audit_team
+    status: completed
+    description: Enumerate files under results/, evaluation/, reporting/, and map producers/consumers.
+    outputs:
+      - docs/audit/phase-1/artifact-contracts.md
+    acceptance: Inventory covers 100% referenced artifacts; missing items flagged.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P1-02
+    title: Define artifact schemas and column contracts
+    owner: audit_team
+    status: completed
+    description: Specify schema for summary.csv, metrics_timeseries.csv, stats.csv, significance.csv, welch.csv.
+    outputs:
+      - docs/audit/phase-1/artifact-contracts.md
+    acceptance: Schemas validated against sample files; deviations listed.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P1-03
+    title: Lineage diagram (E2E flow)
+    owner: audit_team
+    status: completed
+    description: Map data lineage from raw_data to reports with producers/consumers per artifact.
+    outputs:
+      - docs/audit/phase-1/artifact-lineage.md
+    acceptance: Diagram includes all stages and artefacts with directions.
+    created: 2025-10-18
+    updated: 2025-10-18

@@ -12,6 +12,8 @@ try:
     MLFLOW_AVAILABLE = True
 except ImportError:  # pragma: no cover
     MLFLOW_AVAILABLE = False
+import os as _os
+_MLFLOW_ENABLED_ENV = _os.getenv('MLFLOW_ENABLED', '1').lower() in ('1', 'true', 'yes')
 
 try:  # optional for Welch test p-values
     from scipy import stats as _scipy_stats  # type: ignore
@@ -235,10 +237,10 @@ def run_multiseed(
             record = {k: row[k] for k in row.index if k in {'scenario', 'metric'}}
             for col in row.index:
                 if col.endswith('_boot_low'):
-                    base = col[:-10]
+                    base = col[:-9]
                     record[f'{base}_boot_low'] = row[col]
                 if col.endswith('_boot_high'):
-                    base = col[:-11]
+                    base = col[:-10]
                     record[f'{base}_boot_high'] = row[col]
             record['note'] = 'Bootstrap CI at 95%'
             significant_rows.append(record)
@@ -252,7 +254,7 @@ def run_multiseed(
                 welch_df.to_csv(aggregate_dir / 'welch.csv', index=False)
                 logger.info("Welch test results saved: %s", aggregate_dir / 'welch.csv')
 
-        if MLFLOW_AVAILABLE:
+        if MLFLOW_AVAILABLE and _MLFLOW_ENABLED_ENV:
             with mlflow.start_run(run_name=f"{scenario_name}_aggregate", nested=True):
                 for _, row in stats_df.iterrows():
                     metric = row.get('metric', '')
@@ -260,7 +262,7 @@ def run_multiseed(
                         if isinstance(value, (int, float)) and not np.isnan(value):
                             mlflow.log_metric(f"{metric}_{col}", float(value))
 
-    if MLFLOW_AVAILABLE and summaries:
+    if MLFLOW_AVAILABLE and _MLFLOW_ENABLED_ENV and summaries:
         with mlflow.start_run(run_name=f"{scenario_name}_runs_summary", nested=True):
             mlflow.log_artifact(str(aggregate_dir / 'stats.csv'))
             mlflow.log_artifact(str(aggregate_dir / 'significance.csv'))

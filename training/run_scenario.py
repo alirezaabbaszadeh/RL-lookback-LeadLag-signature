@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import time
 import hashlib
@@ -141,7 +141,35 @@ def _read_prices(cfg: Dict[str, Any]) -> pd.DataFrame:
         idx = pd.to_datetime(df.iloc[:, 0])
         df = df.iloc[:, 1:]
     df.index = idx
-    return df.sort_index()
+    # Baseline: sort chronologically
+    df = df.sort_index()
+
+    # Optional: limit rows for walk-forward verification
+    try:
+        limit_days = cfg.get('data', {}).get('limit_days', None)
+    except Exception:
+        limit_days = None
+    if limit_days is not None:
+        try:
+            n = int(limit_days)
+            if n > 0:
+                df = df.iloc[:n]
+        except Exception:
+            pass
+
+    # Optional: placebo shuffle to probe leakage (destroys chronological order)
+    placebo = False
+    try:
+        placebo = bool(cfg.get('data', {}).get('placebo_shuffle', False))
+    except Exception:
+        placebo = False
+    if placebo and len(df) > 1:
+        rng = np.random.default_rng(seed=cfg.get('run', {}).get('seed', 42))
+        idx_perm = rng.permutation(len(df))
+        df = df.iloc[idx_perm]
+        # keep the shuffled order (do not sort back)
+
+    return df
 
 
 def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
@@ -197,9 +225,20 @@ def run_scenario(
             f.write(json.dumps(cfg, indent=2))
         else:
             yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+    # compute dataset file hash if file exists
+    data_price_path = cfg['data'].get('price_csv', '')
+    price_path_resolved = Path(data_price_path)
+    data_price_hash = None
+    try:
+        if price_path_resolved.exists():
+            data_price_hash = _hash_file(price_path_resolved)
+    except Exception:
+        data_price_hash = None
+
     meta = {
         'config_path': str(cfg_path.resolve()),
-        'data_price_path': cfg['data'].get('price_csv', ''),
+        'data_price_path': data_price_path,
+        'data_price_hash': data_price_hash,
         'created_at': ts,
         'git': _detect_git(),
         'env': _env_info(),
@@ -226,8 +265,10 @@ def run_scenario(
     summary = summarize_metrics(metrics_df)
     summary.to_csv(out_dir / 'summary.csv', index=False)
 
-    # Log summary metrics to MLflow if available
-    if MLFLOW_AVAILABLE:
+    # Log summary metrics to MLflow if available and enabled via env
+    import os as _os  # local import to avoid polluting namespace
+    mlflow_enabled_env = _os.getenv('MLFLOW_ENABLED', '1').lower() in ('1', 'true', 'yes')
+    if MLFLOW_AVAILABLE and mlflow_enabled_env:
         try:  # pragma: no cover - integration path
             with mlflow.start_run(run_name=run_name, nested=False):
                 for _, row in summary.iterrows():
@@ -250,7 +291,12 @@ def run_scenario(
             logger.warning("MLflow logging failed; continuing without MLflow.")
 
     # plots
-    if 'metrics' in cfg and 'plots' in cfg['metrics']:
+    headless = False
+    try:
+        headless = bool(cfg.get('metrics', {}).get('headless', False))
+    except Exception:
+        headless = False
+    if (not headless) and 'metrics' in cfg and 'plots' in cfg['metrics']:
         if 'signal_strength' in cfg['metrics']['plots']:
             try:
                 plot_signal_strength(metrics_df, out_dir / 'fig_signal_strength.png')
@@ -284,3 +330,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

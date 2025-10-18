@@ -33,6 +33,7 @@ metrics:
     - row_sum_std
     - stability_matrix_corr
     - stability_rowsum_corr
+  headless: false
   plots:
     - signal_strength
     - stability

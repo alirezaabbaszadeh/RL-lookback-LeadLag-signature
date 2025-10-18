@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -16,7 +16,8 @@ except ImportError:
 # Avoid importing heavy runtime modules at import time.
 
 
-SCENARIO_DIR = Path("configs/scenario")
+# Prefer the actual scenarios directory. Fall back for backward-compat.
+SCENARIO_DIR = Path("configs/scenarios")
 
 BASE_CONFIG = {
     'run': {
@@ -163,6 +164,141 @@ SCENARIO_PRESETS = {
             },
         ),
     },
+    # Ablation presets: smoke (pipeline-only), lite GPU, and server-grade
+    'abl_smoke': {
+        'name': 'abl_smoke',
+        'path': 'configs/scenarios/abl_smoke.yaml',
+        'runner': 'scenario',
+        'multi_seed': {'enabled': False, 'seeds': [1]},
+        'raw_config': _merge(
+            BASE_CONFIG,
+            {
+                'analysis': {'lookback': 10, 'update_freq': 9999},
+                'run': {'run_name': 'abl_smoke', 'seed': 1},
+                'metrics': {
+                    'compute': ['mean_abs_matrix', 'row_sum_std', 'stability_matrix_corr'],
+                    'plots': [],
+                },
+            },
+        ),
+    },
+    'abl_lite_gpu': {
+        'name': 'abl_lite_gpu',
+        'path': 'configs/scenarios/abl_lite_gpu.yaml',
+        'runner': 'rl',
+        'multi_seed': {'enabled': False, 'seeds': [11]},
+        'raw_config': _merge(
+            BASE_CONFIG,
+            {
+                'analysis': {
+                    'lookback': 30,
+                    'method': 'signature',
+                    'signature': {'sig_method': 'levy'},
+                },
+                'run': {'run_name': 'abl_lite_gpu', 'seed': 11},
+                'metrics': {
+                    'compute': ['mean_abs_matrix', 'row_sum_std', 'row_sum_range', 'stability_matrix_corr'],
+                    'plots': ['signal_strength', 'stability'],
+                },
+                'rl': {
+                    'min_lookback': 10,
+                    'max_lookback': 120,
+                    'discrete_actions': True,
+                    'action_mode': 'hybrid',
+                    'relative_step': 5,
+                    'episode_length': 252,
+                    'random_start': True,
+                    'ema_alpha': 0.2,
+                    'policy': 'attention',
+                    'policy_kwargs': {
+                        'features_extractor_kwargs': {'features_dim': 64, 'n_heads': 2}
+                    },
+                    'reward_template': 'default',
+                    'total_timesteps': 20000,
+                    'n_steps': 128,
+                    'batch_size': 64,
+                    'learning_rate': 3e-4,
+                    'gamma': 0.99,
+                    'ent_coef': 0.0,
+                    'eval_freq': 0,
+                    'verbose': False,
+                },
+            },
+        ),
+    },
+    'abl_random': {
+        'name': 'abl_random',
+        'path': 'configs/scenarios/abl_random.yaml',
+        'runner': 'rl',
+        'multi_seed': {'enabled': False, 'seeds': [21]},
+        'raw_config': _merge(
+            BASE_CONFIG,
+            {
+                'analysis': {
+                    'lookback': 30,
+                    'method': 'signature',
+                },
+                'run': {'run_name': 'abl_random', 'seed': 21},
+                'metrics': {
+                    'compute': ['mean_abs_matrix', 'row_sum_std', 'row_sum_range', 'stability_matrix_corr'],
+                    'headless': True,
+                    'plots': [],
+                },
+                'rl': {
+                    'min_lookback': 10,
+                    'max_lookback': 120,
+                    'discrete_actions': True,
+                    'action_mode': 'hybrid',
+                    'policy': 'random',
+                    'random_policy': True,
+                },
+            },
+        ),
+    },
+    'abl_server': {
+        'name': 'abl_server',
+        'path': 'configs/scenarios/abl_server.yaml',
+        'runner': 'rl',
+        'multi_seed': {'enabled': True, 'seeds': [101, 202, 303]},
+        'raw_config': _merge(
+            BASE_CONFIG,
+            {
+                'analysis': {
+                    'lookback': 60,
+                    'method': 'signature',
+                    'signature': {'sig_method': 'levy'},
+                },
+                'run': {'run_name': 'abl_server'},
+                'metrics': {
+                    'compute': ['mean_abs_matrix', 'max_abs_matrix', 'row_sum_std', 'row_sum_range', 'stability_matrix_corr'],
+                    'plots': ['signal_strength', 'stability'],
+                },
+                'rl': {
+                    'min_lookback': 10,
+                    'max_lookback': 120,
+                    'discrete_actions': True,
+                    'action_mode': 'hybrid',
+                    'relative_step': 5,
+                    'episode_length': 504,
+                    'random_start': True,
+                    'ema_alpha': 0.2,
+                    'policy': 'attention',
+                    'policy_kwargs': {
+                        'features_extractor_kwargs': {'features_dim': 128, 'n_heads': 4}
+                    },
+                    'reward_template': 'default',
+                    'total_timesteps': 200000,
+                    'n_steps': 512,
+                    'batch_size': 256,
+                    'learning_rate': 3e-4,
+                    'gamma': 0.99,
+                    'ent_coef': 0.0,
+                    'eval_freq': 0,
+                    'verbose': False,
+                },
+            },
+        ),
+    },
 }
 
 
@@ -188,12 +324,14 @@ def get_available_scenarios() -> List[str]:
     configs/scenario and merges with keys from SCENARIO_PRESETS.
     """
     names = set(SCENARIO_PRESETS.keys())
-    if SCENARIO_DIR.exists():
-        for p in SCENARIO_DIR.glob("*.yaml"):
-            try:
-                names.add(p.stem)
-            except Exception:
-                continue
+    # Scan both plural and singular to be robust.
+    for folder in [Path("configs/scenarios"), Path("configs/scenario")]:
+        if folder.exists():
+            for p in folder.glob("*.yaml"):
+                try:
+                    names.add(p.stem)
+                except Exception:
+                    continue
     return sorted(names)
 
 
@@ -303,3 +441,4 @@ if __name__ == "__main__":
             },
         }
         _run_workflow(cfg_dict)
+

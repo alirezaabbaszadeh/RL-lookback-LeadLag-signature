@@ -1,0 +1,22 @@
+tasks:
+  - id: P2-01
+    title: Temporal leakage probes (placebo tests)
+    owner: audit_team
+    status: completed
+    description: Introduce shuffled-future/placebo runs to confirm degradation.
+    outputs:
+      - docs/audit/phase-2/leakage.md
+      - docs/audit/phase-2/leakage_probe_summary.csv
+    acceptance: Placebo causes significant metric degradation vs real runs.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P2-02
+    title: Walk-forward validation verification
+    owner: audit_team
+    status: pending
+    description: Prove strictly past-only windows and monotone time indices.
+    outputs:
+      - docs/audit/phase-2/leakage.md
+    acceptance: No look-ahead; monotone timestamps with unit tests.
+    created: 2025-10-18
+    updated: 2025-10-18

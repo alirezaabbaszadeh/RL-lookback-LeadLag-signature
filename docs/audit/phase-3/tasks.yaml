@@ -1,0 +1,22 @@
+tasks:
+  - id: P3-01
+    title: Bootstrap CI and Welch design
+    owner: audit_team
+    status: completed
+    description: Specify CI method (block bootstrap), Welch tests, and effect sizes.
+    outputs:
+      - docs/audit/phase-3/eval-methods.md
+    acceptance: CI/SE + p-values + effect sizes defined and computed.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P3-02
+    title: Multiple testing control
+    owner: audit_team
+    status: completed
+    description: Apply Benjamini–Hochberg corrections for scenario grids.
+    outputs:
+      - docs/audit/phase-3/eval-methods.md
+      - docs/audit/phase-3/significant_pairs.csv
+    acceptance: Adjusted p-values reported alongside raw p-values.
+    created: 2025-10-18
+    updated: 2025-10-18

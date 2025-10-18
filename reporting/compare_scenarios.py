@@ -14,7 +14,8 @@ except Exception:  # pragma: no cover
 
 
 def find_aggregate_dirs(root: Path) -> List[Path]:
-    return [p for p in root.glob("*_aggregate") if p.is_dir()]
+    # Search recursively to capture aggregates under results/manual/*
+    return [p for p in root.rglob("*_aggregate") if p.is_dir()]
 
 
 def load_stats(paths: List[Path]) -> pd.DataFrame:
@@ -28,20 +29,24 @@ def load_stats(paths: List[Path]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-def plot_metric_bars(df: pd.DataFrame, out_dir: Path, column: str = "mean_abs_matrix_mean") -> None:
+def plot_metric_bars(df: pd.DataFrame, out_dir: Path, metric: str = "mean_abs_matrix") -> None:
     if not MPL or df.empty:
         return
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Expect columns: scenario, metric, <numerics> from aggregated stats
-    if column not in df.columns:
+    # Filter to desired metric and display mean_mean per scenario
+    needed_cols = {"scenario", "metric", "mean_mean"}
+    if not needed_cols.issubset(df.columns):
         return
-    pivot = df.pivot_table(index="scenario", values=column, aggfunc="mean")
-    pivot.sort_values(by=column, ascending=False, inplace=True)
+    sub = df[df["metric"] == metric]
+    if sub.empty:
+        return
+    pivot = sub.pivot_table(index="scenario", values="mean_mean", aggfunc="mean")
+    pivot.sort_values(by="mean_mean", ascending=False, inplace=True)
     plt.figure(figsize=(8, 4))
     pivot.plot(kind="bar", legend=False)
-    plt.title(column)
+    plt.title(f"{metric} (mean_mean)")
     plt.tight_layout()
-    plt.savefig(out_dir / f"bar_{column}.png", dpi=140)
+    plt.savefig(out_dir / f"bar_{metric}.png", dpi=140)
     plt.close()
 
 
@@ -49,6 +54,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Compare scenarios across aggregate stats")
     ap.add_argument("--results_root", type=Path, default=Path("results"))
     ap.add_argument("--out", type=Path, default=Path("evaluation"))
+    ap.add_argument("--metric", type=str, default="mean_abs_matrix", help="Metric name in stats.csv (column 'metric')")
     args = ap.parse_args()
 
     agg_dirs = find_aggregate_dirs(args.results_root)
@@ -60,9 +66,13 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.out / "aggregate_comparison.csv", index=False)
 
-    # Example key plots
-    plot_metric_bars(df, args.out / "plots", "mean_abs_matrix_mean")
-    plot_metric_bars(df, args.out / "plots", "row_sum_std_mean")
+    # Example key plots (mean_mean of chosen metrics)
+    plot_metric_bars(df, args.out / "plots", args.metric)
+    for m in ["row_sum_std", "row_sum_range"]:
+        try:
+            plot_metric_bars(df, args.out / "plots", m)
+        except Exception:
+            pass
 
     print(f"Saved comparison CSV and plots to: {args.out}")
     return 0
@@ -70,4 +80,3 @@ def main() -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-

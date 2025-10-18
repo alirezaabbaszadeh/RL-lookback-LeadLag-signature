@@ -5,9 +5,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Type
 
-from stable_baselines3 import PPO
-from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.policies import ActorCriticPolicy
+try:
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.base_class import BaseAlgorithm
+    from stable_baselines3.common.policies import ActorCriticPolicy
+
+    SB3_CORE_AVAILABLE = True
+except ImportError:  # pragma: no cover - optional dependency
+    PPO = None  # type: ignore
+
+    class BaseAlgorithm:  # type: ignore
+        ...
+
+    class ActorCriticPolicy:  # type: ignore
+        ...
+
+    SB3_CORE_AVAILABLE = False
 
 from training.policies import AttentionPolicy
 
@@ -33,6 +46,8 @@ def _normalize_policy_name(name: str) -> str:
 
 
 def make_algorithm_spec(rl_cfg: Dict[str, Any]) -> AlgorithmSpec:
+    if not SB3_CORE_AVAILABLE:
+        raise ImportError("stable-baselines3 is required for RL algorithm training.")
     policy_cfg = rl_cfg.get("policy", "mlp")
     if isinstance(policy_cfg, dict):
         policy_name = policy_cfg.get("name", "mlp")

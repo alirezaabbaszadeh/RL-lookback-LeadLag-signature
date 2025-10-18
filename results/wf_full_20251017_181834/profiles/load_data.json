@@ -1,0 +1,274 @@
+{
+  "top": [
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\training\\run_scenario.py",
+      "line": 118,
+      "func": "_read_prices",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 7.83e-05,
+      "cumtime": 0.023140400000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\readers.py",
+      "line": 868,
+      "func": "read_csv",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 3.3900000000000004e-05,
+      "cumtime": 0.0157813
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\readers.py",
+      "line": 583,
+      "func": "_read",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 4.61e-05,
+      "cumtime": 0.0157291
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\readers.py",
+      "line": 1907,
+      "func": "read",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 3.54e-05,
+      "cumtime": 0.011924200000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\c_parser_wrapper.py",
+      "line": 222,
+      "func": "read",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.008234400000000001,
+      "cumtime": 0.0089291
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\tools\\datetimes.py",
+      "line": 678,
+      "func": "to_datetime",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.25e-05,
+      "cumtime": 0.0058623
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\tools\\datetimes.py",
+      "line": 316,
+      "func": "_convert_listlike_datetimes",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.16e-05,
+      "cumtime": 0.0054148
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\readers.py",
+      "line": 1575,
+      "func": "__init__",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.4100000000000003e-05,
+      "cumtime": 0.0035568
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\readers.py",
+      "line": 1848,
+      "func": "_make_engine",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.7700000000000002e-05,
+      "cumtime": 0.0034743
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\frame.py",
+      "line": 694,
+      "func": "__init__",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 1.9600000000000002e-05,
+      "cumtime": 0.002918
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\internals\\construction.py",
+      "line": 423,
+      "func": "dict_to_mgr",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 7.900000000000001e-05,
+      "cumtime": 0.0028751000000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\tools\\datetimes.py",
+      "line": 128,
+      "func": "_guess_datetime_format_for_array",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0002795,
+      "cumtime": 0.0028401000000000003
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\tools\\datetimes.py",
+      "line": 458,
+      "func": "_array_strptime_with_fallback",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0022519000000000003,
+      "cumtime": 0.0025232
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\parsers\\c_parser_wrapper.py",
+      "line": 60,
+      "func": "__init__",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0021636000000000003,
+      "cumtime": 0.0022792000000000003
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\__init__.py",
+      "line": 330,
+      "func": "_compile",
+      "callcount": 94,
+      "reccallcount": 94,
+      "tottime": 9.400000000000001e-05,
+      "cumtime": 0.0022644
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\_compiler.py",
+      "line": 743,
+      "func": "compile",
+      "callcount": 4,
+      "reccallcount": 4,
+      "tottime": 2.25e-05,
+      "cumtime": 0.0020938000000000003
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\internals\\construction.py",
+      "line": 96,
+      "func": "arrays_to_mgr",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 7.8e-06,
+      "cumtime": 0.001461
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<built-in method builtins.isinstance>",
+      "callcount": 2288,
+      "reccallcount": 2295,
+      "tottime": 0.0005283,
+      "cumtime": 0.0014570000000000002
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\__init__.py",
+      "line": 287,
+      "func": "compile",
+      "callcount": 3,
+      "reccallcount": 3,
+      "tottime": 2.0000000000000003e-06,
+      "cumtime": 0.0014189
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\series.py",
+      "line": 389,
+      "func": "__init__",
+      "callcount": 4,
+      "reccallcount": 5,
+      "tottime": 0.00012100000000000001,
+      "cumtime": 0.0013791
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\construction.py",
+      "line": 517,
+      "func": "sanitize_array",
+      "callcount": 82,
+      "reccallcount": 82,
+      "tottime": 0.0003822,
+      "cumtime": 0.00133
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\_parser.py",
+      "line": 970,
+      "func": "parse",
+      "callcount": 4,
+      "reccallcount": 4,
+      "tottime": 1.91e-05,
+      "cumtime": 0.0013121
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\_parser.py",
+      "line": 451,
+      "func": "_parse_sub",
+      "callcount": 4,
+      "reccallcount": 17,
+      "tottime": 9.350000000000001e-05,
+      "cumtime": 0.0012798
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\_parser.py",
+      "line": 511,
+      "func": "_parse",
+      "callcount": 9,
+      "reccallcount": 29,
+      "tottime": 0.00046070000000000003,
+      "cumtime": 0.0012219000000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\common.py",
+      "line": 664,
+      "func": "get_handle",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.68e-05,
+      "cumtime": 0.0011651
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\internals\\construction.py",
+      "line": 596,
+      "func": "_homogenize",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.00012450000000000002,
+      "cumtime": 0.0011396000000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\indexing.py",
+      "line": 1176,
+      "func": "__getitem__",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 1.73e-05,
+      "cumtime": 0.0007886000000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\io\\common.py",
+      "line": 1165,
+      "func": "_is_binary_mode",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 1.09e-05,
+      "cumtime": 0.0007682
+    },
+    {
+      "file": "C:\\Python313\\Lib\\re\\_compiler.py",
+      "line": 576,
+      "func": "_code",
+      "callcount": 4,
+      "reccallcount": 4,
+      "tottime": 2.1300000000000003e-05,
+      "cumtime": 0.0007457000000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\pandas\\core\\indexes\\base.py",
+      "line": 475,
+      "func": "__new__",
+      "callcount": 5,
+      "reccallcount": 5,
+      "tottime": 8.5e-05,
+      "cumtime": 0.0007279000000000001
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+[
+  {
+    "phase": "phase-0",
+    "id": "P0-01",
+    "title": "Define charter, scope, acceptance",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-0\\tasks.yaml"
+  },
+  {
+    "phase": "phase-0",
+    "id": "P0-02",
+    "title": "RACI and decision log template",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-0\\tasks.yaml"
+  },
+  {
+    "phase": "phase-1",
+    "id": "P1-01",
+    "title": "Inventory inputs/outputs and locations",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-1\\tasks.yaml"
+  },
+  {
+    "phase": "phase-1",
+    "id": "P1-02",
+    "title": "Define artifact schemas and column contracts",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-1\\tasks.yaml"
+  },
+  {
+    "phase": "phase-1",
+    "id": "P1-03",
+    "title": "Lineage diagram (E2E flow)",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-1\\tasks.yaml"
+  },
+  {
+    "phase": "phase-10",
+    "id": "P10-01",
+    "title": "Robustness stress tests",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-10\\tasks.yaml"
+  },
+  {
+    "phase": "phase-11",
+    "id": "P11-01",
+    "title": "Data governance and security checks",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-11\\tasks.yaml"
+  },
+  {
+    "phase": "phase-12",
+    "id": "P12-01",
+    "title": "Paper readiness and packaging",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-12\\tasks.yaml"
+  },
+  {
+    "phase": "phase-2",
+    "id": "P2-01",
+    "title": "Temporal leakage probes (placebo tests)",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-2\\tasks.yaml"
+  },
+  {
+    "phase": "phase-2",
+    "id": "P2-02",
+    "title": "Walk-forward validation verification",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-2\\tasks.yaml"
+  },
+  {
+    "phase": "phase-3",
+    "id": "P3-01",
+    "title": "Bootstrap CI and Welch design",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-3\\tasks.yaml"
+  },
+  {
+    "phase": "phase-3",
+    "id": "P3-02",
+    "title": "Multiple testing control",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-3\\tasks.yaml"
+  },
+  {
+    "phase": "phase-4",
+    "id": "P4-01",
+    "title": "Ablation grid design and coverage",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-4\\tasks.yaml"
+  },
+  {
+    "phase": "phase-4",
+    "id": "P4-02",
+    "title": "Negative controls (random/frozen policies)",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-4\\tasks.yaml"
+  },
+  {
+    "phase": "phase-5",
+    "id": "P5-01",
+    "title": "Implement financial KPI pipeline",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-5\\tasks.yaml"
+  },
+  {
+    "phase": "phase-6",
+    "id": "P6-01",
+    "title": "Metrics dictionary and logging consistency",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-6\\tasks.yaml"
+  },
+  {
+    "phase": "phase-6",
+    "id": "P6-02",
+    "title": "Profile coverage and artifact policy",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-6\\tasks.yaml"
+  },
+  {
+    "phase": "phase-6",
+    "id": "P6-03",
+    "title": "MLflow alignment (env + toggles)",
+    "owner": "audit_team",
+    "status": "completed",
+    "tasks_file": "docs\\audit\\phase-6\\tasks.yaml"
+  },
+  {
+    "phase": "phase-7",
+    "id": "P7-01",
+    "title": "Reproducibility metadata (dataset hash, commit)",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-7\\tasks.yaml"
+  },
+  {
+    "phase": "phase-8",
+    "id": "P8-01",
+    "title": "Scenario discovery unification and validation",
+    "owner": "audit_team",
+    "status": "in_progress",
+    "tasks_file": "docs\\audit\\phase-8\\tasks.yaml"
+  },
+  {
+    "phase": "phase-9",
+    "id": "P9-01",
+    "title": "Unify reporting pipelines",
+    "owner": "audit_team",
+    "status": "pending",
+    "tasks_file": "docs\\audit\\phase-9\\tasks.yaml"
+  }
+]

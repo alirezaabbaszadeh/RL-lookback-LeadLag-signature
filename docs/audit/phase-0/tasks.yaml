@@ -1,0 +1,22 @@
+tasks:
+  - id: P0-01
+    title: Define charter, scope, acceptance
+    owner: audit_team
+    status: completed
+    description: Establish audit objectives, coverage map, severity scale, acceptance criteria.
+    outputs:
+      - docs/audit/phase-0/scope.md
+    acceptance: Scope approved; ≥90% of critical areas identified.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P0-02
+    title: RACI and decision log template
+    owner: audit_team
+    status: completed
+    description: Define roles, responsibilities, decision logging format.
+    outputs:
+      - docs/audit/phase-0/raci.md
+    acceptance: RACI published; decision template adopted.
+    created: 2025-10-18
+    updated: 2025-10-18
+

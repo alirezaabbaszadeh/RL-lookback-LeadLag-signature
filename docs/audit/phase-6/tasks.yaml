@@ -1,0 +1,33 @@
+tasks:
+  - id: P6-01
+    title: Metrics dictionary and logging consistency
+    owner: audit_team
+    status: completed
+    description: Define taxonomy of metrics and ensure ≥10 metrics logged per run.
+    outputs:
+      - docs/audit/phase-6/observability.md
+      - docs/metrics_dictionary.md
+      - docs/audit/phase-6/metrics_inventory.csv
+    acceptance: Dictionary published; logging coverage validated.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P6-02
+    title: Profile coverage and artifact policy
+    owner: audit_team
+    status: completed
+    description: Ensure cProfile spans signature and training loops; define retention/rotation for profiles/*.
+    outputs:
+      - docs/audit/phase-6/observability.md
+    acceptance: Profile per run present; retention policy documented.
+    created: 2025-10-18
+    updated: 2025-10-18
+  - id: P6-03
+    title: MLflow alignment (env + toggles)
+    owner: audit_team
+    status: completed
+    description: Align environment.yml and requirements.txt; document MLFLOW_TRACKING_URI and headless plotting policy.
+    outputs:
+      - docs/audit/phase-6/observability.md
+    acceptance: MLflow works consistently; headless plot behavior documented.
+    created: 2025-10-18
+    updated: 2025-10-18

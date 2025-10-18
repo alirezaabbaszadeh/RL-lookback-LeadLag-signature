@@ -1,0 +1,156 @@
+[
+  {
+    "path": "results\\manual\\fixed_30_aggregate\\significance.csv",
+    "level": "ERROR",
+    "message": "Truncated bootstrap key names detected",
+    "details": {
+      "columns": [
+        "mea_boot_low",
+        "mea_boot_high",
+        "media_boot_low",
+        "media_boot_high",
+        "st_boot_low",
+        "st_boot_high",
+        "ma_boot_low",
+        "ma_boot_high",
+        "mi_boot_low",
+        "mi_boot_high"
+      ]
+    }
+  },
+  {
+    "path": "results\\manual\\fixed_30_aggregate\\significance.csv",
+    "level": "WARN",
+    "message": "mean_boot_low/high not present",
+    "details": {
+      "have": [
+        "scenario",
+        "metric",
+        "mea_boot_low",
+        "mea_boot_high",
+        "media_boot_low",
+        "media_boot_high",
+        "st_boot_low",
+        "st_boot_high",
+        "ma_boot_low",
+        "ma_boot_high",
+        "mi_boot_low",
+        "mi_boot_high",
+        "note"
+      ]
+    }
+  },
+  {
+    "path": "results\\manual\\research_full_aggregate\\significance.csv",
+    "level": "ERROR",
+    "message": "Truncated bootstrap key names detected",
+    "details": {
+      "columns": [
+        "mea_boot_low",
+        "mea_boot_high",
+        "media_boot_low",
+        "media_boot_high",
+        "st_boot_low",
+        "st_boot_high",
+        "ma_boot_low",
+        "ma_boot_high",
+        "mi_boot_low",
+        "mi_boot_high"
+      ]
+    }
+  },
+  {
+    "path": "results\\manual\\research_full_aggregate\\significance.csv",
+    "level": "WARN",
+    "message": "mean_boot_low/high not present",
+    "details": {
+      "have": [
+        "scenario",
+        "metric",
+        "mea_boot_low",
+        "mea_boot_high",
+        "media_boot_low",
+        "media_boot_high",
+        "st_boot_low",
+        "st_boot_high",
+        "ma_boot_low",
+        "ma_boot_high",
+        "mi_boot_low",
+        "mi_boot_high",
+        "note"
+      ]
+    }
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed42_20251011_211857\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed42_20251011_213529",
+    "level": "ERROR",
+    "message": "Missing required file: summary.csv",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed42_20251011_213529",
+    "level": "WARN",
+    "message": "metrics_timeseries.csv not found (plots & KPIs may be limited)",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed42_20251011_213529\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed52_20251011_212658\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\fixed_30_seed62_20251011_213510\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed101_20251016_181558\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed101_20251016_181558\\run_metadata.json",
+    "level": "WARN",
+    "message": "git commit not recorded",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed202_20251016_183505\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed202_20251016_183505\\run_metadata.json",
+    "level": "WARN",
+    "message": "git commit not recorded",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed303_20251016_185410\\run_metadata.json",
+    "level": "WARN",
+    "message": "data_price_hash missing in run metadata",
+    "details": {}
+  },
+  {
+    "path": "results\\manual\\research_full_seed303_20251016_185410\\run_metadata.json",
+    "level": "WARN",
+    "message": "git commit not recorded",
+    "details": {}
+  }
+]

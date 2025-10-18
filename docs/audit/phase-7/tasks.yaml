@@ -1,0 +1,12 @@
+tasks:
+  - id: P7-01
+    title: Reproducibility metadata (dataset hash, commit)
+    owner: audit_team
+    status: pending
+    description: Ensure run_metadata.json includes data file hash and git info.
+    outputs:
+      - docs/audit/phase-7/repro.md
+    acceptance: Reruns deterministic; metadata complete; EOL policy documented.
+    created: 2025-10-18
+    updated: 2025-10-18
+

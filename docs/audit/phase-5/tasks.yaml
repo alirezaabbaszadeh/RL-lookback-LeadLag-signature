@@ -1,0 +1,12 @@
+tasks:
+  - id: P5-01
+    title: Implement financial KPI pipeline
+    owner: audit_team
+    status: completed
+    description: Compute annualized return, max drawdown, and Sharpe with CI.
+    outputs:
+      - evaluation/finance_kpis.csv
+      - docs/audit/phase-5/finance-kpis.md
+    acceptance: KPIs computed reproducibly with CI.
+    created: 2025-10-18
+    updated: 2025-10-18

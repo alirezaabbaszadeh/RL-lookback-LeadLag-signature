@@ -1,0 +1,12 @@
+tasks:
+  - id: P8-01
+    title: Scenario discovery unification and validation
+    owner: audit_team
+    status: in_progress
+    description: Confirm robust discovery (configs/scenarios + presets) and validate each preset loads and runs.
+    outputs:
+      - docs/audit/phase-8/config-hygiene.md
+    acceptance: 100% presets pass validation; no dangling paths.
+    created: 2025-10-18
+    updated: 2025-10-18
+

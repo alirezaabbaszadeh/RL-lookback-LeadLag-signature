@@ -1,0 +1,274 @@
+{
+  "top": [
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\LeadLag_main.py",
+      "line": 308,
+      "func": "analyze",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 1.2400000000000002e-05,
+      "cumtime": 35.848419
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\LeadLag_main.py",
+      "line": 361,
+      "func": "_compute_rolling_lead_lag_matrix",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0008179000000000001,
+      "cumtime": 35.848406000000004
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\leadlag\\matrix_builder.py",
+      "line": 12,
+      "func": "build_matrix",
+      "callcount": 39,
+      "reccallcount": 39,
+      "tottime": 1.5882386000000002,
+      "cumtime": 35.706945700000006
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\LeadLag_main.py",
+      "line": 432,
+      "func": "_compute_lead_lag_measure_optimized",
+      "callcount": 99684,
+      "reccallcount": 99684,
+      "tottime": 0.0913075,
+      "cumtime": 32.9181072
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\LeadLag_main.py",
+      "line": 445,
+      "func": "_ccf_at_lag_optimized",
+      "callcount": 99684,
+      "reccallcount": 99684,
+      "tottime": 0.2446762,
+      "cumtime": 32.8267997
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\models\\LeadLag_main.py",
+      "line": 518,
+      "func": "_cross_correlation_optimized",
+      "callcount": 199368,
+      "reccallcount": 199368,
+      "tottime": 2.4907825000000003,
+      "cumtime": 32.5821235
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 2923,
+      "func": "corrcoef",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 2.1103144,
+      "cumtime": 16.5965969
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 2700,
+      "func": "cov",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 3.9446952000000004,
+      "cumtime": 11.622925100000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 3869,
+      "func": "std",
+      "callcount": 398736,
+      "reccallcount": 398736,
+      "tottime": 0.7287179,
+      "cumtime": 11.033312200000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 220,
+      "func": "_std",
+      "callcount": 398736,
+      "reccallcount": 398736,
+      "tottime": 1.1771246,
+      "cumtime": 10.3045943
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 150,
+      "func": "_var",
+      "callcount": 398736,
+      "reccallcount": 398736,
+      "tottime": 5.2568519,
+      "cumtime": 8.953594800000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 434,
+      "func": "average",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 1.0643606,
+      "cumtime": 6.998897800000001
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'reduce' of 'numpy.ufunc' objects>",
+      "callcount": 1569677,
+      "reccallcount": 1569677,
+      "tottime": 3.7947233000000002,
+      "cumtime": 3.7947233000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 89,
+      "func": "_wrapreduction_any_all",
+      "callcount": 598104,
+      "reccallcount": 598104,
+      "tottime": 1.0066707000000001,
+      "cumtime": 2.6316100000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_stride_tricks_impl.py",
+      "line": 367,
+      "func": "broadcast_to",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.1441946,
+      "cumtime": 2.3587782
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'mean' of 'numpy.ndarray' objects>",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.17865330000000001,
+      "cumtime": 2.2243275000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_stride_tricks_impl.py",
+      "line": 340,
+      "func": "_broadcast_to",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 1.5333564000000002,
+      "cumtime": 2.2145836
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 117,
+      "func": "_mean",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.8700286,
+      "cumtime": 2.0456742
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 2477,
+      "func": "any",
+      "callcount": 398736,
+      "reccallcount": 398736,
+      "tottime": 0.3247486,
+      "cumtime": 1.9983223
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 75,
+      "func": "_count_reduce_items",
+      "callcount": 572114,
+      "reccallcount": 572114,
+      "tottime": 1.468043,
+      "cumtime": 1.661002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 2241,
+      "func": "clip",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.3276619,
+      "cumtime": 1.4955196000000002
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 51,
+      "func": "_wrapfunc",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.18114190000000002,
+      "cumtime": 1.1678577
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 2589,
+      "func": "all",
+      "callcount": 199368,
+      "reccallcount": 199368,
+      "tottime": 0.18994470000000002,
+      "cumtime": 1.1479810000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\numeric.py",
+      "line": 1420,
+      "func": "normalize_axis_tuple",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.7306828000000001,
+      "cumtime": 1.0835519
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_twodim_base_impl.py",
+      "line": 258,
+      "func": "diag",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.36587620000000004,
+      "cumtime": 1.0760148
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'clip' of 'numpy.ndarray' objects>",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.1482589,
+      "cumtime": 0.9234021
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 98,
+      "func": "_clip",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.7751432,
+      "cumtime": 0.7751432
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 1695,
+      "func": "diagonal",
+      "callcount": 173378,
+      "reccallcount": 173378,
+      "tottime": 0.206677,
+      "cumtime": 0.5826938
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<built-in method numpy.array>",
+      "callcount": 520212,
+      "reccallcount": 520212,
+      "tottime": 0.461357,
+      "cumtime": 0.461357
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<built-in method builtins.isinstance>",
+      "callcount": 1917170,
+      "reccallcount": 1917401,
+      "tottime": 0.4479727,
+      "cumtime": 0.45279810000000004
+    }
+  ]
+}

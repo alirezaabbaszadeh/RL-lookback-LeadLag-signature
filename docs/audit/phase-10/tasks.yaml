@@ -1,0 +1,12 @@
+tasks:
+  - id: P10-01
+    title: Robustness stress tests
+    owner: audit_team
+    status: pending
+    description: OOS time splits, missing data, outliers, adversarial noise, worst-seed analysis.
+    outputs:
+      - docs/audit/phase-10/robustness.md
+    acceptance: KPIs degrade gracefully; claims remain valid.
+    created: 2025-10-18
+    updated: 2025-10-18
+

@@ -1,0 +1,274 @@
+{
+  "top": [
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\evaluation\\metrics.py",
+      "line": 31,
+      "func": "compute_metrics_timeseries",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0018802,
+      "cumtime": 0.07066510000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 2923,
+      "func": "corrcoef",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 0.0011358000000000002,
+      "cumtime": 0.0508218
+    },
+    {
+      "file": "C:\\Python313\\Lib\\warnings.py",
+      "line": 97,
+      "func": "_showwarnmsg",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 4.000000000000001e-06,
+      "cumtime": 0.0418428
+    },
+    {
+      "file": "C:\\Python313\\Lib\\warnings.py",
+      "line": 20,
+      "func": "_showwarnmsg_impl",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 6.6e-06,
+      "cumtime": 0.0418388
+    },
+    {
+      "file": "C:\\Python313\\Lib\\warnings.py",
+      "line": 118,
+      "func": "_formatwarnmsg",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 4.5e-06,
+      "cumtime": 0.0417997
+    },
+    {
+      "file": "C:\\Python313\\Lib\\warnings.py",
+      "line": 35,
+      "func": "_formatwarnmsg_impl",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 2.01e-05,
+      "cumtime": 0.041795200000000005
+    },
+    {
+      "file": "C:\\Python313\\Lib\\linecache.py",
+      "line": 22,
+      "func": "getline",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 6.4000000000000006e-06,
+      "cumtime": 0.0417739
+    },
+    {
+      "file": "C:\\Python313\\Lib\\linecache.py",
+      "line": 32,
+      "func": "getlines",
+      "callcount": 2,
+      "reccallcount": 2,
+      "tottime": 1.1200000000000001e-05,
+      "cumtime": 0.041766700000000004
+    },
+    {
+      "file": "C:\\Python313\\Lib\\linecache.py",
+      "line": 102,
+      "func": "updatecache",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 2.3400000000000003e-05,
+      "cumtime": 0.0417551
+    },
+    {
+      "file": "C:\\Python313\\Lib\\tokenize.py",
+      "line": 451,
+      "func": "open",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 4.7000000000000004e-05,
+      "cumtime": 0.0406049
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<built-in method _io.open>",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.0404703,
+      "cumtime": 0.0404703
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 2700,
+      "func": "cov",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 0.0025656000000000003,
+      "cumtime": 0.0064859
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_type_check_impl.py",
+      "line": 373,
+      "func": "nan_to_num",
+      "callcount": 152,
+      "reccallcount": 152,
+      "tottime": 0.0020457,
+      "cumtime": 0.0044924000000000006
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_function_base_impl.py",
+      "line": 434,
+      "func": "average",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 0.000497,
+      "cumtime": 0.0035727000000000003
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 1901,
+      "func": "nanstd",
+      "callcount": 39,
+      "reccallcount": 39,
+      "tottime": 0.00019950000000000002,
+      "cumtime": 0.0032893
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 1711,
+      "func": "nanvar",
+      "callcount": 39,
+      "reccallcount": 39,
+      "tottime": 0.0008273000000000001,
+      "cumtime": 0.0030596
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'reduce' of 'numpy.ufunc' objects>",
+      "callcount": 706,
+      "reccallcount": 706,
+      "tottime": 0.0026535,
+      "cumtime": 0.0026535
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 953,
+      "func": "nanmean",
+      "callcount": 39,
+      "reccallcount": 39,
+      "tottime": 0.00027350000000000003,
+      "cumtime": 0.0024466
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 2338,
+      "func": "sum",
+      "callcount": 234,
+      "reccallcount": 234,
+      "tottime": 0.0003231,
+      "cumtime": 0.0019913
+    },
+    {
+      "file": "D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\evaluation\\metrics.py",
+      "line": 25,
+      "func": "_flatten_offdiag",
+      "callcount": 115,
+      "reccallcount": 115,
+      "tottime": 0.001095,
+      "cumtime": 0.0018718
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\fromnumeric.py",
+      "line": 69,
+      "func": "_wrapreduction",
+      "callcount": 234,
+      "reccallcount": 234,
+      "tottime": 0.0004513,
+      "cumtime": 0.0016088
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'mean' of 'numpy.ndarray' objects>",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 7.77e-05,
+      "cumtime": 0.0013629
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 70,
+      "func": "_replace_nan",
+      "callcount": 117,
+      "reccallcount": 117,
+      "tottime": 0.0009628000000000001,
+      "cumtime": 0.0013237000000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\_core\\_methods.py",
+      "line": 117,
+      "func": "_mean",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 0.0005172,
+      "cumtime": 0.0012852
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 204,
+      "func": "_divide_by_count",
+      "callcount": 117,
+      "reccallcount": 117,
+      "tottime": 0.0006848000000000001,
+      "cumtime": 0.0011527
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_stride_tricks_impl.py",
+      "line": 367,
+      "func": "broadcast_to",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 6.31e-05,
+      "cumtime": 0.0010803
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_stride_tricks_impl.py",
+      "line": 340,
+      "func": "_broadcast_to",
+      "callcount": 76,
+      "reccallcount": 76,
+      "tottime": 0.0007148,
+      "cumtime": 0.0010172
+    },
+    {
+      "file": "~",
+      "line": 0,
+      "func": "<method 'readlines' of '_io._IOBase' objects>",
+      "callcount": 1,
+      "reccallcount": 1,
+      "tottime": 0.000955,
+      "cumtime": 0.0010058
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 382,
+      "func": "nanmax",
+      "callcount": 78,
+      "reccallcount": 78,
+      "tottime": 0.0003256,
+      "cumtime": 0.0009412000000000001
+    },
+    {
+      "file": "C:\\Users\\Asus\\AppData\\Roaming\\Python\\Python313\\site-packages\\numpy\\lib\\_nanfunctions_impl.py",
+      "line": 634,
+      "func": "nansum",
+      "callcount": 39,
+      "reccallcount": 39,
+      "tottime": 8.180000000000001e-05,
+      "cumtime": 0.0009235000000000001
+    }
+  ]
+}

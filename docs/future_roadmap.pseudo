@@ -1,7 +1,7 @@
 ﻿ROADMAP {
   METADATA {
     VERSION: "2.0"
-    LAST_UPDATED: "2025-10-17"
+    LAST_UPDATED: "2025-10-18"
     MAINTAINER: "roadmap_bot"
     SCOPE: "LeadLag-signature RL project"
   }
@@ -63,6 +63,7 @@
       NAME: "SignatureCore"
       OBJECTIVE: "Efficient, modular extraction and featureization of signature-based lead-lag matrices"
       OWNER: "analysis_team"
+      STATUS: "completed 2025-10-16 (SC-01 refactor, SC-02 pipeline; see CHANGE_LOG)"
       TASKS []
     }
 
@@ -70,6 +71,7 @@
       NAME: "RLEngine"
       OBJECTIVE: "Flexible RL environment and policy suite for adaptive lookback"
       OWNER: "rl_team"
+      STATUS: "completed 2025-10-16 (RL-01 env upgrade, RL-02 policy suite, RL-03 rewards; see CHANGE_LOG)"
       TASKS []
     }
 
@@ -77,149 +79,36 @@
       NAME: "ExperimentOrchestrator"
       OBJECTIVE: "Configurable, reproducible execution of experiments"
       OWNER: "platform_team"
-      TASKS [
-        TASK {
-          ID: "EO-01"
-          TITLE: "Hydra Config System"
-          ACTIONS: [
-            "Adopt Hydra for hierarchical configurations",
-            "Define defaults for data/env/agent/reward",
-            "Document overrides and CLI syntax"
-          ]
-          DEPENDENCIES: ["SC-02", "RL-03"]
-          OUTPUTS: ["hydra_main.py", "configs/default.yaml", "docs/config_reference.md"]
-          SUCCESS: {
-            CLI_DEMO: "multi-run command",
-            DOC_COMPLETE: "config reference present"
-          }
-          RISKS: ["config drift", "learning curve"]
-        }
-        TASK {
-          ID: "EO-02"
-          TITLE: "Multi-Seed Runner"
-          ACTIONS: [
-            "Implement runner for N seeds",
-            "Aggregate mean/std/CI",
-            "Perform Welch test and bootstrap",
-            "Store per-seed artifacts with metadata"
-          ]
-          DEPENDENCIES: ["EO-01"]
-          OUTPUTS: ["runner_multiseed.py", "aggregate/stats.csv", "aggregate/significance.csv", "aggregate/welch.csv"]
-          SUCCESS: {
-            MIN_SEEDS: ">= 3",
-            STAT_REPORT: "generated"
-          }
-          RISKS: ["compute cost", "storage bloat"]
-        }
-        TASK {
-          ID: "EO-03"
-          TITLE: "Profiling & Logging"
-          ACTIONS: [
-            "Integrate MLflow/W&B",
-            "Record profiling data (cProfile, timings)",
-            "Log signature metrics, reward components, lookback",
-            "Automate artifact upload"
-          ]
-          DEPENDENCIES: ["EO-02"]
-          OUTPUTS: ["logging_config.yaml", "profiles/*.json", "mlflow_runs/"]
-          SUCCESS: {
-            LOG_COUNT: ">= 10 metrics",
-            PROFILE_PER_RUN: "true"
-          }
-          RISKS: ["network limits", "security"]
-        }
-      ]
+      STATUS: "completed 2025-10-17 (EO-01, EO-02, EO-03 delivered; see CHANGE_LOG)"
+      TASKS []
     }
 
     MODULE {
       NAME: "EvaluationReporting"
       OBJECTIVE: "Comprehensive analysis and presentation of results"
       OWNER: "insight_team"
-      TASKS [
-        TASK {
-          ID: "ER-01"
-          TITLE: "Metrics Dashboard"
-          ACTIONS: [
-            "Generate baseline vs RL comparisons",
-            "Create visualizations (time-series, heatmap, distribution)",
-            "Summarize lookback dynamics",
-            "Export LaTeX tables"
-          ]
-          DEPENDENCIES: ["EO-03"]
-          OUTPUTS: ["evaluation/report.ipynb", "plots/*.png", "tables/*.tex"]
-          SUCCESS: {
-            VISUALS: ">= 5",
-            LATEX_READY: "true"
-          }
-          RISKS: ["interpretation errors"]
-        }
-        TASK {
-          ID: "ER-02"
-          TITLE: "Research Report"
-          ACTIONS: [
-            "Auto-generate PDF/Markdown summary",
-            "Include reproducibility appendix (config, seed, hash)",
-            "Provide citation block"
-          ]
-          DEPENDENCIES: ["ER-01"]
-          OUTPUTS: ["reports/final_report.pdf", "reports/appendix.md"]
-          SUCCESS: {
-            SECTIONS: "intro, methodology, experiments, conclusion",
-            METADATA_INCLUDED: "true"
-          }
-          RISKS: ["formatting issues"]
-        }
-      ]
+      STATUS: "completed 2025-10-17 (ER-01 visuals packaged; ER-02 auto report pipeline delivered)"
+      TASKS []
     }
 
     MODULE {
       NAME: "InfrastructureQuality"
       OBJECTIVE: "Reliability, reproducibility, and automation"
       OWNER: "infra_team"
-      TASKS [
-        TASK {
-          ID: "IQ-01"
-          TITLE: "Testing & CI"
-          ACTIONS: [
-            "Add unit + smoke tests (pytest)",
-            "Integrate CI pipeline (GitHub Actions)",
-            "Enforce linting/formatting (ruff, black)"
-          ]
-          DEPENDENCIES: ["SC-01", "RL-01"]
-          OUTPUTS: ["tests/", "ci.yml", "lint_config.toml"]
-          SUCCESS: {
-            COVERAGE: ">= 70%",
-            CI_STATUS: "green"
-          }
-          RISKS: ["flaky tests", "CI duration"]
-        }
-        TASK {
-          ID: "IQ-02"
-          TITLE: "Packaging & Repro"
-          ACTIONS: [
-            "Provide Dockerfile + conda environment",
-            "Create run scripts",
-            "Document reproduction steps"
-          ]
-          DEPENDENCIES: ["IQ-01"]
-          OUTPUTS: ["Dockerfile", "environment.yml", "docs/repro.md", "scripts/run_experiment.*"]
-          SUCCESS: {
-            BUILD_STATUS: "success",
-            REPRO_STEPS: "<= 10"
-          }
-          RISKS: ["image size", "OS compatibility"]
-        }
-      ]
+      STATUS: "completed 2025-10-17 (IQ-01, IQ-02 delivered; see CHANGE_LOG)"
+      TASKS []
     }
 
     MODULE {
       NAME: "AdvancedResearch"
       OBJECTIVE: "Explore cutting-edge enhancements"
       OWNER: "research_team"
+      STATUS: "pending resource allocation (backlog review 2025-10-18)"
       TASKS [
         TASK {
           ID: "AR-01"
           TITLE: "Meta-RL"
+          STATUS: "pending (requires dataset design + agent bandwidth)"
           ACTIONS: [
             "Implement context-aware agent for regime shifts",
             "Create synthetic regime datasets",
@@ -236,6 +125,7 @@
         TASK {
           ID: "AR-02"
           TITLE: "Offline RL"
+          STATUS: "pending (awaiting offline trajectory logging from EO-03 artifacts)"
           ACTIONS: [
             "Log offline trajectories",
             "Train off-policy algorithms",
@@ -256,6 +146,7 @@
   CROSS_MODULE_INITIATIVES [
     INITIATIVE {
       NAME: "Observability"
+      STATUS: "in progress (leverages EO-03 logging foundation)"
       ACTIONS: [
         "Centralize logging format",
         "Create metrics dictionary",
@@ -265,6 +156,7 @@
     }
     INITIATIVE {
       NAME: "DataGovernance"
+      STATUS: "planned (kickoff after IQ-02 packaging review)"
       ACTIONS: [
         "Track dataset versions with hash",
         "Document preprocessing steps",
@@ -275,8 +167,10 @@
   ]
 
   STATUS_TRACKER {
-    LAST_REVIEW: "2025-10-17"
+    LAST_REVIEW: "2025-10-18"
     OPEN_ITEMS [
+      ITEM {MODULE: "AdvancedResearch", TASK: "AR-01", STATUS: "pending"}
+      ITEM {MODULE: "AdvancedResearch", TASK: "AR-02", STATUS: "pending"}
     ]
     NOTE: "Use reporting/status_summary.py for quick snapshots; update STATUS_TRACKER after each roadmap review."
   }
@@ -309,6 +203,8 @@
     ENTRY {DATE: "2025-10-17", DESCRIPTION: "ER-01: Added reporting/compare_scenarios.py for aggregate comparison and initial plots"}
     ENTRY {DATE: "2025-10-17", DESCRIPTION: "EO-03: Added logging/profiling (logging_config.yaml, profiles JSON/pstats) and MLflow hooks"}
     ENTRY {DATE: "2025-10-17", DESCRIPTION: "IQ-02: Added environment.yml, Dockerfile, scripts/run_experiment.*, and docs/repro.md"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "ER-02: Automated research report generation (reporting/generate_report.py) and produced reports/final_report.{md,pdf}, reports/appendix.md"}
+    ENTRY {DATE: "2025-10-18", DESCRIPTION: "Roadmap maintenance: marked delivered modules complete and refreshed status tracker"}
   ]
 }
 

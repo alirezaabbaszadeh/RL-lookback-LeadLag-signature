@@ -1,0 +1,185 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 2 /Kids [ 3 0 R 5 0 R ] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 2093 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+(# Lead-Lag Signature RL Research Report) Tj
+T*
+( ) Tj
+T*
+(_Generated on 2025-10-17 13:36:37Z_) Tj
+T*
+( ) Tj
+T*
+(This report compiles the latest reinforcement learning lookback experiments and baseline) Tj
+T*
+(comparisons.) Tj
+T*
+(Scenarios covered: fixed_30, research_full.) Tj
+T*
+( ) Tj
+T*
+(## Methodology) Tj
+T*
+( ) Tj
+T*
+(Experiments were run via the ExperimentOrchestrator multi-seed pipeline with Hydra-driven) Tj
+T*
+(configs.) Tj
+T*
+(Aggregates include mean/median statistics, bootstrap confidence intervals, and optional Welch) Tj
+T*
+(tests.) Tj
+T*
+( ) Tj
+T*
+(- **fixed_30**: aggregate directory `results\\manual\\fixed_30_aggregate`; seeds: 42, 52, 62) Tj
+T*
+(- **research_full**: aggregate directory `results\\manual\\research_full_aggregate`; seeds: 101, 202, 303) Tj
+T*
+( ) Tj
+T*
+( ) Tj
+T*
+(## Experiments) Tj
+T*
+( ) Tj
+T*
+(### Scenario: fixed_30) Tj
+T*
+( ) Tj
+T*
+(| Metric | Mean | Std Dev |) Tj
+T*
+(| --- | --- | --- |) Tj
+T*
+(| mean_abs_matrix | 0.1686 | 0.0000 |) Tj
+T*
+(| row_sum_std | 9.3700 | 0.0000 |) Tj
+T*
+(| row_sum_range | 48.9851 | 0.0000 |) Tj
+T*
+(| stability_matrix_corr | 0.9575 | 0.0000 |) Tj
+T*
+( ) Tj
+T*
+(Bootstrap confidence intervals:) Tj
+T*
+(- mean_abs_matrix: bootstrap 95% CI [0.1686, 0.1686]) Tj
+T*
+(- row_sum_std: bootstrap 95% CI [9.3700, 9.3700]) Tj
+T*
+(- row_sum_range: bootstrap 95% CI [48.9851, 48.9851]) Tj
+T*
+(- stability_matrix_corr: bootstrap 95% CI [0.9575, 0.9575]) Tj
+T*
+( ) Tj
+T*
+(Per-run highlights:) Tj
+T*
+(- Seed 42, created 20251011_211857, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+(- Seed 52, created 20251011_212658, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+(- Seed 62, created 20251011_213510, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+( ) Tj
+T*
+(### Scenario: research_full) Tj
+T*
+( ) Tj
+T*
+(| Metric | Mean | Std Dev |) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 1421 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 780 Td
+(| --- | --- | --- |) Tj
+T*
+(| mean_abs_matrix | 0.1203 | 0.0000 |) Tj
+T*
+(| row_sum_std | 6.7064 | 0.0000 |) Tj
+T*
+(| row_sum_range | 35.4104 | 0.0000 |) Tj
+T*
+(| stability_matrix_corr | 0.9796 | 0.0000 |) Tj
+T*
+( ) Tj
+T*
+(Bootstrap confidence intervals:) Tj
+T*
+(- mean_abs_matrix: bootstrap 95% CI [0.1203, 0.1203]) Tj
+T*
+(- row_sum_std: bootstrap 95% CI [6.7064, 6.7064]) Tj
+T*
+(- row_sum_range: bootstrap 95% CI [35.4104, 35.4104]) Tj
+T*
+(- stability_matrix_corr: bootstrap 95% CI [0.9796, 0.9796]) Tj
+T*
+( ) Tj
+T*
+(Per-run highlights:) Tj
+T*
+(- Seed 101, created 20251016_181558, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+(- Seed 202, created 20251016_183505, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+(- Seed 303, created 20251016_185410, config `D:\\uni\\Dr.AI.Ali\\FinTech\\LeadLag-signature - RL\\RL-lookback-LeadLag-signature\\configs\\scenarios\\fixed_30.yaml`) Tj
+T*
+( ) Tj
+T*
+( ) Tj
+T*
+(## Conclusion) Tj
+T*
+( ) Tj
+T*
+(fixed_30 achieved the strongest mean_abs_matrix signal \(0.1686\), indicating the highest overall) Tj
+T*
+(signal strength among evaluated runs.) Tj
+T*
+(Next actions: finalise the research narrative, attach visual artefacts from ER-01, and schedule) Tj
+T*
+(peer review.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000123 00000 n 
+0000000249 00000 n 
+0000002393 00000 n 
+0000002519 00000 n 
+0000003991 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+4061
+%%EOF

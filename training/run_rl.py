@@ -14,8 +14,18 @@ try:
 except Exception:
     yaml = None
 
-from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.utils import set_random_seed
+try:
+    from stable_baselines3.common.callbacks import EvalCallback
+    from stable_baselines3.common.utils import set_random_seed
+
+    SB3_AVAILABLE = True
+except ImportError:  # pragma: no cover - optional dependency
+    EvalCallback = None  # type: ignore
+
+    def set_random_seed(seed: int) -> None:  # type: ignore
+        np.random.seed(seed)
+
+    SB3_AVAILABLE = False
 
 from models.LeadLag_main import LeadLagConfig
 from envs.leadlag_env import LeadLagEnv
@@ -92,6 +102,11 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
         if overrides:
             cfg = _deep_update(cfg, overrides)
     rl_cfg = cfg.get('rl', {})
+    policy_cfg = rl_cfg.get('policy', '')
+    normalized_policy = str(policy_cfg).lower() if isinstance(policy_cfg, str) else ''
+    use_random_policy = normalized_policy == 'random' or bool(rl_cfg.get('random_policy', False))
+    if not SB3_AVAILABLE and not use_random_policy:
+        raise ImportError("stable-baselines3 is required for RL policies other than 'random'.")
     seed = int(cfg['run'].get('seed', 42))
     set_random_seed(seed)
 
@@ -116,49 +131,58 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
 
     env = _instantiate_env(prices, cfg)
 
-    algo_spec = make_algorithm_spec(rl_cfg)
-    total_timesteps = int(rl_cfg.get('total_timesteps', 50000))
-
-    algo_kwargs = {
-        'learning_rate': rl_cfg.get('learning_rate', 3e-4),
-        'n_steps': int(rl_cfg.get('n_steps', 512)),
-        'batch_size': int(rl_cfg.get('batch_size', 256)),
-        'gamma': float(rl_cfg.get('gamma', 0.99)),
-        'ent_coef': float(rl_cfg.get('ent_coef', 0.0)),
-        'verbose': 1 if rl_cfg.get('verbose', False) else 0,
-        'seed': seed,
-    }
-    if algo_spec.policy_kwargs:
-        algo_kwargs['policy_kwargs'] = algo_spec.policy_kwargs
-
-    model = algo_spec.algo_cls(algo_spec.policy, env, **algo_kwargs)
-
-    # optional evaluation callback (self-play, so reuse env)
-    eval_freq = int(rl_cfg.get('eval_freq', 0))
-    callbacks = []
-    if eval_freq > 0:
+    if use_random_policy:
+        # Random policy baseline (negative control)
         eval_env = _instantiate_env(prices, cfg)
-        callbacks.append(
-            EvalCallback(
-                eval_env,
-                best_model_save_path=str(out_dir / 'eval'),
-                log_path=str(out_dir / 'eval_logs'),
-                eval_freq=eval_freq,
-                deterministic=True,
+        obs = eval_env.reset()
+        done = False
+        while not done:
+            action = eval_env.action_space.sample()
+            obs, reward, done, info = eval_env.step(action)
+    else:
+        algo_spec = make_algorithm_spec(rl_cfg)
+        total_timesteps = int(rl_cfg.get('total_timesteps', 50000))
+
+        algo_kwargs = {
+            'learning_rate': rl_cfg.get('learning_rate', 3e-4),
+            'n_steps': int(rl_cfg.get('n_steps', 512)),
+            'batch_size': int(rl_cfg.get('batch_size', 256)),
+            'gamma': float(rl_cfg.get('gamma', 0.99)),
+            'ent_coef': float(rl_cfg.get('ent_coef', 0.0)),
+            'verbose': 1 if rl_cfg.get('verbose', False) else 0,
+            'seed': seed,
+        }
+        if algo_spec.policy_kwargs:
+            algo_kwargs['policy_kwargs'] = algo_spec.policy_kwargs
+
+        model = algo_spec.algo_cls(algo_spec.policy, env, **algo_kwargs)
+
+        # optional evaluation callback (self-play, so reuse env)
+        eval_freq = int(rl_cfg.get('eval_freq', 0))
+        callbacks = []
+        if eval_freq > 0:
+            eval_env = _instantiate_env(prices, cfg)
+            callbacks.append(
+                EvalCallback(
+                    eval_env,
+                    best_model_save_path=str(out_dir / 'eval'),
+                    log_path=str(out_dir / 'eval_logs'),
+                    eval_freq=eval_freq,
+                    deterministic=True,
+                )
             )
-        )
 
-    model.learn(total_timesteps=total_timesteps, callback=callbacks if callbacks else None)
+        model.learn(total_timesteps=total_timesteps, callback=callbacks if callbacks else None)
 
-    model.save(str(out_dir / 'model.zip'))
+        model.save(str(out_dir / 'model.zip'))
 
-    # Evaluate deterministic policy over the dataset
-    eval_env = _instantiate_env(prices, cfg)
-    obs = eval_env.reset()
-    done = False
-    while not done:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, info = eval_env.step(action)
+        # Evaluate deterministic policy over the dataset
+        eval_env = _instantiate_env(prices, cfg)
+        obs = eval_env.reset()
+        done = False
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, info = eval_env.step(action)
 
     # collect history matrices for metrics
     rolling = eval_env.get_history_matrices()

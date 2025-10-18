@@ -5,6 +5,7 @@ import io
 import json
 import pstats
 from contextlib import contextmanager
+import os
 from pathlib import Path
 from typing import Iterator
 
@@ -56,3 +57,22 @@ def profile_to(out_dir: Path, label: str = "run") -> Iterator[None]:
         with open(prof_dir / f"{label}.json", "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2)
 
+        # Retention/rotation: keep only the most recent N profile files per type
+        try:
+            max_keep = int(os.getenv("PROFILES_MAX_KEEP", "10"))
+        except Exception:
+            max_keep = 10
+        try:
+            for suffix in (".pstats", ".json"):
+                files = sorted(
+                    (p for p in prof_dir.glob(f"*{suffix}") if p.is_file()),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                for old in files[max_keep:]:
+                    try:
+                        old.unlink()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
