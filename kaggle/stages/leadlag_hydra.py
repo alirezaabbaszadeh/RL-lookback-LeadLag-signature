@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -102,6 +103,21 @@ def main() -> None:
         help="Enable multi-seed runner regardless of scenario defaults.",
     )
     args = parser.parse_args()
+
+    # Environment variable overrides allow configuring the stage from the orchestrator caller
+    # without changing the orchestrator CLI. Useful in Kaggle one-cell runs.
+    env_scenarios = os.getenv("LEADLAG_SCENARIOS")
+    if env_scenarios:
+        args.scenarios = [s for s in env_scenarios.split(",") if s]
+    env_seeds = os.getenv("LEADLAG_SEEDS")
+    if env_seeds:
+        try:
+            args.seeds = [int(s) for s in env_seeds.split(",") if s]
+        except ValueError:
+            print("Warning: LEADLAG_SEEDS is not a comma-separated list of ints; ignoring.")
+    env_ms = os.getenv("LEADLAG_MULTI_SEED")
+    if env_ms:
+        args.multi_seed = env_ms.strip().lower() in {"1", "true", "yes", "on"}
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_root = args.output_dir / "runs"
