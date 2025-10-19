@@ -187,7 +187,7 @@ def main() -> None:
         "sb3_leadlag": StageDefinition(
             name="sb3_leadlag",
             requirements=[
-                # Minimal stack for production RL on LeadLag (SB3 1.x + classic gym)
+                # Minimal stack for production RL on LeadLag (SB3 2.x + Gymnasium)
                 "numpy>=1.23",
                 "pandas>=1.5",
                 "scipy>=1.10",
@@ -195,18 +195,18 @@ def main() -> None:
                 "matplotlib>=3.6",
                 "tqdm>=4.64",
                 "pyyaml>=6.0",
-                "gym==0.21.0",
-                "stable-baselines3==1.8.0",
-                "sb3-contrib==1.8.0",
+                "gymnasium==0.29.1",
+                "stable-baselines3==2.1.0",
+                "sb3-contrib==2.1.0",
                 "torch>=2.0",
             ],
             entrypoint=Path(__file__).parent / "stages" / "sb3_leadlag.py",
             uninstall=[
                 "gym",
+                "gymnasium",
                 "stable-baselines3",
                 "sb3-contrib",
                 "torch",
-                "gymnasium",
                 "dopamine-rl",
             ],
             description="Train PPO/variants on LeadLag env via training.run_rl with overrides.",
@@ -233,11 +233,6 @@ def main() -> None:
             requirements=[
                 "-r",
                 str(REPO_ROOT / "requirements-kaggle.txt"),
-                # Add production RL stack compatible with classic Gym API
-                "gym==0.26.2",
-                "stable-baselines3==1.8.0",
-                "sb3-contrib==1.8.0",
-                "torch>=2.0",
             ],
             entrypoint=ORCHESTRATOR_DIR / "stages" / "leadlag_hydra.py",
             uninstall=[],

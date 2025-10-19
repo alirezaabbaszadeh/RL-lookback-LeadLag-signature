@@ -2,7 +2,7 @@
 
 Performs optional wheel prefetch for speed, sets local pip cache, then executes
 the multi-stack orchestrator to run the complete experiment suite without
-duplicates (full suite + dopamine).
+duplicates (full suite + production RL + dopamine).
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ def prefetch_wheels(wheelhouse: Path) -> None:
     wheelhouse.mkdir(parents=True, exist_ok=True)
     # Core
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse), "-r", str(ROOT / "requirements-kaggle.txt")])
-    # RL stack (classic gym + SB3 1.x)
+    # RL stack (Gymnasium + SB3 2.x)
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse),
-         "gym==0.21.0", "stable-baselines3==1.8.0", "sb3-contrib==1.8.0", "torch>=2.0"])
+         "gymnasium==0.29.1", "stable-baselines3==2.1.0", "sb3-contrib==2.1.0", "torch>=2.0"])
     # Dopamine stack (Gymnasium 1.x)
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse), "dopamine-rl==4.1.2", "gymnasium==1.0.0"])
 

@@ -18,7 +18,7 @@ End-to-end research environment for analysing lead-lag signatures, experimenting
 | Path | Description |
 |------|-------------|
 | `configs/` | Base Hydra configs plus scenario presets (`fixed_30`, `dynamic_adaptive`, `rl_ppo`, `fast_smoke`, ...). |
-| `envs/leadlag_env.py` | Gym-compatible environment wrapping the lead-lag analyser for RL agents. |
+| `envs/leadlag_env.py` | Gymnasium-compatible environment wrapping the lead-lag analyser for RL agents. |
 | `evaluation/` | Metrics, summaries, visualisation helpers, and statistical comparisons. |
 | `governance/` | Dataset hashing, manifests, and quality checks shared by all runners. |
 | `observability/` | Structured logging utilities and a CLI dashboard for run inspection. |
@@ -73,11 +73,11 @@ python kaggle/run_multi_stage.py
 - Run individual stages via `python kaggle/run_multi_stage.py --stage sb3_kaggle` and list available entries with `--list`.
 - Every execution emits `summary.json` (timings, status, log paths) and stage-specific `requirements.txt`, making it easy to reproduce or debug downstream notebooks.
 - The default registry includes:
-  - `sb3_kaggle` – Stable-Baselines3 PPO smoke test compatible with Kaggle pins.
-  - `dopamine` – Dopamine + Gymnasium 1.x validation via random rollouts.
-  - `leadlag_hydra` – Runs project Hydra scenarios (single or multi-seed) and keeps outputs in the stage artifact folder.
-  - `sb3_leadlag` – Production SB3 training on LeadLag env using `training/run_rl` (PPO, PPO‑LSTM, attention policy) with env overrides for device/timesteps.
-  - `full_suite` – Runs `pipelines/run_full_suite.py` (includes ablation pipeline, audits, reports) to avoid duplicates.
+  - `sb3_kaggle` - Stable-Baselines3 PPO smoke test compatible with Kaggle pins.
+  - `dopamine` - Dopamine + Gymnasium 1.x validation via random rollouts.
+  - `leadlag_hydra` - Runs project Hydra scenarios (single or multi-seed) and keeps outputs in the stage artifact folder.
+  - `sb3_leadlag` - Production SB3 training on LeadLag env (SB3 2.1.0 + Gymnasium 0.29.1; PPO, PPO-LSTM, attention policy) with env overrides for device/timesteps.
+  - `full_suite` - Runs `pipelines/run_full_suite.py` (includes ablation pipeline, audits, reports) to avoid duplicates.
 
 ### One-Command Grand Run
 
@@ -88,7 +88,7 @@ python kaggle/run_all.py
 ```
 
 - Prefetches wheels for fast installs, uses a local pip cache, then runs `full_suite`, `sb3_leadlag` (production RL), and `dopamine` via the orchestrator. Outputs live under `/kaggle/working/multi_stage_artifacts/` and a bundled `multi_stage_artifacts.zip` is created for download.
-- To skip prefetch (slower but simpler): `python kaggle/run_all.py --no-prefetch`.
+- Prefetches wheels for fast installs, uses a local pip cache, then runs `full_suite`, `sb3_leadlag` (production RL), and `dopamine` via the orchestrator. Outputs live under `/kaggle/working/multi_stage_artifacts/` and a bundled `multi_stage_artifacts.zip` is created for download. See `docs/deployment/kaggle_setup.md` for a copy/paste notebook cell.
 
 Env Overrides (advanced)
 

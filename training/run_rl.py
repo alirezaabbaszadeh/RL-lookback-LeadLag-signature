@@ -159,15 +159,32 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
     env = _instantiate_env(prices, cfg)
 
     step_count = 0
+
+    def reset_env(env):
+        reset_out = env.reset()
+        if isinstance(reset_out, tuple) and len(reset_out) == 2:
+            return reset_out
+        return reset_out, {}
+
+    def step_env(env, action):
+        step_out = env.step(action)
+        if isinstance(step_out, tuple):
+            if len(step_out) == 5:
+                return step_out
+            if len(step_out) == 4:
+                obs, reward, done, info = step_out
+                return obs, reward, bool(done), False, info
+        raise RuntimeError("Environment step returned unexpected structure.")
     if use_random_policy:
         logger.info("Executing random policy baseline")
         # Random policy baseline (negative control)
         eval_env = _instantiate_env(prices, cfg)
-        obs = eval_env.reset()
-        done = False
-        while not done:
+        obs, _ = reset_env(eval_env)
+        terminated = False
+        truncated = False
+        while not (terminated or truncated):
             action = eval_env.action_space.sample()
-            obs, reward, done, info = eval_env.step(action)
+            obs, reward, terminated, truncated, info = step_env(eval_env, action)
             step_count += 1
     else:
         algo_spec = make_algorithm_spec(rl_cfg)
@@ -222,11 +239,12 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
 
         # Evaluate deterministic policy over the dataset
         eval_env = _instantiate_env(prices, cfg)
-        obs = eval_env.reset()
-        done = False
-        while not done:
+        obs, _ = reset_env(eval_env)
+        terminated = False
+        truncated = False
+        while not (terminated or truncated):
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = eval_env.step(action)
+            obs, reward, terminated, truncated, info = step_env(eval_env, action)
             step_count += 1
 
     # collect history matrices for metrics

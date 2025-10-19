@@ -4,10 +4,10 @@ import itertools
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pandas as pd
-from gym import spaces
+from gymnasium import spaces
 
 from models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
 from training.rewards import RewardContext, RewardTemplate, load_reward_template
@@ -127,7 +127,17 @@ class LeadLagEnv(gym.Env):
 
     # ---------- Core Gym API ----------
 
-    def reset(self):
+    def reset(
+        self,
+        *,
+        seed: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ):
+        if seed is not None:
+            self._rng = np.random.default_rng(seed)
+        if options is None:
+            options = {}
+
         self._episode_start_index = self._select_start_index()
         self._episode_end_index = self._determine_episode_end(self._episode_start_index)
         self._current_index = self._episode_start_index
@@ -150,7 +160,7 @@ class LeadLagEnv(gym.Env):
         self._prev_regime = extras.get('regime')
 
         obs = self._make_observation(metrics, extras, self._current_lookback)
-        return obs
+        return obs, {}
 
     def step(self, action):
         prev_lookback = self._current_lookback
@@ -192,7 +202,8 @@ class LeadLagEnv(gym.Env):
         self._prev_regime = extras.get('regime')
 
         self._current_index += 1
-        done = self._current_index >= self._episode_end_index
+        terminated = self._current_index >= self._episode_end_index
+        truncated = False
 
         info = {
             'date': current_date,
@@ -201,7 +212,7 @@ class LeadLagEnv(gym.Env):
             'episode_end': self._episode_end_index,
         }
 
-        return obs, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     # ---------- Helpers ----------
 
