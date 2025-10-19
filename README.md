@@ -60,6 +60,23 @@ Generated artifacts include merged configs, dataset manifests, metrics timelines
    ```
 3. Follow the detailed packaging checklist in `docs/deployment/kaggle_setup.md` (dataset preparation, governance checks, notebook template, final review).
 
+### Kaggle Multi-Stack Automation
+
+When you need to exercise mutually incompatible RL stacks (e.g. SB3 0.29.x vs. Dopamine 1.x) inside a single Kaggle runtime, use the orchestrator:
+
+```bash
+python kaggle/run_multi_stage.py
+```
+
+- Installs each stack with forced `pip` reinstalls, runs the corresponding stage script, captures logs + models under `/kaggle/working/multi_stage_artifacts/<stage>/`, and uninstalls the packages before moving on.
+- Stages are registered in `kaggle/run_multi_stage.py` and implemented under `kaggle/stages/`. Extend them or add new ones by editing the registry.
+- Run individual stages via `python kaggle/run_multi_stage.py --stage sb3_kaggle` and list available entries with `--list`.
+- Every execution emits `summary.json` (timings, status, log paths) and stage-specific `requirements.txt`, making it easy to reproduce or debug downstream notebooks.
+- The default registry includes:
+  - `sb3_kaggle` – Stable-Baselines3 PPO smoke test compatible with Kaggle pins.
+  - `dopamine` – Dopamine + Gymnasium 1.x validation via random rollouts.
+  - `leadlag_hydra` – Runs project Hydra scenarios (single or multi-seed) and keeps outputs in the stage artifact folder.
+
 ---
 
 ## Ablation Pipeline
