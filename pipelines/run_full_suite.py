@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Dict, List, Optional, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -33,6 +34,18 @@ class ScenarioRequirements:
     requires_sb3_contrib: bool
 
 
+
+
+def _serialize_args(args: argparse.Namespace) -> Dict[str, object]:
+    result: Dict[str, object] = {}
+    for key, value in vars(args).items():
+        if isinstance(value, Path):
+            result[key] = str(value)
+        elif isinstance(value, list):
+            result[key] = [str(item) if isinstance(item, Path) else item for item in value]
+        else:
+            result[key] = value
+    return result
 def inspect_scenario(name: str) -> ScenarioRequirements:
     cfg = hydra_main._load_scenario_cfg(name)  # pylint: disable=protected-access
     runner = cfg.get("runner", "scenario")
@@ -248,7 +261,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    start_time = time.time()
     dependency_status = dependency_preflight(args.skip_optional_deps)
+    run_log: Dict[str, object] = {
+        "command": " \".join([sys.executable] + sys.argv[1:]) if len(sys.argv) > 0 else "python pipelines/run_full_suite.py",
+        "args": _serialize_args(args),
+        "dependency_status": dependency_status,
+        "start_time": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_time)),
+    }
 
     output_root = ensure_path(args.output_root.resolve())
     baseline_root = ensure_path(output_root / "core")
@@ -259,142 +279,140 @@ def main() -> int:
 
     python_exe = sys.executable
 
-    # Dataset audit
-    if not args.skip_audit:
-        quality_cmd = [
-            python_exe,
-            str(ROOT / "scripts" / "audit" / "dataset_quality.py"),
-            "--path",
-            str(args.data_path),
-            "--missing-tolerance",
-            str(args.max_missing_ratio),
-            "--zero-variance-limit",
-            str(args.max_zero_variance),
-        ]
-        if args.fail_on_quality:
-            quality_cmd.append("--exit-on-fail")
-        run_command(quality_cmd)
+    logs_dir = ensure_path(output_root / "logs")
+    success = False
+    error_message: Optional[str] = None
+    try:
+        # Dataset audit
+        if not args.skip_audit:
+            quality_cmd = [
+                python_exe,
+                str(ROOT / "scripts" / "audit" / "dataset_quality.py"),
+                "--path",
+                str(args.data_path),
+                "--missing-tolerance",
+                str(args.max_missing_ratio),
+                "--zero-variance-limit",
+                str(args.max_zero_variance),
+            ]
+            if args.fail_on_quality:
+                quality_cmd.append("--exit-on-fail")
+            run_command(quality_cmd)
 
-    # Determine baseline scenarios and validate configs
-    baseline_scenarios = args.baseline_scenarios or [args.scenario]
-    validated_baselines: List[str] = []
-    for scenario_name in baseline_scenarios:
-        requirements = inspect_scenario(scenario_name)
-        if not check_optional_dependencies(requirements, dependency_status, args.skip_optional_deps):
-            continue
-        try:
-            cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
-            hydra_main.validate_scenario_cfg(cfg)
-            validated_baselines.append(scenario_name)
-        except Exception as exc:  # pragma: no cover - validation guard
-            print(f"[full-suite] Skipping {scenario_name}: validation failed ({exc})")
-    if not validated_baselines:
-        print("[full-suite] WARN: no baseline scenarios scheduled for execution.")
-
-    # Validate ablation scenarios (if provided)
-    ablation_scenarios = args.ablation_scenarios
-    if ablation_scenarios:
-        validated_ablation: List[str] = []
-        for scenario_name in list(ablation_scenarios):
+        # Determine baseline scenarios and validate configs
+        baseline_scenarios = args.baseline_scenarios or [args.scenario]
+        validated_baselines: List[str] = []
+        for scenario_name in baseline_scenarios:
             requirements = inspect_scenario(scenario_name)
             if not check_optional_dependencies(requirements, dependency_status, args.skip_optional_deps):
                 continue
             try:
                 cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
                 hydra_main.validate_scenario_cfg(cfg)
-                validated_ablation.append(scenario_name)
-            except Exception as exc:
-                print(f"[full-suite] Skipping ablation scenario {scenario_name}: validation failed ({exc})")
-        ablation_scenarios = validated_ablation or None
+                validated_baselines.append(scenario_name)
+            except Exception as exc:  # pragma: no cover - validation guard
+                print(f"[full-suite] Skipping {scenario_name}: validation failed ({exc})")
+        run_log["baseline_scenarios_requested"] = baseline_scenarios
+        run_log["validated_baselines"] = validated_baselines
+        if not validated_baselines:
+            print("[full-suite] WARN: no baseline scenarios scheduled for execution.")
 
-    if not args.skip_baseline:
-        for scenario_name in validated_baselines:
-            requirements = inspect_scenario(scenario_name)
-            if not check_optional_dependencies(requirements, dependency_status, args.skip_optional_deps):
-                continue
-            baseline_cmd: List[str] = [
-                python_exe,
-                str(ROOT / "hydra_main.py"),
-                "--scenario",
-                scenario_name,
-                "--output_root",
-                str(baseline_root),
-            ]
-            if not args.baseline_single_seed and args.baseline_seeds:
-                baseline_cmd.append("--multi_seed_enabled")
-                baseline_cmd.append("--seeds")
-                baseline_cmd.extend(str(seed) for seed in args.baseline_seeds)
-            run_command(baseline_cmd)
+        # Validate ablation scenarios (if provided)
+        ablation_scenarios = args.ablation_scenarios
+        if ablation_scenarios:
+            validated_ablation: List[str] = []
+            for scenario_name in list(ablation_scenarios):
+                requirements = inspect_scenario(scenario_name)
+                if not check_optional_dependencies(requirements, dependency_status, args.skip_optional_deps):
+                    continue
+                try:
+                    cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
+                    hydra_main.validate_scenario_cfg(cfg)
+                    validated_ablation.append(scenario_name)
+                except Exception as exc:
+                    print(f"[full-suite] Skipping ablation scenario {scenario_name}: validation failed ({exc})")
+            ablation_scenarios = validated_ablation or None
+        run_log["validated_ablation"] = ablation_scenarios or []
 
-        if not args.skip_meta_offline:
-            ensure_path(meta_root)
-        run_command(
-            [
-                python_exe,
-                str(ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
-                "--output-root",
-                str(meta_root),
-                "--samples",
-                str(args.meta_samples),
-            ]
-        )
-        ensure_path(offline_root)
-        dataset_path = offline_root / "offline_dataset.csv"
-        run_command(
-            [
-                python_exe,
-                str(ROOT / "research" / "offline_rl" / "log_trajectories.py"),
-                "--episodes",
+        if not args.skip_baseline:
+            for scenario_name in validated_baselines:
+                requirements = inspect_scenario(scenario_name)
+                if not check_optional_dependencies(requirements, dependency_status, args.skip_optional_deps):
+                    continue
+                baseline_cmd: List[str] = [
+                    python_exe,
+                    str(ROOT / "hydra_main.py"),
+                    "--scenario",
+                    scenario_name,
+                    "--output_root",
+                    str(baseline_root),
+                ]
+                if not args.baseline_single_seed and args.baseline_seeds:
+                    baseline_cmd.append("--multi_seed_enabled")
+                    baseline_cmd.append("--seeds")
+                    baseline_cmd.extend(str(seed) for seed in args.baseline_seeds)
+                run_command(baseline_cmd)
+
+            if not args.skip_meta_offline:
+                ensure_path(meta_root)
+                run_command([
+                    python_exe,
+                    str(ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
+                    "--output-root",
+                    str(meta_root),
+                    "--samples",
+                    str(args.meta_samples),
+                ])
+
+                ensure_path(offline_root)
+                dataset_path = offline_root / "offline_dataset.csv"
+                run_command([
+                    python_exe,
+                    str(ROOT / "research" / "offline_rl" / "log_trajectories.py"),
+                    "--episodes",
                     str(args.offline_episodes),
                     "--output",
                     str(dataset_path),
-                ]
-            )
-            run_command(
-                [
+                ])
+                run_command([
                     python_exe,
                     str(ROOT / "research" / "offline_rl" / "train_offline.py"),
                     "--dataset",
                     str(dataset_path),
                     "--output-root",
                     str(offline_root),
-                ]
-            )
+                ])
 
-        # Finance KPIs on baseline runs
-        finance_output = ensure_path(baseline_root / "evaluation") / "finance_kpis.csv"
-        run_command(
-            [
+            finance_output = ensure_path(baseline_root / "evaluation") / "finance_kpis.csv"
+            run_command([
                 python_exe,
                 str(ROOT / "evaluation" / "finance_kpis.py"),
                 "--results-root",
                 str(baseline_root),
                 "--output",
                 str(finance_output),
+            ])
+
+        # Ablation pipeline
+        if not args.skip_ablation:
+            ablation_cmd: List[str] = [
+                python_exe,
+                str(ROOT / "pipelines" / "run_ablation.py"),
+                "--output-root",
+                str(ablation_root),
             ]
-        )
+            if args.skip_optional_deps:
+                ablation_cmd.append("--skip-missing-deps")
+            if args.ablation_single_seed:
+                ablation_cmd.append("--single-seed")
+            if args.ablation_scenarios:
+                ablation_cmd.append("--scenarios")
+                ablation_cmd.extend(args.ablation_scenarios)
+            run_command(ablation_cmd)
 
-    # Ablation pipeline
-    if not args.skip_ablation:
-        ablation_cmd: List[str] = [
-            python_exe,
-            str(ROOT / "pipelines" / "run_ablation.py"),
-            "--output-root",
-            str(ablation_root),
-        ]
-        if args.skip_optional_deps:
-            ablation_cmd.append("--skip-missing-deps")
-        if args.ablation_single_seed:
-            ablation_cmd.append("--single-seed")
-        if args.ablation_scenarios:
-            ablation_cmd.append("--scenarios")
-            ablation_cmd.extend(args.ablation_scenarios)
-        run_command(ablation_cmd)
-
-    # Leakage probes and walk-forward verification
-    if not args.skip_audit:
-        run_command(
-            [
+        # Leakage probes and walk-forward verification
+        if not args.skip_audit:
+            run_command([
                 python_exe,
                 str(ROOT / "scripts" / "audit" / "leakage_probes.py"),
                 "--scenario",
@@ -405,10 +423,8 @@ def main() -> int:
                 str(args.leakage_limit_days),
                 "--out",
                 str(robustness_root),
-            ]
-        )
-        run_command(
-            [
+            ])
+            run_command([
                 python_exe,
                 str(ROOT / "scripts" / "audit" / "check_walk_forward.py"),
                 "--scenario",
@@ -419,53 +435,76 @@ def main() -> int:
                 str(args.leakage_limit_days),
                 "--output-root",
                 str(robustness_root),
-            ]
-        )
+            ])
 
-    # Generate unified comparison plots for the entire output root
-    run_command(
-        [
+        # Generate unified comparison plots for the entire output root
+        run_command([
             python_exe,
             str(ROOT / "reporting" / "compare_scenarios.py"),
             "--results_root",
             str(output_root),
             "--out",
             str(output_root / "aggregate_comparison"),
-        ]
-    )
+        ])
 
-    if not args.skip_report:
-        report_dir = ensure_path(output_root / "reports")
-        report_start = time.time()
-        run_command(
-            [
+        if not args.skip_report:
+            report_dir = ensure_path(output_root / "reports")
+            report_start = time.time()
+            run_command([
                 python_exe,
                 str(ROOT / "reporting" / "generate_report.py"),
                 "--results-root",
                 str(output_root),
                 "--output-dir",
                 str(report_dir),
-            ]
-        )
-        elapsed = time.time() - report_start
-        print(f"[full-suite] Report generated in {elapsed:.1f}s at {report_dir}")
+            ])
+            elapsed = time.time() - report_start
+            print(f"[full-suite] Report generated in {elapsed:.1f}s at {report_dir}")
 
-    if not args.skip_schema_check:
-        audit_dir = ensure_path(output_root / "audit")
-        run_command(
-            [
+            # Portfolio balance history plots (all runs + per-scenario)
+            run_command([
+                python_exe,
+                str(ROOT / "reporting" / "plot_balance_history.py"),
+                "--results-root",
+                str(output_root),
+                "--out",
+                str(output_root / "evaluation" / "plots" / "balance"),
+            ])
+
+        if not args.skip_schema_check:
+            audit_dir = ensure_path(output_root / "audit")
+            run_command([
                 python_exe,
                 str(ROOT / "scripts" / "audit" / "validate_artifacts.py"),
                 "--root",
                 str(output_root),
                 "--out",
                 str(audit_dir),
-            ]
-        )
+            ])
+
+        success = True
+    except Exception as exc:
+        error_message = repr(exc)
+        raise
+    finally:
+        end_time = time.time()
+        run_log["success"] = success
+        run_log["end_time"] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(end_time))
+        run_log["elapsed_seconds"] = round(end_time - start_time, 3)
+        if error_message:
+            run_log["error"] = error_message
+        try:
+            logs_dir.mkdir(parents=True, exist_ok=True)
+            (logs_dir / f"run_summary_{int(end_time)}.json").write_text(json.dumps(run_log, indent=2), encoding="utf-8")
+        except Exception:
+            pass
 
     print("[full-suite] Pipeline completed successfully.")
     return 0
 
 
+
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
