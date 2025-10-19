@@ -187,30 +187,45 @@ def main() -> None:
         "sb3_leadlag": StageDefinition(
             name="sb3_leadlag",
             requirements=[
-                # Classic Gym + SB3 1.x stack for project RL training
-                "-r",
-                str(REPO_ROOT / "requirements-kaggle.txt"),
-                "gym==0.26.2",
+                # Minimal stack for production RL on LeadLag (SB3 1.x + classic gym)
+                "numpy>=1.23",
+                "pandas>=1.5",
+                "scipy>=1.10",
+                "scikit-learn>=1.1",
+                "matplotlib>=3.6",
+                "tqdm>=4.64",
+                "pyyaml>=6.0",
+                "gym==0.21.0",
                 "stable-baselines3==1.8.0",
                 "sb3-contrib==1.8.0",
                 "torch>=2.0",
             ],
             entrypoint=Path(__file__).parent / "stages" / "sb3_leadlag.py",
-            uninstall=[],
+            uninstall=[
+                "gym",
+                "stable-baselines3",
+                "sb3-contrib",
+                "torch",
+                "gymnasium",
+                "dopamine-rl",
+            ],
             description="Train PPO/variants on LeadLag env via training.run_rl with overrides.",
         ),
         "full_suite": StageDefinition(
             name="full_suite",
             requirements=[
+                # Use the project's lean stack; RL deps are handled in sb3_leadlag stage
                 "-r",
                 str(REPO_ROOT / "requirements-kaggle.txt"),
-                "gym==0.26.2",
-                "stable-baselines3==1.8.0",
-                "sb3-contrib==1.8.0",
-                "torch>=2.0",
             ],
             entrypoint=Path(__file__).parent / "stages" / "full_suite.py",
-            uninstall=[],
+            uninstall=[
+                "gym",
+                "gymnasium",
+                "stable-baselines3",
+                "sb3-contrib",
+                "torch",
+            ],
             description="Run pipelines/run_full_suite.py (includes ablation, audits, reports).",
         ),
         "leadlag_hydra": StageDefinition(

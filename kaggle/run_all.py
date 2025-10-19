@@ -29,7 +29,7 @@ def prefetch_wheels(wheelhouse: Path) -> None:
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse), "-r", str(ROOT / "requirements-kaggle.txt")])
     # RL stack (classic gym + SB3 1.x)
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse),
-         "gym==0.26.2", "stable-baselines3==1.8.0", "sb3-contrib==1.8.0", "torch>=2.0"])
+         "gym==0.21.0", "stable-baselines3==1.8.0", "sb3-contrib==1.8.0", "torch>=2.0"])
     # Dopamine stack (Gymnasium 1.x)
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse), "dopamine-rl==4.1.2", "gymnasium==1.0.0"])
 
