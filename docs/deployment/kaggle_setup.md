@@ -1,66 +1,74 @@
-# Kaggle Deployment Checklist
+Kaggle Setup and One‑Command Grand Run
 
-Use this guide to package the project for Kaggle notebooks or competitions. The steps assume you are working from a clean git tree and have already generated results locally.
+This guide shows how to run the complete experiment suite on Kaggle with a single command, including baselines, ablations, RL, audits, and final reports. It also covers performance tips and optional overrides.
 
-## 1. Curate Dependencies
-- Install the lean stack defined in `requirements-kaggle.txt`:
-  ```bash
-  pip install -r requirements-kaggle.txt
-  ```
-- Optional extras (MLflow, Stable-Baselines3, sb3-contrib, PyTorch) are listed at the bottom of the same file; enable them only if the Kaggle runtime needs RL training or remote logging.
+Prerequisites
 
-## 2. Stage Input Artifacts
-- Copy required configuration files (`configs/`), scripts, and the minimal subset of `raw_data/` into a folder that will be uploaded as Kaggle dataset input.
-- When private data cannot be shared, include a synthetic sample (e.g., generated via `research/meta_rl/run_meta_rl.py`) so that pipelines still execute.
-- Ensure any saved models or checkpoints fit within Kaggle’s 20 GB dataset limit.
+- Kaggle Notebook settings:
+  - Internet: ON (required for one‑time wheel downloads)
+  - Accelerator: GPU recommended for RL; CPU works for non‑RL parts
+- Attach your project code/data as a Kaggle Dataset or clone the repo in a cell.
 
-## 3. Prepare Execution Script
-- The all-in-one helper `kaggle/starter.py` mirrors the typical workflow:
-  ```bash
-  python kaggle/starter.py --scenario fixed_30 --run-meta-rl --run-offline --output-root /kaggle/working
-  ```
-- If you prefer individual calls (e.g., inside notebook cells), invoke the specific entry points:
-  ```bash
-  python research/meta_rl/run_meta_rl.py --output-root /kaggle/working/meta_rl --samples 250
-  python research/offline_rl/log_trajectories.py --episodes 3 --output /kaggle/working/offline/offline_dataset.csv
-  python research/offline_rl/train_offline.py --dataset /kaggle/working/offline/offline_dataset.csv
-  ```
-- For ablation studies (signature baselines, dynamic, RL, and random controls) use the pipeline helper:
-  ```bash
-  python pipelines/run_ablation.py --output-root /kaggle/working/ablations
-  ```
-  Install optional dependencies (`stable-baselines3`, `torch`) when including RL-heavy presets, or pass `--skip-missing-deps` to skip them.
-- To execute the entire suite (baseline+meta+offline, audits, ablations, reporting) in one shot:
-  ```bash
-  python pipelines/run_full_suite.py --output-root /kaggle/working/full_suite
-  ```
-  Use flags such as `--skip-ablation`, `--skip-meta-offline`, or `--skip-audit` to tailor the run. Add `--skip-optional-deps` if RL extras are unavailable.
-- Persist outputs only under `/kaggle/working` so that Kaggle captures them as notebook results.
+One‑Command Grand Run
 
-## 4. Validate Without Network
-- Run the bundled smoke test to ensure all entry points succeed without internet access:
-  ```bash
-  python scripts/smoke_kaggle.py --output-root dist/kaggle_smoke --keep-meta-rl --keep-offline
-  ```
-- Execute governance checks prior to export:
-  ```bash
-  python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv --missing-tolerance 0.01 --zero-variance-limit 0 --exit-on-fail
-  pytest -q tests/smoke/
-  ```
+- From the notebook (after copying or cloning the repo into `/kaggle/working`):
 
-## 5. Notebook Template
-- Create a Kaggle notebook that performs the following in order:
-  1. `!pip install -r /kaggle/input/<dataset>/requirements-kaggle.txt`
-  2. Copy configs or data into `/kaggle/working` as needed.
-  3. Invoke the chosen scenario or research script.
-  4. Display key artifacts (e.g., `summary.csv`, plots) to document success.
-- Save the notebook with “Internet Disabled” to confirm portability.
+```
+python kaggle/run_all.py
+```
 
-## 6. Final Review
-- Double-check `run_metadata.json` and `data_manifest.json` for each generated output directory before uploading to Kaggle.
-- Update `README` or release notes with the exact commands used so peers can reproduce the Kaggle run.
-- Tag the git commit used for export so future iterations can diff changes quickly.
+- What it does:
+  - Prefetches wheels (local wheelhouse) to speed up installations
+  - Configures pip to use the local wheelhouse/cache
+  - Executes the orchestrator with two stages in order:
+    1) `full_suite` – runs `pipelines/run_full_suite.py` (baselines, ablations, meta‑RL, offline RL, audits, reports)
+    2) `dopamine` – Gymnasium 1.x + `dopamine-rl` validation
+  - Bundles outputs to `/kaggle/working/multi_stage_artifacts.zip`
 
-Following this checklist ensures the repository is packaged with the minimal dependency footprint, reproducibility metadata, and clear run instructions required by Kaggle’s execution environment.
+- If you prefer not to prefetch wheels (slower):
 
+```
+python kaggle/run_all.py --no-prefetch
+```
 
+Outputs
+
+- Root: `/kaggle/working/multi_stage_artifacts/`
+  - `full_suite/…` – core runs, ablations, robustness checks, reports, plots, audit logs
+  - `dopamine/…` – sanity run for Gymnasium 1.x + Dopamine
+  - `summary.json` – stage statuses, durations, and log paths
+- Bundle for download: `/kaggle/working/multi_stage_artifacts.zip`
+
+Optional Overrides (advanced)
+
+Use these environment variables before calling specific stages (only needed if you run `kaggle/run_multi_stage.py` directly or add `sb3_leadlag`):
+
+- Hydra scenarios (stage `leadlag_hydra`):
+  - `LEADLAG_SCENARIOS` – comma‑separated names (e.g., `fixed_30,rl_ppo`)
+  - `LEADLAG_SEEDS` – comma‑separated ints (e.g., `42,52,62`)
+  - `LEADLAG_MULTI_SEED` – `true/false/1/0`
+
+- SB3 production training (stage `sb3_leadlag`):
+  - `SB3_DEVICE` – `cuda`, `cpu`, or `auto`
+  - `SB3_TIMESTEPS` – total timesteps (int)
+  - `SB3_N_STEPS`, `SB3_BATCH_SIZE`, `SB3_LR`, `SB3_EVAL_FREQ`, `SB3_VERBOSE`, `SB3_SEED`
+
+Notes
+
+- The grand run intentionally avoids duplicate RL work by using the `full_suite` pipeline (which already includes RL ablations). If you want extra long RL training, run:
+
+```
+python kaggle/run_multi_stage.py --stage sb3_leadlag
+```
+
+Performance Tips
+
+- Keep Internet ON for prefetch. If a wheel is missing for your platform, set `PIP_NO_INDEX=0` temporarily to allow PyPI fallback.
+- Use GPU for RL with `SB3_DEVICE=cuda` (when invoking `sb3_leadlag`).
+- Reduce RL timesteps if the Kaggle time budget is tight.
+- Large outputs: download the ZIP bundle or selectively prune heavy logs after verifying results.
+
+Troubleshooting
+
+- If any stage fails, check `multi_stage_artifacts/<stage>/stderr.log` and the top‑level `summary.json` for quick pointers.
+- If pip raises dependency issues, clear local caches (`/kaggle/working/.cache/pip`) and rerun.

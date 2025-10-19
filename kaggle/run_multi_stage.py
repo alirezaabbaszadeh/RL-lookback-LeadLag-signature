@@ -184,11 +184,45 @@ def main() -> None:
             ],
             description="Random-policy dopamine rollouts on Gymnasium 1.x.",
         ),
+        "sb3_leadlag": StageDefinition(
+            name="sb3_leadlag",
+            requirements=[
+                # Classic Gym + SB3 1.x stack for project RL training
+                "-r",
+                str(REPO_ROOT / "requirements-kaggle.txt"),
+                "gym==0.26.2",
+                "stable-baselines3==1.8.0",
+                "sb3-contrib==1.8.0",
+                "torch>=2.0",
+            ],
+            entrypoint=Path(__file__).parent / "stages" / "sb3_leadlag.py",
+            uninstall=[],
+            description="Train PPO/variants on LeadLag env via training.run_rl with overrides.",
+        ),
+        "full_suite": StageDefinition(
+            name="full_suite",
+            requirements=[
+                "-r",
+                str(REPO_ROOT / "requirements-kaggle.txt"),
+                "gym==0.26.2",
+                "stable-baselines3==1.8.0",
+                "sb3-contrib==1.8.0",
+                "torch>=2.0",
+            ],
+            entrypoint=Path(__file__).parent / "stages" / "full_suite.py",
+            uninstall=[],
+            description="Run pipelines/run_full_suite.py (includes ablation, audits, reports).",
+        ),
         "leadlag_hydra": StageDefinition(
             name="leadlag_hydra",
             requirements=[
                 "-r",
                 str(REPO_ROOT / "requirements-kaggle.txt"),
+                # Add production RL stack compatible with classic Gym API
+                "gym==0.26.2",
+                "stable-baselines3==1.8.0",
+                "sb3-contrib==1.8.0",
+                "torch>=2.0",
             ],
             entrypoint=ORCHESTRATOR_DIR / "stages" / "leadlag_hydra.py",
             uninstall=[],

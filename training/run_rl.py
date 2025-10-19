@@ -182,6 +182,10 @@ def run_rl(cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Di
             'verbose': 1 if rl_cfg.get('verbose', False) else 0,
             'seed': seed,
         }
+        # Allow device override ("auto", "cuda", or "cpu") if provided in config
+        device = rl_cfg.get('device')
+        if device:
+            algo_kwargs['device'] = str(device)
         if algo_spec.policy_kwargs:
             algo_kwargs['policy_kwargs'] = algo_spec.policy_kwargs
 

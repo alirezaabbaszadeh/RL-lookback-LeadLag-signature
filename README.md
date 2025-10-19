@@ -76,6 +76,26 @@ python kaggle/run_multi_stage.py
   - `sb3_kaggle` – Stable-Baselines3 PPO smoke test compatible with Kaggle pins.
   - `dopamine` – Dopamine + Gymnasium 1.x validation via random rollouts.
   - `leadlag_hydra` – Runs project Hydra scenarios (single or multi-seed) and keeps outputs in the stage artifact folder.
+  - `sb3_leadlag` – Production SB3 training on LeadLag env using `training/run_rl` (PPO, PPO‑LSTM, attention policy) with env overrides for device/timesteps.
+  - `full_suite` – Runs `pipelines/run_full_suite.py` (includes ablation pipeline, audits, reports) to avoid duplicates.
+
+### One-Command Grand Run
+
+To execute the complete suite (baselines, ablations, RL, audits, reports) plus the Dopamine stack in a single command on Kaggle with Internet ON:
+
+```bash
+python kaggle/run_all.py
+```
+
+- Prefetches wheels for fast installs, uses a local pip cache, then runs `full_suite` followed by `dopamine` via the orchestrator. Outputs live under `/kaggle/working/multi_stage_artifacts/` and a bundled `multi_stage_artifacts.zip` is created for download.
+- To skip prefetch (slower but simpler): `python kaggle/run_all.py --no-prefetch`.
+
+Env Overrides (advanced)
+
+- `leadlag_hydra` stage: `LEADLAG_SCENARIOS`, `LEADLAG_SEEDS`, `LEADLAG_MULTI_SEED`.
+- `sb3_leadlag` stage: `SB3_DEVICE` (`cuda`/`cpu`/`auto`), `SB3_TIMESTEPS`, `SB3_N_STEPS`, `SB3_BATCH_SIZE`, `SB3_LR`, `SB3_EVAL_FREQ`, `SB3_VERBOSE`, `SB3_SEED`.
+
+Recommended Kaggle settings: Internet ON, GPU for RL workloads.
 
 ---
 
