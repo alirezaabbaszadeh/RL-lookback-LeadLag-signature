@@ -87,7 +87,7 @@ To execute the complete suite (baselines, ablations, RL, audits, reports) plus t
 python kaggle/run_all.py
 ```
 
-- Prefetches wheels for fast installs, uses a local pip cache, then runs `full_suite` followed by `dopamine` via the orchestrator. Outputs live under `/kaggle/working/multi_stage_artifacts/` and a bundled `multi_stage_artifacts.zip` is created for download.
+- Prefetches wheels for fast installs, uses a local pip cache, then runs `full_suite`, `sb3_leadlag` (production RL), and `dopamine` via the orchestrator. Outputs live under `/kaggle/working/multi_stage_artifacts/` and a bundled `multi_stage_artifacts.zip` is created for download.
 - To skip prefetch (slower but simpler): `python kaggle/run_all.py --no-prefetch`.
 
 Env Overrides (advanced)

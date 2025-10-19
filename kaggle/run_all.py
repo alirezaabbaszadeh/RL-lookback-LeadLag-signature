@@ -56,9 +56,23 @@ def main() -> None:
     os.environ.setdefault("PIP_FIND_LINKS", str(wheelhouse))
     os.environ.setdefault("PIP_NO_INDEX", "1")
 
-    # Execute the two comprehensive stages in order: full suite (includes ablation), then dopamine
-    run([sys.executable, str(HERE / "run_multi_stage.py"), "--artifacts-root", str(artifacts_root),
-         "--stage", "full_suite", "--stage", "dopamine"])  # no duplicates
+    # Provide sensible defaults for production RL unless user overrides
+    os.environ.setdefault("SB3_DEVICE", "auto")
+    os.environ.setdefault("SB3_TIMESTEPS", "300000")
+
+    # Execute comprehensive stages in order:
+    #   1) full_suite (baselines, ablations, audits, reports)
+    #   2) sb3_leadlag (production RL on LeadLag)
+    #   3) dopamine (Gymnasium 1.x sanity)
+    run([
+        sys.executable,
+        str(HERE / "run_multi_stage.py"),
+        "--artifacts-root",
+        str(artifacts_root),
+        "--stage", "full_suite",
+        "--stage", "sb3_leadlag",
+        "--stage", "dopamine",
+    ])
 
     # Bundle artifacts for download
     bundle = artifacts_root.parent / "multi_stage_artifacts.zip"
@@ -73,4 +87,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

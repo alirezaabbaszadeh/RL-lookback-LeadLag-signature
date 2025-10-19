@@ -20,9 +20,10 @@ python kaggle/run_all.py
 - What it does:
   - Prefetches wheels (local wheelhouse) to speed up installations
   - Configures pip to use the local wheelhouse/cache
-  - Executes the orchestrator with two stages in order:
+  - Executes the orchestrator with three stages in order:
     1) `full_suite` – runs `pipelines/run_full_suite.py` (baselines, ablations, meta‑RL, offline RL, audits, reports)
-    2) `dopamine` – Gymnasium 1.x + `dopamine-rl` validation
+    2) `sb3_leadlag` – production SB3 training on LeadLag with device/timesteps overrides
+    3) `dopamine` – Gymnasium 1.x + `dopamine-rl` validation
   - Bundles outputs to `/kaggle/working/multi_stage_artifacts.zip`
 
 - If you prefer not to prefetch wheels (slower):
@@ -35,6 +36,7 @@ Outputs
 
 - Root: `/kaggle/working/multi_stage_artifacts/`
   - `full_suite/…` – core runs, ablations, robustness checks, reports, plots, audit logs
+  - `sb3_leadlag/…` – production RL outputs (one folder per scenario)
   - `dopamine/…` – sanity run for Gymnasium 1.x + Dopamine
   - `summary.json` – stage statuses, durations, and log paths
 - Bundle for download: `/kaggle/working/multi_stage_artifacts.zip`
