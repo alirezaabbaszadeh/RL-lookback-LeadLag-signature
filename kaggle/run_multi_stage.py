@@ -1,10 +1,10 @@
 """
 Orchestrate multiple RL stacks sequentially in a Kaggle notebook.
 
-The script installs each stack with an isolated ``pip`` transaction, runs its
-stage script in a fresh subprocess, captures artifacts, and uninstalls the
-packages before proceeding. This prevents long-lived dependency conflicts while
-still allowing reproducible multi-stack experiments within a single runtime.
+Each stage executes inside a throwaway virtual environment so that its
+dependencies never leak into the global site-packages. The orchestrator records
+logs and artifacts for every run and optionally zips the directory for easy
+download from notebook environments.
 """
 
 from __future__ import annotations
@@ -18,11 +18,22 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
+import venv
 
 
 ORCHESTRATOR_DIR = Path(__file__).resolve().parent
 REPO_ROOT = ORCHESTRATOR_DIR.parent
+
+
+def _detect_python_binary(venv_dir: Path) -> Path:
+    if os.name == "nt":
+        candidate = venv_dir / "Scripts" / "python.exe"
+    else:
+        candidate = venv_dir / "bin" / "python"
+    if not candidate.exists():
+        raise RuntimeError(f"Missing python binary in virtualenv: {candidate}")
+    return candidate
 
 
 @dataclass(frozen=True)
@@ -32,6 +43,8 @@ class StageDefinition:
     entrypoint: Path
     uninstall: Sequence[str]
     description: str
+    # ``uninstall`` is retained for compatibility with existing configs but no longer
+    # used now that each stage executes inside an isolated virtual environment.
 
 
 def discover_artifact_root(custom_root: Path | None) -> Path:
@@ -58,39 +71,62 @@ def package_artifacts(artifact_root: Path) -> Path:
     return Path(created)
 
 
-def pip_install(requirements: Iterable[str]) -> None:
+def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
+    env_dir = venv_root / stage_name
+    if env_dir.exists():
+        shutil.rmtree(env_dir)
+    builder = venv.EnvBuilder(with_pip=True, clear=True)
+    builder.create(env_dir)
+    python_executable = _detect_python_binary(env_dir)
+    subprocess.run(
+        [
+            str(python_executable),
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip",
+            "setuptools",
+            "wheel",
+        ],
+        check=True,
+    )
+    return python_executable, env_dir
+
+
+def pip_install(python_executable: Path, requirements: Sequence[str]) -> None:
     if not requirements:
         return
     cmd = [
-        sys.executable,
+        str(python_executable),
         "-m",
         "pip",
         "install",
         "--no-input",
         "--upgrade",
-        "--force-reinstall",
         *requirements,
     ]
     subprocess.run(cmd, check=True)
 
 
-def pip_check() -> None:
-    result = subprocess.run([sys.executable, "-m", "pip", "check"], capture_output=True, text=True)
+def pip_check(python_executable: Path) -> None:
+    result = subprocess.run(
+        [str(python_executable), "-m", "pip", "check"],
+        capture_output=True,
+        text=True,
+    )
     if result.returncode != 0:
         print("[orchestrator] pip check reported issues (continuing):")
         print(result.stdout.strip())
         print(result.stderr.strip())
 
 
-def pip_uninstall(packages: Iterable[str]) -> None:
-    packages = list(packages)
-    if not packages:
-        return
-    cmd = [sys.executable, "-m", "pip", "uninstall", "-y", *packages]
-    subprocess.run(cmd, check=False)
-
-
-def run_stage(stage: StageDefinition, output_dir: Path) -> tuple[str, str, float]:
+def run_stage(
+    stage: StageDefinition,
+    output_dir: Path,
+    python_executable: Path,
+    extra_env: dict[str, str] | None = None,
+) -> tuple[str, str, float]:
     """Execute stage entrypoint synchronously and capture logs."""
     stage_dir = output_dir / stage.name
     if stage_dir.exists():
@@ -106,11 +142,20 @@ def run_stage(stage: StageDefinition, output_dir: Path) -> tuple[str, str, float
     requirements_path.write_text("\n".join(stage.requirements) + "\n", encoding="utf-8")
 
     command = [
-        sys.executable,
+        str(python_executable),
         str(stage.entrypoint),
         "--output-dir",
         str(stage_dir),
     ]
+
+    env = os.environ.copy()
+    pythonpath_entries = [str(REPO_ROOT)]
+    existing_pythonpath = env.get("PYTHONPATH")
+    if existing_pythonpath:
+        pythonpath_entries.append(existing_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
+    if extra_env:
+        env.update(extra_env)
 
     start = time.time()
     result = subprocess.run(
@@ -118,6 +163,7 @@ def run_stage(stage: StageDefinition, output_dir: Path) -> tuple[str, str, float
         cwd=stage.entrypoint.parent,
         text=True,
         capture_output=True,
+        env=env,
     )
     duration = time.time() - start
 
@@ -212,11 +258,11 @@ def main() -> None:
             name="sb3_leadlag",
             requirements=[
                 # Minimal stack for production RL on LeadLag (SB3 2.x + Gymnasium)
-                "numpy>=1.23",
-                "pandas>=1.5",
-                "scipy>=1.10",
-                "scikit-learn>=1.1",
-                "matplotlib>=3.6",
+                "numpy>=1.23,<2.0",
+                "pandas>=1.5,<2.2.3",
+                "scipy>=1.10,<1.16",
+                "scikit-learn>=1.1,<1.7",
+                "matplotlib>=3.6,<3.11",
                 "tqdm>=4.64",
                 "pyyaml>=6.0",
                 "gymnasium==0.29.1",
@@ -287,13 +333,23 @@ def main() -> None:
     summary: list[dict[str, object]] = []
     summary_path = artifact_root / "summary.json"
 
+    venv_root = artifact_root.parent / ".stage_venvs"
+    venv_root.mkdir(parents=True, exist_ok=True)
+
+    created_envs: dict[str, Path] = {}
+
     for stage in selected_stages:
-        pip_uninstall(stage.uninstall)
-        pip_install(stage.requirements)
-        pip_check()
+        stage_python, env_dir = create_virtualenv(stage.name, venv_root)
+        created_envs[stage.name] = env_dir
+        pip_install(stage_python, stage.requirements)
+        pip_check(stage_python)
 
         try:
-            stdout_path, stderr_path, duration = run_stage(stage, artifact_root)
+            stdout_path, stderr_path, duration = run_stage(
+                stage,
+                artifact_root,
+                stage_python,
+            )
             status = "success"
             error = None
         except RuntimeError as exc:
@@ -323,16 +379,16 @@ def main() -> None:
         summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
         if not args.skip_cleanup:
-            pip_uninstall(stage.uninstall)
+            shutil.rmtree(env_dir, ignore_errors=True)
 
-    # Optionally keep site-packages clean even if the final stage fails.
-    if not args.skip_cleanup:
-        residual_packages = {
-            package
-            for stage in selected_stages
-            for package in stage.uninstall
-        }
-        pip_uninstall(sorted(residual_packages))
+    if args.skip_cleanup:
+        for record in summary:
+            env_dir = created_envs.get(record["stage"])
+            if env_dir:
+                record["virtualenv"] = env_dir.as_posix()
+        summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    else:
+        shutil.rmtree(venv_root, ignore_errors=True)
 
     if not args.skip_zip:
         try:
