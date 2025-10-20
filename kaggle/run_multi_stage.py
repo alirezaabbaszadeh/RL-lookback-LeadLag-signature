@@ -60,7 +60,11 @@ def pip_install(requirements: Iterable[str]) -> None:
 
 
 def pip_check() -> None:
-    subprocess.run([sys.executable, "-m", "pip", "check"], check=True)
+    result = subprocess.run([sys.executable, "-m", "pip", "check"], capture_output=True, text=True)
+    if result.returncode != 0:
+        print("[orchestrator] pip check reported issues (continuing):")
+        print(result.stdout.strip())
+        print(result.stderr.strip())
 
 
 def pip_uninstall(packages: Iterable[str]) -> None:
