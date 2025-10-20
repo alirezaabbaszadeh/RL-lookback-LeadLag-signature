@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -20,6 +21,110 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 import venv
+
+
+def _get_site_packages_path(python_executable: Path) -> Path:
+    """Return the site-packages directory for the provided Python interpreter."""
+    result = subprocess.run(
+        [
+            str(python_executable),
+            "-c",
+            "import sysconfig; print(sysconfig.get_path('purelib'))",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return Path(result.stdout.strip())
+
+
+def _write_pip_entrypoints(python_executable: Path) -> None:
+    """Ensure pip console scripts exist inside the virtual environment."""
+
+    version_result = subprocess.run(
+        [
+            str(python_executable),
+            "-c",
+            "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    version = version_result.stdout.strip()
+    major, _, minor = version.partition(".")
+
+    script_body = (
+        f"#!{python_executable}\n"
+        "from runpy import run_module\n"
+        "if __name__ == '__main__':\n"
+        "    run_module('pip', run_name='__main__')\n"
+    )
+
+    bin_dir = python_executable.parent
+    candidate_names = ["pip", "pip3", f"pip{major}", f"pip{major}.{minor}" if minor else None]
+    script_names: list[str] = []
+    for candidate in candidate_names:
+        if candidate and candidate not in script_names:
+            script_names.append(candidate)
+
+    for name in script_names:
+        script_path = bin_dir / name
+        script_path.write_text(script_body, encoding="utf-8")
+        script_stat = script_path.stat()
+        script_path.chmod(script_stat.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def _fallback_copy_pip(python_executable: Path, env_dir: Path, error: subprocess.CalledProcessError) -> None:
+    """Copy pip and its metadata from the orchestrator environment into the venv."""
+
+    print(
+        "[orchestrator] ensurepip failed with exit code"
+        f" {error.returncode}; attempting manual pip bootstrap."
+    )
+
+    site_packages = _get_site_packages_path(python_executable)
+
+    try:
+        import pip  # type: ignore
+    except Exception as import_error:  # pragma: no cover - defensive logging
+        raise RuntimeError(
+            "Failed to import pip from the orchestrator environment while "
+            "attempting a manual bootstrap"
+        ) from import_error
+
+    pip_module_path = Path(pip.__file__).resolve()
+    if pip_module_path.name == "__init__.py":
+        pip_source = pip_module_path.parent
+    else:
+        pip_source = pip_module_path
+
+    source_root = pip_source.parent
+
+    if pip_source.is_dir():
+        shutil.copytree(pip_source, site_packages / pip_source.name, dirs_exist_ok=True)
+    else:
+        shutil.copy2(pip_source, site_packages / pip_source.name)
+
+    dist_info_candidates = sorted(source_root.glob("pip-*.dist-info"))
+    if not dist_info_candidates:
+        raise RuntimeError("Unable to locate pip dist-info directory for manual bootstrap")
+
+    dist_info_source = dist_info_candidates[-1]
+    shutil.copytree(dist_info_source, site_packages / dist_info_source.name, dirs_exist_ok=True)
+
+    _write_pip_entrypoints(python_executable)
+
+    verification = subprocess.run(
+        [str(python_executable), "-m", "pip", "--version"],
+        capture_output=True,
+        text=True,
+    )
+    if verification.returncode != 0:
+        raise RuntimeError(
+            "Manual pip bootstrap failed; pip is still unavailable in the virtualenv"
+        )
+
 
 
 ORCHESTRATOR_DIR = Path(__file__).resolve().parent
@@ -43,6 +148,7 @@ class StageDefinition:
     entrypoint: Path
     uninstall: Sequence[str]
     description: str
+    bootstrap: Sequence[str] = ()
     # ``uninstall`` is retained for compatibility with existing configs but no longer
     # used now that each stage executes inside an isolated virtual environment.
 
@@ -75,9 +181,22 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
     env_dir = venv_root / stage_name
     if env_dir.exists():
         shutil.rmtree(env_dir)
-    builder = venv.EnvBuilder(with_pip=True, clear=True)
+    builder = venv.EnvBuilder(with_pip=False, clear=True)
     builder.create(env_dir)
     python_executable = _detect_python_binary(env_dir)
+    try:
+        subprocess.run(
+            [
+                str(python_executable),
+                "-m",
+                "ensurepip",
+                "--upgrade",
+                "--default-pip",
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as error:
+        _fallback_copy_pip(python_executable, env_dir, error)
     subprocess.run(
         [
             str(python_executable),
@@ -94,7 +213,23 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
     return python_executable, env_dir
 
 
-def pip_install(python_executable: Path, requirements: Sequence[str]) -> None:
+def pip_install(
+    python_executable: Path,
+    requirements: Sequence[str],
+    *,
+    bootstrap: Sequence[str] = (),
+) -> None:
+    if bootstrap:
+        bootstrap_cmd = [
+            str(python_executable),
+            "-m",
+            "pip",
+            "install",
+            "--no-input",
+            "--upgrade",
+            *bootstrap,
+        ]
+        subprocess.run(bootstrap_cmd, check=True)
     if not requirements:
         return
     cmd = [
@@ -297,6 +432,7 @@ def main() -> None:
                 "torch",
             ],
             description="Run pipelines/run_full_suite.py (includes ablation, audits, reports).",
+            bootstrap=["numpy>=1.23,<2.0"],
         ),
         "leadlag_hydra": StageDefinition(
             name="leadlag_hydra",
@@ -307,6 +443,7 @@ def main() -> None:
             entrypoint=ORCHESTRATOR_DIR / "stages" / "leadlag_hydra.py",
             uninstall=[],
             description="Execute lead-lag Hydra scenarios with optional multi-seed aggregation.",
+            bootstrap=["numpy>=1.23,<2.0"],
         ),
     }
 
@@ -341,7 +478,7 @@ def main() -> None:
     for stage in selected_stages:
         stage_python, env_dir = create_virtualenv(stage.name, venv_root)
         created_envs[stage.name] = env_dir
-        pip_install(stage_python, stage.requirements)
+        pip_install(stage_python, stage.requirements, bootstrap=stage.bootstrap)
         pip_check(stage_python)
 
         try:

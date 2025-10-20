@@ -18,15 +18,62 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 
-def run(cmd: list[str]) -> None:
+def run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
     print("[run_all]", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    if env is None:
+        subprocess.run(cmd, check=True)
+        return
+
+    merged_env = os.environ.copy()
+    merged_env.update(env)
+    subprocess.run(cmd, check=True, env=merged_env)
 
 
 def prefetch_wheels(wheelhouse: Path) -> None:
     wheelhouse.mkdir(parents=True, exist_ok=True)
+    build_support = wheelhouse / "_build_support"
+    build_support.mkdir(parents=True, exist_ok=True)
+
+    # Some legacy packages (notably iisignature) still import numpy in their
+    # setup scripts without declaring it as a build requirement.  Provide numpy
+    # on PYTHONPATH so metadata generation succeeds when downloading sources.
+    needs_numpy = not any(build_support.glob("numpy*"))
+    if needs_numpy:
+        run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "--target",
+                str(build_support),
+                "numpy>=1.23,<2.0",
+            ]
+        )
+
+    existing_pythonpath = os.environ.get("PYTHONPATH")
+    numpy_pythonpath = str(build_support)
+    if existing_pythonpath:
+        numpy_pythonpath = os.pathsep.join([numpy_pythonpath, existing_pythonpath])
+
+    download_env = {"PYTHONPATH": numpy_pythonpath, "PIP_NO_BUILD_ISOLATION": "1"}
+
     # Core
-    run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse), "-r", str(ROOT / "requirements-kaggle.txt")])
+    run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--no-build-isolation",
+            "-d",
+            str(wheelhouse),
+            "-r",
+            str(ROOT / "requirements-kaggle.txt"),
+        ],
+        env=download_env,
+    )
     # RL stack (Gymnasium + SB3 2.x)
     run([sys.executable, "-m", "pip", "download", "-d", str(wheelhouse),
          "gymnasium==0.29.1", "stable-baselines3==2.1.0", "sb3-contrib==2.1.0", "torch>=2.1,<2.7"])
