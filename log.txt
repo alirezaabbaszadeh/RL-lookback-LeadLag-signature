@@ -1,0 +1,1023 @@
+121.5s	318	Saved /kaggle/working/wheelhouse/stable_baselines3-2.1.0-py3-none-any.whl
+121.5s	319	Saved /kaggle/working/wheelhouse/sb3_contrib-2.1.0-py3-none-any.whl
+122.3s	320	Saved /kaggle/working/wheelhouse/torch-2.9.0-cp311-cp311-manylinux_2_28_x86_64.whl
+122.7s	321	Saved /kaggle/working/wheelhouse/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl
+122.8s	322	Saved /kaggle/working/wheelhouse/nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+122.8s	323	Saved /kaggle/working/wheelhouse/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl
+122.8s	324	Saved /kaggle/working/wheelhouse/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+123.4s	325	Saved /kaggle/working/wheelhouse/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl
+123.5s	326	Saved /kaggle/working/wheelhouse/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+123.5s	327	Saved /kaggle/working/wheelhouse/nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+123.6s	328	Saved /kaggle/working/wheelhouse/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl
+123.8s	329	Saved /kaggle/working/wheelhouse/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl
+124.1s	330	Saved /kaggle/working/wheelhouse/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+124.4s	331	Saved /kaggle/working/wheelhouse/nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_x86_64.whl
+124.7s	332	Saved /kaggle/working/wheelhouse/nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+124.7s	333	Saved /kaggle/working/wheelhouse/nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl
+124.8s	334	Saved /kaggle/working/wheelhouse/nvidia_nvshmem_cu12-3.3.20-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+124.8s	335	Saved /kaggle/working/wheelhouse/nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+125.0s	336	Saved /kaggle/working/wheelhouse/triton-3.5.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+125.0s	337	Saved /kaggle/working/wheelhouse/fsspec-2025.9.0-py3-none-any.whl
+125.0s	338	Saved /kaggle/working/wheelhouse/networkx-3.5-py3-none-any.whl
+125.0s	339	Saved /kaggle/working/wheelhouse/sympy-1.14.0-py3-none-any.whl
+125.0s	340	Saved /kaggle/working/wheelhouse/filelock-3.20.0-py3-none-any.whl
+125.0s	341	Saved /kaggle/working/wheelhouse/jinja2-3.1.6-py3-none-any.whl
+125.0s	342	Saved /kaggle/working/wheelhouse/markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+125.0s	343	Saved /kaggle/working/wheelhouse/mpmath-1.3.0-py3-none-any.whl
+125.0s	344	Successfully downloaded gymnasium stable-baselines3 sb3-contrib torch nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 nvidia-cuda-nvrtc-cu12 nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 nvidia-cufile-cu12 nvidia-curand-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 nvidia-cusparselt-cu12 nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvshmem-cu12 nvidia-nvtx-cu12 triton cloudpickle farama-notifications fsspec networkx numpy sympy typing-extensions filelock jinja2 matplotlib pandas contourpy cycler fonttools kiwisolver MarkupSafe mpmath packaging pillow pyparsing python-dateutil pytz tzdata six
+126.2s	345	[run_all] /usr/bin/python3 -m pip download -d /kaggle/working/wheelhouse dopamine-rl==4.1.2 gymnasium==1.0.0
+131.0s	346	Collecting dopamine-rl==4.1.2
+131.0s	347	  Downloading dopamine_rl-4.1.2-py3-none-any.whl.metadata (8.2 kB)
+134.4s	348	Collecting gymnasium==1.0.0
+134.4s	349	  Downloading gymnasium-1.0.0-py3-none-any.whl.metadata (9.5 kB)
+136.4s	350	Collecting tensorflow>=2.2.0 (from dopamine-rl==4.1.2)
+136.4s	351	  Downloading tensorflow-2.20.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.5 kB)
+138.5s	352	Collecting gin-config>=0.3.0 (from dopamine-rl==4.1.2)
+138.5s	353	  Downloading gin_config-0.5.0-py3-none-any.whl.metadata (2.9 kB)
+140.7s	354	Collecting absl-py>=0.9.0 (from dopamine-rl==4.1.2)
+140.7s	355	  Downloading absl_py-2.3.1-py3-none-any.whl.metadata (3.3 kB)
+141.1s	356	Collecting ale-py>=0.10.1 (from dopamine-rl==4.1.2)
+141.4s	357	  Downloading ale_py-0.11.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (9.0 kB)
+141.6s	358	Collecting opencv-python>=3.4.8.29 (from dopamine-rl==4.1.2)
+141.6s	359	  Downloading opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (19 kB)
+141.7s	360	Collecting gym<=0.25.2 (from dopamine-rl==4.1.2)
+141.7s	361	  Downloading gym-0.25.2.tar.gz (734 kB)
+141.8s	362	[?25l     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/734.5 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K     [91m━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━[0m [32m348.2/734.5 kB[0m [31m10.2 MB/s[0m eta [36m0:00:01[0m
+[2K     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m734.5/734.5 kB[0m [31m11.5 MB/s[0m eta [36m0:00:00[0m
+146.2s	363	[?25h  Installing build dependencies ... [?25l[?25hdone
+146.4s	364	  Getting requirements to build wheel ... [?25l[?25hdone
+146.6s	365	  Preparing metadata (pyproject.toml) ... [?25l[?25hdone
+146.7s	366	Collecting flax>=0.2.0 (from dopamine-rl==4.1.2)
+146.7s	367	  Downloading flax-0.12.0-py3-none-any.whl.metadata (11 kB)
+146.8s	368	Collecting jax>=0.1.72 (from dopamine-rl==4.1.2)
+146.8s	369	  Downloading jax-0.8.0-py3-none-any.whl.metadata (13 kB)
+146.9s	370	Collecting jaxlib>=0.1.51 (from dopamine-rl==4.1.2)
+147.0s	371	  Downloading jaxlib-0.8.0-cp311-cp311-manylinux_2_27_x86_64.whl.metadata (1.3 kB)
+147.4s	372	Collecting Pillow>=7.0.0 (from dopamine-rl==4.1.2)
+147.4s	373	  File was already downloaded /kaggle/working/wheelhouse/pillow-12.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+147.8s	374	Collecting numpy>=1.16.4 (from dopamine-rl==4.1.2)
+147.8s	375	  File was already downloaded /kaggle/working/wheelhouse/numpy-2.3.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+148.2s	376	Collecting pygame>=1.9.2 (from dopamine-rl==4.1.2)
+148.3s	377	  Downloading pygame-2.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (12 kB)
+148.6s	378	Collecting pandas>=0.24.2 (from dopamine-rl==4.1.2)
+148.6s	379	  File was already downloaded /kaggle/working/wheelhouse/pandas-2.3.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
+148.7s	380	Collecting python-snappy>=0.7.3 (from dopamine-rl==4.1.2)
+148.7s	381	  Downloading python_snappy-0.7.3-py3-none-any.whl.metadata (1.3 kB)
+149.0s	382	Collecting tf-slim>=1.0 (from dopamine-rl==4.1.2)
+149.0s	383	  Downloading tf_slim-1.1.0-py2.py3-none-any.whl.metadata (1.6 kB)
+149.1s	384	Collecting tensorflow-probability>=0.13.0 (from dopamine-rl==4.1.2)
+149.1s	385	  Downloading tensorflow_probability-0.25.0-py2.py3-none-any.whl.metadata (13 kB)
+149.2s	386	Collecting tf-keras>=2.18.0 (from dopamine-rl==4.1.2)
+149.2s	387	  Downloading tf_keras-2.20.1-py3-none-any.whl.metadata (1.8 kB)
+149.3s	388	Collecting tqdm>=4.64.1 (from dopamine-rl==4.1.2)
+149.3s	389	  File was already downloaded /kaggle/working/wheelhouse/tqdm-4.67.1-py3-none-any.whl
+149.3s	390	Collecting cloudpickle>=1.2.0 (from gymnasium==1.0.0)
+149.3s	391	  File was already downloaded /kaggle/working/wheelhouse/cloudpickle-3.1.1-py3-none-any.whl
+149.4s	392	Collecting typing-extensions>=4.3.0 (from gymnasium==1.0.0)
+149.4s	393	  File was already downloaded /kaggle/working/wheelhouse/typing_extensions-4.15.0-py3-none-any.whl
+149.4s	394	Collecting farama-notifications>=0.0.1 (from gymnasium==1.0.0)
+149.4s	395	  File was already downloaded /kaggle/working/wheelhouse/Farama_Notifications-0.0.4-py3-none-any.whl
+149.7s	396	Collecting msgpack (from flax>=0.2.0->dopamine-rl==4.1.2)
+149.7s	397	  Downloading msgpack-1.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+149.7s	398	Collecting optax (from flax>=0.2.0->dopamine-rl==4.1.2)
+149.8s	399	  Downloading optax-0.2.6-py3-none-any.whl.metadata (7.6 kB)
+149.8s	400	Collecting orbax-checkpoint (from flax>=0.2.0->dopamine-rl==4.1.2)
+149.9s	401	  Downloading orbax_checkpoint-0.11.25-py3-none-any.whl.metadata (2.3 kB)
+150.0s	402	Collecting tensorstore (from flax>=0.2.0->dopamine-rl==4.1.2)
+150.1s	403	  Downloading tensorstore-0.1.78-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (21 kB)
+150.2s	404	Collecting rich>=11.1 (from flax>=0.2.0->dopamine-rl==4.1.2)
+150.2s	405	  Downloading rich-14.2.0-py3-none-any.whl.metadata (18 kB)
+150.3s	406	Collecting PyYAML>=5.4.1 (from flax>=0.2.0->dopamine-rl==4.1.2)
+150.3s	407	  File was already downloaded /kaggle/working/wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+150.4s	408	Collecting treescope>=0.1.7 (from flax>=0.2.0->dopamine-rl==4.1.2)
+150.4s	409	  Downloading treescope-0.1.10-py3-none-any.whl.metadata (6.6 kB)
+150.5s	410	Collecting gym_notices>=0.0.4 (from gym<=0.25.2->dopamine-rl==4.1.2)
+150.5s	411	  Downloading gym_notices-0.1.0-py3-none-any.whl.metadata (1.2 kB)
+150.6s	412	Collecting ml_dtypes>=0.5.0 (from jax>=0.1.72->dopamine-rl==4.1.2)
+150.6s	413	  Downloading ml_dtypes-0.5.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.9 kB)
+150.7s	414	Collecting opt_einsum (from jax>=0.1.72->dopamine-rl==4.1.2)
+150.7s	415	  Downloading opt_einsum-3.4.0-py3-none-any.whl.metadata (6.3 kB)
+151.0s	416	Collecting scipy>=1.13 (from jax>=0.1.72->dopamine-rl==4.1.2)
+151.0s	417	  File was already downloaded /kaggle/working/wheelhouse/scipy-1.16.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+151.2s	418	Collecting numpy>=1.16.4 (from dopamine-rl==4.1.2)
+151.2s	419	  Downloading numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+151.2s	420	[?25l     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/62.0 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K     [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m62.0/62.0 kB[0m [31m3.6 MB/s[0m eta [36m0:00:00[0m
+151.3s	421	[?25hCollecting python-dateutil>=2.8.2 (from pandas>=0.24.2->dopamine-rl==4.1.2)
+151.3s	422	  File was already downloaded /kaggle/working/wheelhouse/python_dateutil-2.9.0.post0-py2.py3-none-any.whl
+151.4s	423	Collecting pytz>=2020.1 (from pandas>=0.24.2->dopamine-rl==4.1.2)
+151.4s	424	  File was already downloaded /kaggle/working/wheelhouse/pytz-2025.2-py2.py3-none-any.whl
+151.4s	425	Collecting tzdata>=2022.7 (from pandas>=0.24.2->dopamine-rl==4.1.2)
+151.5s	426	  File was already downloaded /kaggle/working/wheelhouse/tzdata-2025.2-py2.py3-none-any.whl
+151.9s	427	Collecting cramjam (from python-snappy>=0.7.3->dopamine-rl==4.1.2)
+151.9s	428	  Downloading cramjam-2.11.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.6 kB)
+152.0s	429	Collecting astunparse>=1.6.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.0s	430	  Downloading astunparse-1.6.3-py2.py3-none-any.whl.metadata (4.4 kB)
+152.0s	431	Collecting flatbuffers>=24.3.25 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.1s	432	  Downloading flatbuffers-25.9.23-py2.py3-none-any.whl.metadata (875 bytes)
+152.1s	433	Collecting gast!=0.5.0,!=0.5.1,!=0.5.2,>=0.2.1 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.1s	434	  Downloading gast-0.6.0-py3-none-any.whl.metadata (1.3 kB)
+152.2s	435	Collecting google_pasta>=0.1.1 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.2s	436	  Downloading google_pasta-0.2.0-py3-none-any.whl.metadata (814 bytes)
+152.3s	437	Collecting libclang>=13.0.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.3s	438	  Downloading libclang-18.1.1-py2.py3-none-manylinux2010_x86_64.whl.metadata (5.2 kB)
+152.3s	439	Collecting packaging (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.3s	440	  File was already downloaded /kaggle/working/wheelhouse/packaging-25.0-py3-none-any.whl
+152.7s	441	Collecting protobuf>=5.28.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.7s	442	  Downloading protobuf-6.33.0-cp39-abi3-manylinux2014_x86_64.whl.metadata (593 bytes)
+152.8s	443	Collecting requests<3,>=2.21.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+152.8s	444	  Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+153.2s	445	Collecting setuptools (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+153.2s	446	  Using cached setuptools-80.9.0-py3-none-any.whl.metadata (6.6 kB)
+153.3s	447	Collecting six>=1.12.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+153.3s	448	  File was already downloaded /kaggle/working/wheelhouse/six-1.17.0-py2.py3-none-any.whl
+153.3s	449	Collecting termcolor>=1.1.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+153.3s	450	  Downloading termcolor-3.1.0-py3-none-any.whl.metadata (6.4 kB)
+153.6s	451	Collecting wrapt>=1.11.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+153.7s	452	  Downloading wrapt-2.0.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (8.8 kB)
+154.9s	453	Collecting grpcio<2.0,>=1.24.3 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+154.9s	454	  Downloading grpcio-1.75.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.7 kB)
+155.0s	455	Collecting tensorboard~=2.20.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.0s	456	  Downloading tensorboard-2.20.0-py3-none-any.whl.metadata (1.8 kB)
+155.1s	457	Collecting keras>=3.10.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.1s	458	  Downloading keras-3.11.3-py3-none-any.whl.metadata (5.9 kB)
+155.2s	459	Collecting h5py>=3.11.0 (from tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.3s	460	  Downloading h5py-3.15.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (3.0 kB)
+155.3s	461	Collecting decorator (from tensorflow-probability>=0.13.0->dopamine-rl==4.1.2)
+155.4s	462	  Downloading decorator-5.2.1-py3-none-any.whl.metadata (3.9 kB)
+155.4s	463	Collecting dm-tree (from tensorflow-probability>=0.13.0->dopamine-rl==4.1.2)
+155.5s	464	  Downloading dm_tree-0.1.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (2.2 kB)
+155.5s	465	Collecting wheel<1.0,>=0.23.0 (from astunparse>=1.6.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.6s	466	  Downloading wheel-0.45.1-py3-none-any.whl.metadata (2.3 kB)
+155.6s	467	Collecting namex (from keras>=3.10.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.7s	468	  Downloading namex-0.1.0-py3-none-any.whl.metadata (322 bytes)
+155.9s	469	Collecting optree (from keras>=3.10.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+155.9s	470	  Downloading optree-0.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (33 kB)
+156.1s	471	Collecting charset_normalizer<4,>=2 (from requests<3,>=2.21.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.1s	472	  Downloading charset_normalizer-3.4.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (37 kB)
+156.2s	473	Collecting idna<4,>=2.5 (from requests<3,>=2.21.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.2s	474	  Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+156.3s	475	Collecting urllib3<3,>=1.21.1 (from requests<3,>=2.21.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.3s	476	  Downloading urllib3-2.5.0-py3-none-any.whl.metadata (6.5 kB)
+156.4s	477	Collecting certifi>=2017.4.17 (from requests<3,>=2.21.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.4s	478	  Downloading certifi-2025.10.5-py3-none-any.whl.metadata (2.5 kB)
+156.5s	479	Collecting markdown-it-py>=2.2.0 (from rich>=11.1->flax>=0.2.0->dopamine-rl==4.1.2)
+156.5s	480	  Downloading markdown_it_py-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+156.6s	481	Collecting pygments<3.0.0,>=2.13.0 (from rich>=11.1->flax>=0.2.0->dopamine-rl==4.1.2)
+156.6s	482	  Downloading pygments-2.19.2-py3-none-any.whl.metadata (2.5 kB)
+156.7s	483	Collecting markdown>=2.6.8 (from tensorboard~=2.20.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.7s	484	  Downloading markdown-3.9-py3-none-any.whl.metadata (5.1 kB)
+156.9s	485	Collecting tensorboard-data-server<0.8.0,>=0.7.0 (from tensorboard~=2.20.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+156.9s	486	  Downloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl.metadata (1.1 kB)
+157.0s	487	Collecting werkzeug>=1.0.1 (from tensorboard~=2.20.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+157.0s	488	  Downloading werkzeug-3.1.3-py3-none-any.whl.metadata (3.7 kB)
+157.1s	489	Collecting attrs>=18.2.0 (from dm-tree->tensorflow-probability>=0.13.0->dopamine-rl==4.1.2)
+157.1s	490	  Downloading attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+157.2s	491	Collecting chex>=0.1.87 (from optax->flax>=0.2.0->dopamine-rl==4.1.2)
+157.2s	492	  Downloading chex-0.1.91-py3-none-any.whl.metadata (18 kB)
+157.2s	493	Collecting etils[epath,epy] (from orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+157.3s	494	  Downloading etils-1.13.0-py3-none-any.whl.metadata (6.5 kB)
+157.3s	495	Collecting nest_asyncio (from orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+157.4s	496	  Downloading nest_asyncio-1.6.0-py3-none-any.whl.metadata (2.8 kB)
+157.4s	497	Collecting aiofiles (from orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+157.4s	498	  Downloading aiofiles-25.1.0-py3-none-any.whl.metadata (6.3 kB)
+157.5s	499	Collecting humanize (from orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+157.5s	500	  Downloading humanize-4.14.0-py3-none-any.whl.metadata (7.8 kB)
+157.7s	501	Collecting simplejson>=3.16.0 (from orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+157.8s	502	  Downloading simplejson-3.20.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.2 kB)
+157.9s	503	Collecting toolz>=1.0.0 (from chex>=0.1.87->optax->flax>=0.2.0->dopamine-rl==4.1.2)
+157.9s	504	  Downloading toolz-1.1.0-py3-none-any.whl.metadata (5.1 kB)
+158.0s	505	Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=11.1->flax>=0.2.0->dopamine-rl==4.1.2)
+158.0s	506	  Downloading mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+158.3s	507	Collecting MarkupSafe>=2.1.1 (from werkzeug>=1.0.1->tensorboard~=2.20.0->tensorflow>=2.2.0->dopamine-rl==4.1.2)
+158.3s	508	  File was already downloaded /kaggle/working/wheelhouse/markupsafe-3.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+158.3s	509	Collecting fsspec (from etils[epath,epy]->orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+158.3s	510	  File was already downloaded /kaggle/working/wheelhouse/fsspec-2025.9.0-py3-none-any.whl
+158.4s	511	Collecting importlib_resources (from etils[epath,epy]->orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+158.5s	512	  Downloading importlib_resources-6.5.2-py3-none-any.whl.metadata (3.9 kB)
+158.5s	513	Collecting zipp (from etils[epath,epy]->orbax-checkpoint->flax>=0.2.0->dopamine-rl==4.1.2)
+158.5s	514	  Downloading zipp-3.23.0-py3-none-any.whl.metadata (3.6 kB)
+158.6s	515	Downloading dopamine_rl-4.1.2-py3-none-any.whl (290 kB)
+158.7s	516	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/290.5 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m290.5/290.5 kB[0m [31m18.4 MB/s[0m eta [36m0:00:00[0m
+158.7s	517	[?25hDownloading gymnasium-1.0.0-py3-none-any.whl (958 kB)
+158.7s	518	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/958.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m952.3/958.1 kB[0m [31m48.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m958.1/958.1 kB[0m [31m26.8 MB/s[0m eta [36m0:00:00[0m
+158.7s	519	[?25hDownloading absl_py-2.3.1-py3-none-any.whl (135 kB)
+158.7s	520	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/135.8 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m135.8/135.8 kB[0m [31m10.2 MB/s[0m eta [36m0:00:00[0m
+158.8s	521	[?25hDownloading ale_py-0.11.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
+158.9s	522	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/5.1 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m1.6/5.1 MB[0m [31m54.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━[0m [32m3.5/5.1 MB[0m [31m54.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m5.0/5.1 MB[0m [31m54.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m5.1/5.1 MB[0m [31m41.5 MB/s[0m eta [36m0:00:00[0m
+158.9s	523	[?25hDownloading flax-0.12.0-py3-none-any.whl (466 kB)
+158.9s	524	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/466.3 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m466.3/466.3 kB[0m [31m27.0 MB/s[0m eta [36m0:00:00[0m
+158.9s	525	[?25hDownloading gin_config-0.5.0-py3-none-any.whl (61 kB)
+159.0s	526	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/61.3 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m61.3/61.3 kB[0m [31m4.2 MB/s[0m eta [36m0:00:00[0m
+159.0s	527	[?25hDownloading jax-0.8.0-py3-none-any.whl (2.9 MB)
+159.0s	528	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/2.9 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━[0m [32m2.2/2.9 MB[0m [31m65.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m2.9/2.9 MB[0m [31m47.1 MB/s[0m eta [36m0:00:00[0m
+159.1s	529	[?25hDownloading jaxlib-0.8.0-cp311-cp311-manylinux_2_27_x86_64.whl (79.7 MB)
+160.0s	530	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/79.7 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m2.5/79.7 MB[0m [31m74.6 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m5.2/79.7 MB[0m [31m77.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m8.2/79.7 MB[0m [31m81.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m11.6/79.7 MB[0m [31m86.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m15.3/79.7 MB[0m [31m95.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m19.5/79.7 MB[0m [31m107.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m24.0/79.7 MB[0m [31m124.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m28.9/79.7 MB[0m [31m134.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━[0m [32m34.4/79.7 MB[0m [31m155.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━[0m [32m40.5/79.7 MB[0m [31m167.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━[0m [32m47.2/79.7 MB[0m [31m179.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━[0m [32m54.5/79.7 MB[0m [31m206.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━[0m [32m61.8/79.7 MB[0m [31m212.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━[0m [32m67.4/79.7 MB[0m [31m183.5 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━[0m [32m74.4/79.7 MB[0m [31m193.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m79.7/79.7 MB[0m [31m203.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m79.7/79.7 MB[0m [31m23.6 MB/s[0m eta [36m0:00:00[0m
+160.0s	531	[?25hDownloading opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (67.0 MB)
+160.6s	532	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/67.0 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m7.5/67.0 MB[0m [31m225.5 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m14.5/67.0 MB[0m [31m208.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m21.8/67.0 MB[0m [31m213.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━[0m [32m29.3/67.0 MB[0m [31m210.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━[0m [32m36.7/67.0 MB[0m [31m214.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━[0m [32m44.0/67.0 MB[0m [31m213.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━[0m [32m51.5/67.0 MB[0m [31m212.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━[0m [32m59.0/67.0 MB[0m [31m214.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m [32m66.0/67.0 MB[0m [31m208.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m67.0/67.0 MB[0m [31m202.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m67.0/67.0 MB[0m [31m27.5 MB/s[0m eta [36m0:00:00[0m
+160.7s	533	[?25hDownloading numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.8 MB)
+160.8s	534	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/16.8 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m2.8/16.8 MB[0m [31m85.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━[0m [32m10.1/16.8 MB[0m [31m148.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m16.8/16.8 MB[0m [31m217.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m16.8/16.8 MB[0m [31m217.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m16.8/16.8 MB[0m [31m98.0 MB/s[0m eta [36m0:00:00[0m
+160.8s	535	[?25hDownloading pygame-2.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (14.0 MB)
+161.0s	536	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/14.0 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m5.5/14.0 MB[0m [31m168.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━[0m [32m11.0/14.0 MB[0m [31m164.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m14.0/14.0 MB[0m [31m173.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m14.0/14.0 MB[0m [31m93.0 MB/s[0m eta [36m0:00:00[0m
+161.0s	537	[?25hDownloading python_snappy-0.7.3-py3-none-any.whl (9.2 kB)
+161.0s	538	Downloading tensorflow-2.20.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (620.6 MB)
+167.8s	539	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/620.6 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m6.8/620.6 MB[0m [31m203.6 MB/s[0m eta [36m0:00:04[0m
+[2K   [91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m14.2/620.6 MB[0m [31m209.2 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m21.6/620.6 MB[0m [31m211.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m29.0/620.6 MB[0m [31m213.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m36.4/620.6 MB[0m [31m213.4 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m43.8/620.6 MB[0m [31m212.8 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m51.1/620.6 MB[0m [31m213.2 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m58.7/620.6 MB[0m [31m216.6 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m66.1/620.6 MB[0m [31m214.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m73.5/620.6 MB[0m [31m214.0 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m81.0/620.6 MB[0m [31m217.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m88.6/620.6 MB[0m [31m217.7 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m95.8/620.6 MB[0m [31m212.8 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m102.9/620.6 MB[0m [31m209.0 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m110.4/620.6 MB[0m [31m209.8 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m117.7/620.6 MB[0m [31m213.6 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m124.4/620.6 MB[0m [31m201.5 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m131.4/620.6 MB[0m [31m191.6 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m138.8/620.6 MB[0m [31m212.8 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m146.1/620.6 MB[0m [31m208.4 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m153.6/620.6 MB[0m [31m216.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m159.6/620.6 MB[0m [31m188.7 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m165.0/620.6 MB[0m [31m162.5 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m171.0/620.6 MB[0m [31m161.5 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m178.6/620.6 MB[0m [31m207.7 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m186.0/620.6 MB[0m [31m214.0 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m193.2/620.6 MB[0m [31m212.4 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m200.9/620.6 MB[0m [31m213.6 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m208.0/620.6 MB[0m [31m209.9 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m215.2/620.6 MB[0m [31m202.9 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m222.6/620.6 MB[0m [31m209.7 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m229.7/620.6 MB[0m [31m209.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m236.9/620.6 MB[0m [31m206.7 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━[0m [32m244.0/620.6 MB[0m [31m205.0 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━[0m [32m245.5/620.6 MB[0m [31m158.1 MB/s[0m eta [36m0:00:03[0m
+[2K   [91m━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━[0m [32m247.9/620.6 MB[0m [31m102.6 MB/s[0m eta [36m0:00:04[0m
+[2K   [91m━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━[0m [32m255.1/620.6 MB[0m [31m102.5 MB/s[0m eta [36m0:00:04[0m
+[2K   [91m━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━[0m [32m261.1/620.6 MB[0m [31m187.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━[0m [32m267.8/620.6 MB[0m [31m190.9 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━[0m [32m274.6/620.6 MB[0m [31m191.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━[0m [32m281.4/620.6 MB[0m [31m200.3 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━[0m [32m286.9/620.6 MB[0m [31m172.6 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━[0m [32m294.0/620.6 MB[0m [31m178.5 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━[0m [32m300.7/620.6 MB[0m [31m196.0 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━[0m [32m307.8/620.6 MB[0m [31m202.1 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━[0m [32m314.6/620.6 MB[0m [31m198.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━[0m [32m320.1/620.6 MB[0m [31m180.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━[0m [32m326.3/620.6 MB[0m [31m166.6 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━[0m [32m333.7/620.6 MB[0m [31m207.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━[0m [32m341.1/620.6 MB[0m [31m212.6 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━[0m [32m348.6/620.6 MB[0m [31m214.0 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━[0m [32m355.9/620.6 MB[0m [31m212.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━[0m [32m363.3/620.6 MB[0m [31m216.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━[0m [32m370.8/620.6 MB[0m [31m213.7 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━[0m [32m378.2/620.6 MB[0m [31m213.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━[0m [32m385.5/620.6 MB[0m [31m214.5 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━[0m [32m392.6/620.6 MB[0m [31m206.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━[0m [32m398.1/620.6 MB[0m [31m176.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━[0m [32m403.7/620.6 MB[0m [31m159.8 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━[0m [32m409.6/620.6 MB[0m [31m167.1 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━[0m [32m415.7/620.6 MB[0m [31m177.2 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━[0m [32m421.6/620.6 MB[0m [31m175.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━[0m [32m427.6/620.6 MB[0m [31m175.3 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━[0m [32m433.7/620.6 MB[0m [31m177.3 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━[0m [32m439.6/620.6 MB[0m [31m177.5 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━[0m [32m445.6/620.6 MB[0m [31m174.5 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━[0m [32m451.7/620.6 MB[0m [31m178.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━[0m [32m457.8/620.6 MB[0m [31m178.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━[0m [32m463.9/620.6 MB[0m [31m181.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━[0m [32m470.5/620.6 MB[0m [31m186.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━[0m [32m473.8/620.6 MB[0m [31m143.4 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━[0m [32m479.5/620.6 MB[0m [31m135.9 MB/s[0m eta [36m0:00:02[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━[0m [32m485.8/620.6 MB[0m [31m174.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━[0m [32m491.7/620.6 MB[0m [31m178.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━[0m [32m497.6/620.6 MB[0m [31m170.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━[0m [32m503.6/620.6 MB[0m [31m174.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━[0m [32m509.9/620.6 MB[0m [31m179.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━[0m [32m515.9/620.6 MB[0m [31m178.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━[0m [32m521.9/620.6 MB[0m [31m174.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━━[0m [32m528.1/620.6 MB[0m [31m175.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━[0m [32m534.3/620.6 MB[0m [31m177.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━[0m [32m540.1/620.6 MB[0m [31m174.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━━[0m [32m546.3/620.6 MB[0m [31m175.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━[0m [32m552.3/620.6 MB[0m [31m176.9 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━[0m [32m558.1/620.6 MB[0m [31m173.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━━[0m [32m564.1/620.6 MB[0m [31m169.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━[0m [32m571.7/620.6 MB[0m [31m202.5 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━━[0m [32m578.9/620.6 MB[0m [31m212.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━[0m [32m586.2/620.6 MB[0m [31m210.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m[90m━[0m [32m593.7/620.6 MB[0m [31m209.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━[0m [32m600.9/620.6 MB[0m [31m209.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[90m╺[0m [32m608.2/620.6 MB[0m [31m206.7 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m615.8/620.6 MB[0m [31m211.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m620.6/620.6 MB[0m [31m215.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m620.6/620.6 MB[0m [31m2.9 MB/s[0m eta [36m0:00:00[0m
+167.9s	540	[?25hDownloading tensorflow_probability-0.25.0-py2.py3-none-any.whl (7.0 MB)
+168.2s	541	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/7.0 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━[0m [32m4.6/7.0 MB[0m [31m193.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m7.0/7.0 MB[0m [31m193.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m7.0/7.0 MB[0m [31m22.2 MB/s[0m eta [36m0:00:00[0m
+168.3s	542	[?25hDownloading tf_keras-2.20.1-py3-none-any.whl (1.7 MB)
+168.3s	543	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/1.7 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m1.7/1.7 MB[0m [31m56.2 MB/s[0m eta [36m0:00:00[0m
+168.3s	544	[?25hDownloading tf_slim-1.1.0-py2.py3-none-any.whl (352 kB)
+168.3s	545	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/352.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m352.1/352.1 kB[0m [31m24.9 MB/s[0m eta [36m0:00:00[0m
+168.3s	546	[?25hDownloading astunparse-1.6.3-py2.py3-none-any.whl (12 kB)
+168.4s	547	Downloading flatbuffers-25.9.23-py2.py3-none-any.whl (30 kB)
+168.4s	548	Downloading gast-0.6.0-py3-none-any.whl (21 kB)
+168.4s	549	Downloading google_pasta-0.2.0-py3-none-any.whl (57 kB)
+168.4s	550	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/57.5 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m57.5/57.5 kB[0m [31m4.3 MB/s[0m eta [36m0:00:00[0m
+168.5s	551	[?25hDownloading grpcio-1.75.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.5 MB)
+168.5s	552	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/6.5 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━[0m [32m6.3/6.5 MB[0m [31m189.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m6.5/6.5 MB[0m [31m97.0 MB/s[0m eta [36m0:00:00[0m
+168.6s	553	[?25hDownloading gym_notices-0.1.0-py3-none-any.whl (3.3 kB)
+168.6s	554	Downloading h5py-3.15.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (4.7 MB)
+168.6s	555	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/4.7 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m4.7/4.7 MB[0m [31m221.4 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m4.7/4.7 MB[0m [31m101.9 MB/s[0m eta [36m0:00:00[0m
+168.7s	556	[?25hDownloading keras-3.11.3-py3-none-any.whl (1.4 MB)
+168.7s	557	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/1.4 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m1.4/1.4 MB[0m [31m59.7 MB/s[0m eta [36m0:00:00[0m
+168.7s	558	[?25hDownloading libclang-18.1.1-py2.py3-none-manylinux2010_x86_64.whl (24.5 MB)
+168.9s	559	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/24.5 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━[0m[90m╺[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m6.1/24.5 MB[0m [31m184.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━[0m [32m12.1/24.5 MB[0m [31m184.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━[0m [32m18.2/24.5 MB[0m [31m178.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m24.5/24.5 MB[0m [31m190.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m24.5/24.5 MB[0m [31m190.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m24.5/24.5 MB[0m [31m190.6 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m24.5/24.5 MB[0m [31m74.2 MB/s[0m eta [36m0:00:00[0m
+168.9s	560	[?25hDownloading ml_dtypes-0.5.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (4.9 MB)
+169.0s	561	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/4.9 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m4.9/4.9 MB[0m [31m225.3 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m4.9/4.9 MB[0m [31m102.9 MB/s[0m eta [36m0:00:00[0m
+169.0s	562	[?25hDownloading opt_einsum-3.4.0-py3-none-any.whl (71 kB)
+169.0s	563	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/71.9 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m71.9/71.9 kB[0m [31m4.8 MB/s[0m eta [36m0:00:00[0m
+169.0s	564	[?25hDownloading protobuf-6.33.0-cp39-abi3-manylinux2014_x86_64.whl (323 kB)
+169.1s	565	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/323.2 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m323.2/323.2 kB[0m [31m21.8 MB/s[0m eta [36m0:00:00[0m
+169.1s	566	[?25hDownloading requests-2.32.5-py3-none-any.whl (64 kB)
+169.1s	567	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/64.7 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m64.7/64.7 kB[0m [31m5.2 MB/s[0m eta [36m0:00:00[0m
+169.1s	568	[?25hDownloading rich-14.2.0-py3-none-any.whl (243 kB)
+169.1s	569	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/243.4 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m243.4/243.4 kB[0m [31m16.4 MB/s[0m eta [36m0:00:00[0m
+169.1s	570	[?25hDownloading tensorboard-2.20.0-py3-none-any.whl (5.5 MB)
+169.2s	571	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/5.5 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m5.5/5.5 MB[0m [31m221.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m5.5/5.5 MB[0m [31m103.4 MB/s[0m eta [36m0:00:00[0m
+169.2s	572	[?25hUsing cached setuptools-80.9.0-py3-none-any.whl (1.2 MB)
+169.2s	573	Downloading termcolor-3.1.0-py3-none-any.whl (7.7 kB)
+169.3s	574	Downloading treescope-0.1.10-py3-none-any.whl (182 kB)
+169.3s	575	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/182.3 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m182.3/182.3 kB[0m [31m13.8 MB/s[0m eta [36m0:00:00[0m
+169.3s	576	[?25hDownloading wrapt-2.0.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (114 kB)
+169.3s	577	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/114.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m114.1/114.1 kB[0m [31m8.3 MB/s[0m eta [36m0:00:00[0m
+169.3s	578	[?25hDownloading cramjam-2.11.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.0 MB)
+169.4s	579	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/2.0 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m2.0/2.0 MB[0m [31m67.1 MB/s[0m eta [36m0:00:00[0m
+169.4s	580	[?25hDownloading decorator-5.2.1-py3-none-any.whl (9.2 kB)
+169.4s	581	Downloading dm_tree-0.1.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (152 kB)
+169.4s	582	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/152.9 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m152.9/152.9 kB[0m [31m11.1 MB/s[0m eta [36m0:00:00[0m
+169.4s	583	[?25hDownloading msgpack-1.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (426 kB)
+169.5s	584	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/426.2 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m426.2/426.2 kB[0m [31m19.4 MB/s[0m eta [36m0:00:00[0m
+169.5s	585	[?25hDownloading optax-0.2.6-py3-none-any.whl (367 kB)
+169.5s	586	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/367.8 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m367.8/367.8 kB[0m [31m25.9 MB/s[0m eta [36m0:00:00[0m
+169.5s	587	[?25hDownloading orbax_checkpoint-0.11.25-py3-none-any.whl (563 kB)
+169.5s	588	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/563.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m563.1/563.1 kB[0m [31m33.5 MB/s[0m eta [36m0:00:00[0m
+169.6s	589	[?25hDownloading tensorstore-0.1.78-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (20.1 MB)
+169.7s	590	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/20.1 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m5.4/20.1 MB[0m [31m168.0 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━━━━━━━━━━━━━[0m [32m11.5/20.1 MB[0m [31m169.1 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m[90m━━━━━[0m [32m17.4/20.1 MB[0m [31m172.2 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m20.0/20.1 MB[0m [31m175.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m20.0/20.1 MB[0m [31m175.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m20.1/20.1 MB[0m [31m80.9 MB/s[0m eta [36m0:00:00[0m
+169.8s	591	[?25hDownloading attrs-25.4.0-py3-none-any.whl (67 kB)
+169.8s	592	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/67.6 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m67.6/67.6 kB[0m [31m5.0 MB/s[0m eta [36m0:00:00[0m
+169.8s	593	[?25hDownloading certifi-2025.10.5-py3-none-any.whl (163 kB)
+169.8s	594	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/163.3 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m163.3/163.3 kB[0m [31m12.1 MB/s[0m eta [36m0:00:00[0m
+169.8s	595	[?25hDownloading charset_normalizer-3.4.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (151 kB)
+169.9s	596	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/151.6 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m151.6/151.6 kB[0m [31m10.7 MB/s[0m eta [36m0:00:00[0m
+169.9s	597	[?25hDownloading chex-0.1.91-py3-none-any.whl (100 kB)
+169.9s	598	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/101.0 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m101.0/101.0 kB[0m [31m6.9 MB/s[0m eta [36m0:00:00[0m
+169.9s	599	[?25hDownloading idna-3.11-py3-none-any.whl (71 kB)
+169.9s	600	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/71.0 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m71.0/71.0 kB[0m [31m5.2 MB/s[0m eta [36m0:00:00[0m
+169.9s	601	[?25hDownloading markdown-3.9-py3-none-any.whl (107 kB)
+170.0s	602	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/107.4 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m107.4/107.4 kB[0m [31m8.1 MB/s[0m eta [36m0:00:00[0m
+170.0s	603	[?25hDownloading markdown_it_py-4.0.0-py3-none-any.whl (87 kB)
+170.0s	604	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/87.3 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m87.3/87.3 kB[0m [31m5.7 MB/s[0m eta [36m0:00:00[0m
+170.0s	605	[?25hDownloading pygments-2.19.2-py3-none-any.whl (1.2 MB)
+170.0s	606	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/1.2 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m1.2/1.2 MB[0m [31m58.3 MB/s[0m eta [36m0:00:00[0m
+170.1s	607	[?25hDownloading simplejson-3.20.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl (144 kB)
+170.1s	608	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/144.9 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m144.9/144.9 kB[0m [31m9.8 MB/s[0m eta [36m0:00:00[0m
+170.1s	609	[?25hDownloading tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl (6.6 MB)
+170.2s	610	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/6.6 MB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [91m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[91m╸[0m [32m6.6/6.6 MB[0m [31m218.8 MB/s[0m eta [36m0:00:01[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m6.6/6.6 MB[0m [31m103.6 MB/s[0m eta [36m0:00:00[0m
+170.2s	611	[?25hDownloading urllib3-2.5.0-py3-none-any.whl (129 kB)
+170.2s	612	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/129.8 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m129.8/129.8 kB[0m [31m9.1 MB/s[0m eta [36m0:00:00[0m
+170.2s	613	[?25hDownloading werkzeug-3.1.3-py3-none-any.whl (224 kB)
+170.2s	614	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/224.5 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m224.5/224.5 kB[0m [31m13.8 MB/s[0m eta [36m0:00:00[0m
+170.3s	615	[?25hDownloading wheel-0.45.1-py3-none-any.whl (72 kB)
+170.3s	616	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/72.5 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m72.5/72.5 kB[0m [31m5.0 MB/s[0m eta [36m0:00:00[0m
+170.3s	617	[?25hDownloading aiofiles-25.1.0-py3-none-any.whl (14 kB)
+170.3s	618	Downloading humanize-4.14.0-py3-none-any.whl (132 kB)
+170.3s	619	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/132.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m132.1/132.1 kB[0m [31m6.2 MB/s[0m eta [36m0:00:00[0m
+170.4s	620	[?25hDownloading namex-0.1.0-py3-none-any.whl (5.9 kB)
+170.4s	621	Downloading nest_asyncio-1.6.0-py3-none-any.whl (5.2 kB)
+170.4s	622	Downloading optree-0.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (402 kB)
+170.4s	623	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/402.0 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m402.0/402.0 kB[0m [31m25.6 MB/s[0m eta [36m0:00:00[0m
+170.5s	624	[?25hDownloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+170.5s	625	Downloading toolz-1.1.0-py3-none-any.whl (58 kB)
+170.5s	626	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/58.1 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m58.1/58.1 kB[0m [31m4.2 MB/s[0m eta [36m0:00:00[0m
+170.5s	627	[?25hDownloading etils-1.13.0-py3-none-any.whl (170 kB)
+170.5s	628	[?25l   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m0.0/170.6 kB[0m [31m?[0m eta [36m-:--:--[0m
+[2K   [90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m [32m170.6/170.6 kB[0m [31m11.4 MB/s[0m eta [36m0:00:00[0m
+170.6s	629	[?25hDownloading importlib_resources-6.5.2-py3-none-any.whl (37 kB)
+170.6s	630	Downloading zipp-3.23.0-py3-none-any.whl (10 kB)
+173.6s	631	Saved /kaggle/working/wheelhouse/dopamine_rl-4.1.2-py3-none-any.whl
+173.6s	632	Saved /kaggle/working/wheelhouse/gymnasium-1.0.0-py3-none-any.whl
+173.6s	633	Saved /kaggle/working/wheelhouse/absl_py-2.3.1-py3-none-any.whl
+173.6s	634	Saved /kaggle/working/wheelhouse/ale_py-0.11.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+173.6s	635	Saved /kaggle/working/wheelhouse/flax-0.12.0-py3-none-any.whl
+173.6s	636	Saved /kaggle/working/wheelhouse/gin_config-0.5.0-py3-none-any.whl
+173.6s	637	Saved /kaggle/working/wheelhouse/gym-0.25.2.tar.gz
+173.6s	638	Saved /kaggle/working/wheelhouse/jax-0.8.0-py3-none-any.whl
+173.7s	639	Saved /kaggle/working/wheelhouse/jaxlib-0.8.0-cp311-cp311-manylinux_2_27_x86_64.whl
+173.7s	640	Saved /kaggle/working/wheelhouse/opencv_python-4.12.0.88-cp37-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+173.7s	641	Saved /kaggle/working/wheelhouse/numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+173.8s	642	Saved /kaggle/working/wheelhouse/pygame-2.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+173.8s	643	Saved /kaggle/working/wheelhouse/python_snappy-0.7.3-py3-none-any.whl
+174.3s	644	Saved /kaggle/working/wheelhouse/tensorflow-2.20.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+174.3s	645	Saved /kaggle/working/wheelhouse/tensorflow_probability-0.25.0-py2.py3-none-any.whl
+174.3s	646	Saved /kaggle/working/wheelhouse/tf_keras-2.20.1-py3-none-any.whl
+174.3s	647	Saved /kaggle/working/wheelhouse/tf_slim-1.1.0-py2.py3-none-any.whl
+174.3s	648	Saved /kaggle/working/wheelhouse/astunparse-1.6.3-py2.py3-none-any.whl
+174.3s	649	Saved /kaggle/working/wheelhouse/flatbuffers-25.9.23-py2.py3-none-any.whl
+174.3s	650	Saved /kaggle/working/wheelhouse/gast-0.6.0-py3-none-any.whl
+174.3s	651	Saved /kaggle/working/wheelhouse/google_pasta-0.2.0-py3-none-any.whl
+174.3s	652	Saved /kaggle/working/wheelhouse/grpcio-1.75.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+174.3s	653	Saved /kaggle/working/wheelhouse/gym_notices-0.1.0-py3-none-any.whl
+174.3s	654	Saved /kaggle/working/wheelhouse/h5py-3.15.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+174.3s	655	Saved /kaggle/working/wheelhouse/keras-3.11.3-py3-none-any.whl
+174.3s	656	Saved /kaggle/working/wheelhouse/libclang-18.1.1-py2.py3-none-manylinux2010_x86_64.whl
+174.3s	657	Saved /kaggle/working/wheelhouse/ml_dtypes-0.5.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+174.3s	658	Saved /kaggle/working/wheelhouse/opt_einsum-3.4.0-py3-none-any.whl
+174.3s	659	Saved /kaggle/working/wheelhouse/protobuf-6.33.0-cp39-abi3-manylinux2014_x86_64.whl
+174.3s	660	Saved /kaggle/working/wheelhouse/requests-2.32.5-py3-none-any.whl
+174.3s	661	Saved /kaggle/working/wheelhouse/rich-14.2.0-py3-none-any.whl
+174.3s	662	Saved /kaggle/working/wheelhouse/tensorboard-2.20.0-py3-none-any.whl
+174.3s	663	Saved /kaggle/working/wheelhouse/setuptools-80.9.0-py3-none-any.whl
+174.3s	664	Saved /kaggle/working/wheelhouse/termcolor-3.1.0-py3-none-any.whl
+174.3s	665	Saved /kaggle/working/wheelhouse/treescope-0.1.10-py3-none-any.whl
+174.3s	666	Saved /kaggle/working/wheelhouse/wrapt-2.0.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
+174.3s	667	Saved /kaggle/working/wheelhouse/cramjam-2.11.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+174.3s	668	Saved /kaggle/working/wheelhouse/decorator-5.2.1-py3-none-any.whl
+174.3s	669	Saved /kaggle/working/wheelhouse/dm_tree-0.1.9-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+174.3s	670	Saved /kaggle/working/wheelhouse/msgpack-1.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+174.3s	671	Saved /kaggle/working/wheelhouse/optax-0.2.6-py3-none-any.whl
+174.3s	672	Saved /kaggle/working/wheelhouse/orbax_checkpoint-0.11.25-py3-none-any.whl
+174.3s	673	Saved /kaggle/working/wheelhouse/tensorstore-0.1.78-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+174.3s	674	Saved /kaggle/working/wheelhouse/attrs-25.4.0-py3-none-any.whl
+174.3s	675	Saved /kaggle/working/wheelhouse/certifi-2025.10.5-py3-none-any.whl
+174.3s	676	Saved /kaggle/working/wheelhouse/charset_normalizer-3.4.4-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+174.3s	677	Saved /kaggle/working/wheelhouse/chex-0.1.91-py3-none-any.whl
+174.3s	678	Saved /kaggle/working/wheelhouse/idna-3.11-py3-none-any.whl
+174.4s	679	Saved /kaggle/working/wheelhouse/markdown-3.9-py3-none-any.whl
+174.4s	680	Saved /kaggle/working/wheelhouse/markdown_it_py-4.0.0-py3-none-any.whl
+174.4s	681	Saved /kaggle/working/wheelhouse/pygments-2.19.2-py3-none-any.whl
+174.4s	682	Saved /kaggle/working/wheelhouse/simplejson-3.20.2-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+174.4s	683	Saved /kaggle/working/wheelhouse/tensorboard_data_server-0.7.2-py3-none-manylinux_2_31_x86_64.whl
+174.4s	684	Saved /kaggle/working/wheelhouse/urllib3-2.5.0-py3-none-any.whl
+174.4s	685	Saved /kaggle/working/wheelhouse/werkzeug-3.1.3-py3-none-any.whl
+174.4s	686	Saved /kaggle/working/wheelhouse/wheel-0.45.1-py3-none-any.whl
+174.4s	687	Saved /kaggle/working/wheelhouse/aiofiles-25.1.0-py3-none-any.whl
+174.4s	688	Saved /kaggle/working/wheelhouse/humanize-4.14.0-py3-none-any.whl
+174.4s	689	Saved /kaggle/working/wheelhouse/namex-0.1.0-py3-none-any.whl
+174.4s	690	Saved /kaggle/working/wheelhouse/nest_asyncio-1.6.0-py3-none-any.whl
+174.4s	691	Saved /kaggle/working/wheelhouse/optree-0.17.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+174.4s	692	Saved /kaggle/working/wheelhouse/mdurl-0.1.2-py3-none-any.whl
+174.4s	693	Saved /kaggle/working/wheelhouse/toolz-1.1.0-py3-none-any.whl
+174.4s	694	Saved /kaggle/working/wheelhouse/etils-1.13.0-py3-none-any.whl
+174.4s	695	Saved /kaggle/working/wheelhouse/importlib_resources-6.5.2-py3-none-any.whl
+174.4s	696	Saved /kaggle/working/wheelhouse/zipp-3.23.0-py3-none-any.whl
+174.4s	697	Successfully downloaded dopamine-rl gymnasium absl-py ale-py cloudpickle farama-notifications flax gin-config gym jax jaxlib opencv-python numpy pandas Pillow pygame python-snappy tensorflow tensorflow-probability tf-keras tf-slim tqdm typing-extensions astunparse flatbuffers gast google_pasta grpcio gym_notices h5py keras libclang ml_dtypes opt_einsum protobuf python-dateutil pytz PyYAML requests rich scipy six tensorboard setuptools termcolor treescope tzdata wrapt cramjam decorator dm-tree msgpack optax orbax-checkpoint tensorstore packaging attrs certifi charset_normalizer chex idna markdown markdown-it-py pygments simplejson tensorboard-data-server urllib3 werkzeug wheel aiofiles humanize namex nest_asyncio optree MarkupSafe mdurl toolz etils fsspec importlib_resources zipp
+175.3s	698	[run_all] /usr/bin/python3 /kaggle/working/RL-lookback-LeadLag-signature/kaggle/run_multi_stage.py --artifacts-root /kaggle/working/multi_stage_artifacts --stage full_suite --stage sb3_leadlag --stage dopamine
+176.6s	699	Found existing installation: gym 0.25.2
+176.6s	700	Uninstalling gym-0.25.2:
+176.8s	701	  Successfully uninstalled gym-0.25.2
+176.9s	702	Found existing installation: gymnasium 0.29.0
+177.0s	703	Uninstalling gymnasium-0.29.0:
+177.2s	704	  Successfully uninstalled gymnasium-0.29.0
+177.3s	705	Found existing installation: stable-baselines3 2.1.0
+177.4s	706	Uninstalling stable-baselines3-2.1.0:
+177.4s	707	  Successfully uninstalled stable-baselines3-2.1.0
+177.7s	708	[33mWARNING: Skipping sb3-contrib as it is not installed.[0m[33m
+177.9s	709	[0mFound existing installation: torch 2.6.0+cu124
+178.7s	710	Uninstalling torch-2.6.0+cu124:
+192.9s	711	  Successfully uninstalled torch-2.6.0+cu124
+194.9s	712	Looking in links: /kaggle/working/wheelhouse
+194.9s	713	Processing /kaggle/working/wheelhouse/numpy-2.3.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 2))
+194.9s	714	Processing /kaggle/working/wheelhouse/pandas-2.3.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 3))
+195.0s	715	Processing /kaggle/working/wheelhouse/scipy-1.16.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 4))
+195.1s	716	Processing /kaggle/working/wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 5))
+195.1s	717	Processing /kaggle/working/wheelhouse/tqdm-4.67.1-py3-none-any.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 6))
+195.1s	718	Processing /kaggle/working/wheelhouse/matplotlib-3.10.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+195.2s	719	Processing /kaggle/working/wheelhouse/dcor-0.6-py3-none-any.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 8))
+195.3s	720	Processing /kaggle/working/wheelhouse/iisignature-0.24.tar.gz (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 9))
+196.6s	721	  Preparing metadata (setup.py) ... [?25l[?25hdone
+196.6s	722	Processing /kaggle/working/wheelhouse/hydra_core-1.3.2-py3-none-any.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 10))
+196.6s	723	Processing /kaggle/working/wheelhouse/scikit_learn-1.7.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 11))
+196.8s	724	Processing /kaggle/working/wheelhouse/gymnasium-0.29.0-py3-none-any.whl (from -r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 12))
+196.8s	725	Processing /kaggle/working/wheelhouse/cloudpickle-3.1.1-py3-none-any.whl (from gymnasium==0.29.0->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 12))
+196.8s	726	Processing /kaggle/working/wheelhouse/typing_extensions-4.15.0-py3-none-any.whl (from gymnasium==0.29.0->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 12))
+196.8s	727	Processing /kaggle/working/wheelhouse/Farama_Notifications-0.0.4-py3-none-any.whl (from gymnasium==0.29.0->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 12))
+196.8s	728	Processing /kaggle/working/wheelhouse/python_dateutil-2.9.0.post0-py2.py3-none-any.whl (from pandas>=1.5->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 3))
+196.8s	729	Processing /kaggle/working/wheelhouse/pytz-2025.2-py2.py3-none-any.whl (from pandas>=1.5->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 3))
+196.8s	730	Processing /kaggle/working/wheelhouse/tzdata-2025.2-py2.py3-none-any.whl (from pandas>=1.5->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 3))
+196.9s	731	Processing /kaggle/working/wheelhouse/contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+196.9s	732	Processing /kaggle/working/wheelhouse/cycler-0.12.1-py3-none-any.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+196.9s	733	Processing /kaggle/working/wheelhouse/fonttools-4.60.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+196.9s	734	Processing /kaggle/working/wheelhouse/kiwisolver-1.4.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+196.9s	735	Processing /kaggle/working/wheelhouse/packaging-25.0-py3-none-any.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+196.9s	736	Processing /kaggle/working/wheelhouse/pillow-12.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+197.0s	737	Processing /kaggle/working/wheelhouse/pyparsing-3.2.5-py3-none-any.whl (from matplotlib>=3.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 7))
+197.0s	738	Processing /kaggle/working/wheelhouse/numba-0.62.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from dcor>=0.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 8))
+197.0s	739	Processing /kaggle/working/wheelhouse/joblib-1.5.2-py3-none-any.whl (from dcor>=0.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 8))
+197.0s	740	Processing /kaggle/working/wheelhouse/omegaconf-2.3.0-py3-none-any.whl (from hydra-core>=1.3->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 10))
+197.1s	741	Processing /kaggle/working/wheelhouse/antlr4-python3-runtime-4.9.3.tar.gz (from hydra-core>=1.3->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 10))
+197.7s	742	  Preparing metadata (setup.py) ... [?25l[?25hdone
+197.8s	743	Processing /kaggle/working/wheelhouse/threadpoolctl-3.6.0-py3-none-any.whl (from scikit-learn>=1.1->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 11))
+197.8s	744	Processing /kaggle/working/wheelhouse/llvmlite-0.45.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (from numba>=0.51->dcor>=0.6->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 8))
+198.1s	745	Processing /kaggle/working/wheelhouse/six-1.17.0-py2.py3-none-any.whl (from python-dateutil>=2.8.2->pandas>=1.5->-r /kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt (line 3))
+198.1s	746	Building wheels for collected packages: iisignature, antlr4-python3-runtime
+217.2s	747	  Building wheel for iisignature (setup.py) ... [?25l[?25hdone
+217.2s	748	  Created wheel for iisignature: filename=iisignature-0.24-cp311-cp311-linux_x86_64.whl size=3246710 sha256=627d18f3d81ed1ce171a8d3762c1b7c4290743d12f9486e7eb9e8c7fec2471d2
+217.2s	749	  Stored in directory: /kaggle/working/.cache/pip/wheels/2a/c8/f7/66cea82f1dc36c9958dc248466537090673498495fc693e4f4
+218.2s	750	  Building wheel for antlr4-python3-runtime (setup.py) ... [?25l[?25hdone
+218.2s	751	  Created wheel for antlr4-python3-runtime: filename=antlr4_python3_runtime-4.9.3-py3-none-any.whl size=144554 sha256=3e2ba38419fc3bfd5e93d86c5dc65bbd9fe827ed8ada062636f02bce0a22daf8
+218.2s	752	  Stored in directory: /kaggle/working/.cache/pip/wheels/a1/16/87/dbc8201c70d932221964886b69664365bc8f92ea066bae3e30
+218.2s	753	Successfully built iisignature antlr4-python3-runtime
+219.9s	754	Installing collected packages: pytz, farama-notifications, antlr4-python3-runtime, tzdata, typing-extensions, tqdm, threadpoolctl, six, pyyaml, pyparsing, pillow, packaging, numpy, llvmlite, kiwisolver, joblib, fonttools, cycler, cloudpickle, scipy, python-dateutil, omegaconf, numba, iisignature, gymnasium, contourpy, scikit-learn, pandas, matplotlib, hydra-core, dcor
+219.9s	755	  Attempting uninstall: pytz
+219.9s	756	    Found existing installation: pytz 2025.2
+220.0s	757	    Uninstalling pytz-2025.2:
+220.3s	758	      Successfully uninstalled pytz-2025.2
+220.4s	759	  Attempting uninstall: farama-notifications
+220.7s	760	    Found existing installation: Farama-Notifications 0.0.4
+220.7s	761	    Uninstalling Farama-Notifications-0.0.4:
+220.7s	762	      Successfully uninstalled Farama-Notifications-0.0.4
+220.7s	763	  Attempting uninstall: antlr4-python3-runtime
+220.9s	764	    Found existing installation: antlr4-python3-runtime 4.9.3
+220.9s	765	    Uninstalling antlr4-python3-runtime-4.9.3:
+221.0s	766	      Successfully uninstalled antlr4-python3-runtime-4.9.3
+221.1s	767	  Attempting uninstall: tzdata
+221.2s	768	    Found existing installation: tzdata 2025.2
+221.2s	769	    Uninstalling tzdata-2025.2:
+221.5s	770	      Successfully uninstalled tzdata-2025.2
+221.6s	771	  Attempting uninstall: typing-extensions
+221.7s	772	    Found existing installation: typing_extensions 4.15.0
+221.7s	773	    Uninstalling typing_extensions-4.15.0:
+231.7s	774	      Successfully uninstalled typing_extensions-4.15.0
+231.7s	775	  Attempting uninstall: tqdm
+231.7s	776	    Found existing installation: tqdm 4.67.1
+231.7s	777	    Uninstalling tqdm-4.67.1:
+231.7s	778	      Successfully uninstalled tqdm-4.67.1
+231.7s	779	  Attempting uninstall: threadpoolctl
+232.0s	780	    Found existing installation: threadpoolctl 3.6.0
+232.0s	781	    Uninstalling threadpoolctl-3.6.0:
+233.1s	782	      Successfully uninstalled threadpoolctl-3.6.0
+233.2s	783	  Attempting uninstall: six
+233.2s	784	    Found existing installation: six 1.17.0
+233.2s	785	    Uninstalling six-1.17.0:
+234.3s	786	      Successfully uninstalled six-1.17.0
+234.4s	787	  Attempting uninstall: pyyaml
+234.4s	788	    Found existing installation: PyYAML 6.0.3
+234.4s	789	    Uninstalling PyYAML-6.0.3:
+234.4s	790	      Successfully uninstalled PyYAML-6.0.3
+234.5s	791	  Attempting uninstall: pyparsing
+234.6s	792	    Found existing installation: pyparsing 3.0.9
+234.6s	793	    Uninstalling pyparsing-3.0.9:
+234.6s	794	      Successfully uninstalled pyparsing-3.0.9
+234.7s	795	  Attempting uninstall: pillow
+234.9s	796	    Found existing installation: pillow 11.3.0
+234.9s	797	    Uninstalling pillow-11.3.0:
+235.1s	798	      Successfully uninstalled pillow-11.3.0
+235.5s	799	  Attempting uninstall: packaging
+235.5s	800	    Found existing installation: packaging 25.0
+235.5s	801	    Uninstalling packaging-25.0:
+235.6s	802	      Successfully uninstalled packaging-25.0
+235.6s	803	  Attempting uninstall: numpy
+235.6s	804	    Found existing installation: numpy 1.26.4
+235.7s	805	    Uninstalling numpy-1.26.4:
+236.4s	806	      Successfully uninstalled numpy-1.26.4
+238.4s	807	  Attempting uninstall: llvmlite
+238.4s	808	    Found existing installation: llvmlite 0.43.0
+238.4s	809	    Uninstalling llvmlite-0.43.0:
+238.9s	810	      Successfully uninstalled llvmlite-0.43.0
+240.1s	811	  Attempting uninstall: kiwisolver
+240.4s	812	    Found existing installation: kiwisolver 1.4.8
+240.4s	813	    Uninstalling kiwisolver-1.4.8:
+240.4s	814	      Successfully uninstalled kiwisolver-1.4.8
+240.5s	815	  Attempting uninstall: joblib
+240.5s	816	    Found existing installation: joblib 1.5.2
+240.5s	817	    Uninstalling joblib-1.5.2:
+240.6s	818	      Successfully uninstalled joblib-1.5.2
+240.8s	819	  Attempting uninstall: fonttools
+241.1s	820	    Found existing installation: fonttools 4.59.0
+241.1s	821	    Uninstalling fonttools-4.59.0:
+241.4s	822	      Successfully uninstalled fonttools-4.59.0
+242.3s	823	  Attempting uninstall: cycler
+242.5s	824	    Found existing installation: cycler 0.12.1
+242.5s	825	    Uninstalling cycler-0.12.1:
+242.5s	826	      Successfully uninstalled cycler-0.12.1
+242.5s	827	  Attempting uninstall: cloudpickle
+242.5s	828	    Found existing installation: cloudpickle 3.1.1
+242.5s	829	    Uninstalling cloudpickle-3.1.1:
+242.6s	830	      Successfully uninstalled cloudpickle-3.1.1
+242.6s	831	  Attempting uninstall: scipy
+242.6s	832	    Found existing installation: scipy 1.15.3
+242.7s	833	    Uninstalling scipy-1.15.3:
+244.4s	834	      Successfully uninstalled scipy-1.15.3
+248.6s	835	  Attempting uninstall: python-dateutil
+248.6s	836	    Found existing installation: python-dateutil 2.9.0.post0
+248.6s	837	    Uninstalling python-dateutil-2.9.0.post0:
+248.7s	838	      Successfully uninstalled python-dateutil-2.9.0.post0
+248.7s	839	  Attempting uninstall: omegaconf
+248.9s	840	    Found existing installation: omegaconf 2.3.0
+248.9s	841	    Uninstalling omegaconf-2.3.0:
+249.0s	842	      Successfully uninstalled omegaconf-2.3.0
+249.0s	843	  Attempting uninstall: numba
+249.1s	844	    Found existing installation: numba 0.60.0
+249.1s	845	    Uninstalling numba-0.60.0:
+249.6s	846	      Successfully uninstalled numba-0.60.0
+252.2s	847	  Attempting uninstall: contourpy
+252.4s	848	    Found existing installation: contourpy 1.3.2
+252.4s	849	    Uninstalling contourpy-1.3.2:
+252.4s	850	      Successfully uninstalled contourpy-1.3.2
+252.5s	851	  Attempting uninstall: scikit-learn
+252.6s	852	    Found existing installation: scikit-learn 1.2.2
+252.7s	853	    Uninstalling scikit-learn-1.2.2:
+253.3s	854	      Successfully uninstalled scikit-learn-1.2.2
+255.3s	855	  Attempting uninstall: pandas
+255.3s	856	    Found existing installation: pandas 2.2.3
+255.5s	857	    Uninstalling pandas-2.2.3:
+256.7s	858	      Successfully uninstalled pandas-2.2.3
+261.2s	859	  Attempting uninstall: matplotlib
+261.3s	860	    Found existing installation: matplotlib 3.7.2
+261.3s	861	    Uninstalling matplotlib-3.7.2:
+263.1s	862	      Successfully uninstalled matplotlib-3.7.2
+265.1s	863	[31mERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+265.1s	864	torchmetrics 1.8.2 requires torch>=2.0.0, which is not installed.
+265.1s	865	easyocr 1.7.2 requires torch, which is not installed.
+265.1s	866	pytorch-lightning 2.5.5 requires torch>=2.1.0, which is not installed.
+265.1s	867	pytorch-ignite 0.5.2 requires torch<3,>=1.3, which is not installed.
+265.1s	868	kornia 0.8.1 requires torch>=1.9.1, which is not installed.
+265.1s	869	kaggle-environments 1.18.0 requires stable-baselines3==2.1.0, which is not installed.
+265.1s	870	fastai 2.8.4 requires torch<2.9,>=1.10, which is not installed.
+265.1s	871	dopamine-rl 4.1.2 requires gym<=0.25.2, which is not installed.
+265.1s	872	bigframes 2.12.0 requires google-cloud-bigquery-storage<3.0.0,>=2.30.0, which is not installed.
+265.1s	873	sentence-transformers 4.1.0 requires torch>=1.11.0, which is not installed.
+265.1s	874	peft 0.16.0 requires torch>=1.13.0, which is not installed.
+265.1s	875	torchvision 0.21.0+cu124 requires torch==2.6.0, which is not installed.
+265.1s	876	timm 1.0.19 requires torch, which is not installed.
+265.1s	877	accelerate 1.9.0 requires torch>=2.0.0, which is not installed.
+265.1s	878	gensim 4.3.3 requires numpy<2.0,>=1.18.5, but you have numpy 2.3.4 which is incompatible.
+265.1s	879	gensim 4.3.3 requires scipy<1.14.0,>=1.7.0, but you have scipy 1.16.2 which is incompatible.
+265.1s	880	mkl-umath 0.1.1 requires numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4 which is incompatible.
+265.1s	881	mkl-random 1.2.4 requires numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4 which is incompatible.
+265.1s	882	mkl-fft 1.3.8 requires numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4 which is incompatible.
+265.1s	883	dask-cudf-cu12 25.2.2 requires pandas<2.2.4dev0,>=2.0, but you have pandas 2.3.3 which is incompatible.
+265.1s	884	dask-cuda 25.2.0 requires numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1 which is incompatible.
+265.1s	885	cuml-cu12 25.2.1 requires numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1 which is incompatible.
+265.1s	886	cudf-cu12 25.2.2 requires numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1 which is incompatible.
+265.1s	887	cudf-cu12 25.2.2 requires pandas<2.2.4dev0,>=2.0, but you have pandas 2.3.3 which is incompatible.
+265.1s	888	distributed-ucxx-cu12 0.42.0 requires numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1 which is incompatible.
+265.1s	889	datasets 4.1.1 requires pyarrow>=21.0.0, but you have pyarrow 19.0.1 which is incompatible.
+265.1s	890	onnx 1.18.0 requires protobuf>=4.25.1, but you have protobuf 3.20.3 which is incompatible.
+265.1s	891	ydata-profiling 4.17.0 requires matplotlib<=3.10,>=3.5, but you have matplotlib 3.10.7 which is incompatible.
+265.1s	892	ydata-profiling 4.17.0 requires numba<=0.61,>=0.56.0, but you have numba 0.62.1 which is incompatible.
+265.1s	893	ydata-profiling 4.17.0 requires numpy<2.2,>=1.16.0, but you have numpy 2.3.4 which is incompatible.
+265.1s	894	ydata-profiling 4.17.0 requires scipy<1.16,>=1.4.1, but you have scipy 1.16.2 which is incompatible.
+265.1s	895	category-encoders 2.7.0 requires scikit-learn<1.6.0,>=1.0.0, but you have scikit-learn 1.7.2 which is incompatible.
+265.1s	896	preprocessing 0.1.13 requires nltk==3.2.4, but you have nltk 3.9.1 which is incompatible.
+265.1s	897	google-colab 1.0.0 requires google-auth==2.38.0, but you have google-auth 2.40.3 which is incompatible.
+265.1s	898	google-colab 1.0.0 requires notebook==6.5.7, but you have notebook 6.5.4 which is incompatible.
+265.1s	899	google-colab 1.0.0 requires pandas==2.2.2, but you have pandas 2.3.3 which is incompatible.
+265.1s	900	google-colab 1.0.0 requires requests==2.32.3, but you have requests 2.32.5 which is incompatible.
+265.1s	901	google-colab 1.0.0 requires tornado==6.4.2, but you have tornado 6.5.2 which is incompatible.
+265.1s	902	dopamine-rl 4.1.2 requires gymnasium>=1.0.0, but you have gymnasium 0.29.0 which is incompatible.
+265.1s	903	sklearn-compat 0.1.3 requires scikit-learn<1.7,>=1.2, but you have scikit-learn 1.7.2 which is incompatible.
+265.1s	904	bigframes 2.12.0 requires google-cloud-bigquery[bqstorage,pandas]>=3.31.0, but you have google-cloud-bigquery 3.25.0 which is incompatible.
+265.1s	905	bigframes 2.12.0 requires rich<14,>=12.4.4, but you have rich 14.1.0 which is incompatible.
+265.1s	906	ibis-framework 9.5.0 requires toolz<1,>=0.11, but you have toolz 1.0.0 which is incompatible.
+265.1s	907	tokenizers 0.21.2 requires huggingface-hub<1.0,>=0.16.4, but you have huggingface-hub 1.0.0rc2 which is incompatible.
+265.1s	908	opencv-contrib-python 4.12.0.88 requires numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4 which is incompatible.
+265.1s	909	opencv-python 4.12.0.88 requires numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4 which is incompatible.
+265.1s	910	gradio 5.38.1 requires pillow<12.0,>=8.0, but you have pillow 12.0.0 which is incompatible.
+265.1s	911	gradio 5.38.1 requires pydantic<2.12,>=2.0, but you have pydantic 2.12.0a1 which is incompatible.
+265.1s	912	cudf-polars-cu12 25.6.0 requires pylibcudf-cu12==25.6.*, but you have pylibcudf-cu12 25.2.2 which is incompatible.
+265.1s	913	pydrive2 1.21.3 requires cryptography<44, but you have cryptography 46.0.1 which is incompatible.
+265.1s	914	pydrive2 1.21.3 requires pyOpenSSL<=24.2.1,>=19.1.0, but you have pyopenssl 25.3.0 which is incompatible.
+265.1s	915	pandas-gbq 0.29.2 requires google-api-core<3.0.0,>=2.10.2, but you have google-api-core 1.34.1 which is incompatible.
+265.1s	916	transformers 4.53.3 requires huggingface-hub<1.0,>=0.30.0, but you have huggingface-hub 1.0.0rc2 which is incompatible.
+265.1s	917	opencv-python-headless 4.12.0.88 requires numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4 which is incompatible.
+265.1s	918	tensorflow 2.18.0 requires numpy<2.1.0,>=1.26.0, but you have numpy 2.3.4 which is incompatible.
+265.1s	919	pylibcugraph-cu12 25.6.0 requires pylibraft-cu12==25.6.*, but you have pylibraft-cu12 25.2.0 which is incompatible.
+265.1s	920	pylibcugraph-cu12 25.6.0 requires rmm-cu12==25.6.*, but you have rmm-cu12 25.2.0 which is incompatible.
+265.1s	921	jupyter-kernel-gateway 2.5.2 requires jupyter-client<8.0,>=5.2.0, but you have jupyter-client 8.6.3 which is incompatible.
+265.1s	922	dataproc-spark-connect 0.8.3 requires google-api-core>=2.19, but you have google-api-core 1.34.1 which is incompatible.
+265.1s	923	gcsfs 2025.3.0 requires fsspec==2025.3.0, but you have fsspec 2025.9.0 which is incompatible.[0m[31m
+265.1s	924	[0mSuccessfully installed antlr4-python3-runtime-4.9.3 cloudpickle-3.1.1 contourpy-1.3.3 cycler-0.12.1 dcor-0.6 farama-notifications-0.0.4 fonttools-4.60.1 gymnasium-0.29.0 hydra-core-1.3.2 iisignature-0.24 joblib-1.5.2 kiwisolver-1.4.9 llvmlite-0.45.1 matplotlib-3.10.7 numba-0.62.1 numpy-2.3.4 omegaconf-2.3.0 packaging-25.0 pandas-2.3.3 pillow-12.0.0 pyparsing-3.2.5 python-dateutil-2.9.0.post0 pytz-2025.2 pyyaml-6.0.3 scikit-learn-1.7.2 scipy-1.16.2 six-1.17.0 threadpoolctl-3.6.0 tqdm-4.67.1 typing-extensions-4.15.0 tzdata-2025.2
+267.4s	925	[orchestrator] pip check reported issues (continuing):
+267.4s	926	torchmetrics 1.8.2 requires torch, which is not installed.
+267.4s	927	easyocr 1.7.2 requires torch, which is not installed.
+267.4s	928	pytorch-lightning 2.5.5 requires torch, which is not installed.
+267.4s	929	pytorch-ignite 0.5.2 requires torch, which is not installed.
+267.4s	930	kornia 0.8.1 requires torch, which is not installed.
+267.4s	931	kaggle-environments 1.18.0 requires stable-baselines3, which is not installed.
+267.4s	932	fastai 2.8.4 requires torch, which is not installed.
+267.4s	933	dopamine-rl 4.1.2 requires gym, which is not installed.
+267.4s	934	bigframes 2.12.0 requires google-cloud-bigquery-storage, which is not installed.
+267.4s	935	sentence-transformers 4.1.0 requires torch, which is not installed.
+267.4s	936	torchaudio 2.6.0+cu124 requires torch, which is not installed.
+267.4s	937	peft 0.16.0 requires torch, which is not installed.
+267.4s	938	torchdata 0.11.0 requires torch, which is not installed.
+267.4s	939	torchvision 0.21.0+cu124 requires torch, which is not installed.
+267.4s	940	timm 1.0.19 requires torch, which is not installed.
+267.4s	941	accelerate 1.9.0 requires torch, which is not installed.
+267.4s	942	gensim 4.3.3 has requirement numpy<2.0,>=1.18.5, but you have numpy 2.3.4.
+267.4s	943	gensim 4.3.3 has requirement scipy<1.14.0,>=1.7.0, but you have scipy 1.16.2.
+267.4s	944	mkl-umath 0.1.1 has requirement numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4.
+267.4s	945	mkl-random 1.2.4 has requirement numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4.
+267.4s	946	mkl-fft 1.3.8 has requirement numpy<1.27.0,>=1.26.4, but you have numpy 2.3.4.
+267.4s	947	dask-cudf-cu12 25.2.2 has requirement pandas<2.2.4dev0,>=2.0, but you have pandas 2.3.3.
+267.4s	948	dask-cuda 25.2.0 has requirement numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1.
+267.4s	949	cuml-cu12 25.2.1 has requirement numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1.
+267.4s	950	cudf-cu12 25.2.2 has requirement numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1.
+267.4s	951	cudf-cu12 25.2.2 has requirement pandas<2.2.4dev0,>=2.0, but you have pandas 2.3.3.
+267.4s	952	distributed-ucxx-cu12 0.42.0 has requirement numba<0.61.0a0,>=0.59.1, but you have numba 0.62.1.
+267.4s	953	datasets 4.1.1 has requirement pyarrow>=21.0.0, but you have pyarrow 19.0.1.
+267.4s	954	onnx 1.18.0 has requirement protobuf>=4.25.1, but you have protobuf 3.20.3.
+267.4s	955	ydata-profiling 4.17.0 has requirement matplotlib<=3.10,>=3.5, but you have matplotlib 3.10.7.
+267.4s	956	ydata-profiling 4.17.0 has requirement numba<=0.61,>=0.56.0, but you have numba 0.62.1.
+267.4s	957	ydata-profiling 4.17.0 has requirement numpy<2.2,>=1.16.0, but you have numpy 2.3.4.
+267.4s	958	ydata-profiling 4.17.0 has requirement scipy<1.16,>=1.4.1, but you have scipy 1.16.2.
+267.4s	959	google-cloud-bigtable 2.32.0 has requirement google-api-core[grpc]<3.0.0,>=2.17.0, but you have google-api-core 1.34.1.
+267.4s	960	category-encoders 2.7.0 has requirement scikit-learn<1.6.0,>=1.0.0, but you have scikit-learn 1.7.2.
+267.4s	961	preprocessing 0.1.13 has requirement nltk==3.2.4, but you have nltk 3.9.1.
+267.4s	962	google-colab 1.0.0 has requirement google-auth==2.38.0, but you have google-auth 2.40.3.
+267.4s	963	google-colab 1.0.0 has requirement notebook==6.5.7, but you have notebook 6.5.4.
+267.4s	964	google-colab 1.0.0 has requirement pandas==2.2.2, but you have pandas 2.3.3.
+267.4s	965	google-colab 1.0.0 has requirement requests==2.32.3, but you have requests 2.32.5.
+267.4s	966	google-colab 1.0.0 has requirement tornado==6.4.2, but you have tornado 6.5.2.
+267.4s	967	dopamine-rl 4.1.2 has requirement gymnasium>=1.0.0, but you have gymnasium 0.29.0.
+267.4s	968	sklearn-compat 0.1.3 has requirement scikit-learn<1.7,>=1.2, but you have scikit-learn 1.7.2.
+267.4s	969	bigframes 2.12.0 has requirement google-cloud-bigquery[bqstorage,pandas]>=3.31.0, but you have google-cloud-bigquery 3.25.0.
+267.4s	970	bigframes 2.12.0 has requirement rich<14,>=12.4.4, but you have rich 14.1.0.
+267.4s	971	ibis-framework 9.5.0 has requirement toolz<1,>=0.11, but you have toolz 1.0.0.
+267.4s	972	tokenizers 0.21.2 has requirement huggingface-hub<1.0,>=0.16.4, but you have huggingface-hub 1.0.0rc2.
+267.4s	973	opencv-contrib-python 4.12.0.88 has requirement numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4.
+267.4s	974	libcugraph-cu12 25.6.0 has requirement libraft-cu12==25.6.*, but you have libraft-cu12 25.2.0.
+267.4s	975	opencv-python 4.12.0.88 has requirement numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4.
+267.4s	976	gradio 5.38.1 has requirement pillow<12.0,>=8.0, but you have pillow 12.0.0.
+267.4s	977	gradio 5.38.1 has requirement pydantic<2.12,>=2.0, but you have pydantic 2.12.0a1.
+267.4s	978	cudf-polars-cu12 25.6.0 has requirement pylibcudf-cu12==25.6.*, but you have pylibcudf-cu12 25.2.2.
+267.4s	979	mdit-py-plugins 0.4.2 has requirement markdown-it-py<4.0.0,>=1.0.0, but you have markdown-it-py 4.0.0.
+267.4s	980	tensorflow-metadata 1.17.2 has requirement protobuf>=4.25.2; python_version >= "3.11", but you have protobuf 3.20.3.
+267.4s	981	pydrive2 1.21.3 has requirement cryptography<44, but you have cryptography 46.0.1.
+267.4s	982	pydrive2 1.21.3 has requirement pyOpenSSL<=24.2.1,>=19.1.0, but you have pyopenssl 25.3.0.
+267.4s	983	pandas-gbq 0.29.2 has requirement google-api-core<3.0.0,>=2.10.2, but you have google-api-core 1.34.1.
+267.4s	984	google-cloud-storage 2.19.0 has requirement google-api-core<3.0.0dev,>=2.15.0, but you have google-api-core 1.34.1.
+267.4s	985	transformers 4.53.3 has requirement huggingface-hub<1.0,>=0.30.0, but you have huggingface-hub 1.0.0rc2.
+267.4s	986	opencv-python-headless 4.12.0.88 has requirement numpy<2.3.0,>=2; python_version >= "3.9", but you have numpy 2.3.4.
+267.4s	987	tensorflow 2.18.0 has requirement numpy<2.1.0,>=1.26.0, but you have numpy 2.3.4.
+267.4s	988	pylibcugraph-cu12 25.6.0 has requirement pylibraft-cu12==25.6.*, but you have pylibraft-cu12 25.2.0.
+267.4s	989	pylibcugraph-cu12 25.6.0 has requirement rmm-cu12==25.6.*, but you have rmm-cu12 25.2.0.
+267.4s	990	jupyter-kernel-gateway 2.5.2 has requirement jupyter-client<8.0,>=5.2.0, but you have jupyter-client 8.6.3.
+267.4s	991	dataproc-spark-connect 0.8.3 has requirement google-api-core>=2.19, but you have google-api-core 1.34.1.
+267.4s	992	gcsfs 2025.3.0 has requirement fsspec==2025.3.0, but you have fsspec 2025.9.0.
+267.4s	993	
+268.6s	994	Found existing installation: dopamine_rl 4.1.2
+268.6s	995	Uninstalling dopamine_rl-4.1.2:
+268.8s	996	  Successfully uninstalled dopamine_rl-4.1.2
+269.1s	997	[33mWARNING: Skipping gym as it is not installed.[0m[33m
+269.1s	998	[0mFound existing installation: gymnasium 0.29.0
+269.1s	999	Uninstalling gymnasium-0.29.0:
+269.1s	1000	  Successfully uninstalled gymnasium-0.29.0
+269.4s	1001	[33mWARNING: Skipping sb3-contrib as it is not installed.[0m[33m
+269.7s	1002	[0m[33mWARNING: Skipping stable-baselines3 as it is not installed.[0m[33m
+270.0s	1003	[0m[33mWARNING: Skipping torch as it is not installed.[0m[33m
+270.1s	1004	[0m[run_all] Wrote bundle: /kaggle/working/multi_stage_artifacts.zip
+274.0s	1005	/usr/local/lib/python3.11/dist-packages/traitlets/traitlets.py:2915: FutureWarning: --Exporter.preprocessors=["remove_papermill_header.RemovePapermillHeader"] for containers is deprecated in traitlets 5.0. You can pass `--Exporter.preprocessors item` ... multiple times to add items to a list.
+274.0s	1006	  warn(
+274.1s	1007	[NbConvertApp] Converting notebook __notebook__.ipynb to notebook
+274.7s	1008	[NbConvertApp] Writing 110152 bytes to __notebook__.ipynb
+277.1s	1009	/usr/local/lib/python3.11/dist-packages/traitlets/traitlets.py:2915: FutureWarning: --Exporter.preprocessors=["nbconvert.preprocessors.ExtractOutputPreprocessor"] for containers is deprecated in traitlets 5.0. You can pass `--Exporter.preprocessors item` ... multiple times to add items to a list.
+277.1s	1010	  warn(
+277.1s	1011	[NbConvertApp] Converting notebook __notebook__.ipynb to html
+277.9s	1012	[NbConvertApp] Writing 377041 bytes to __results__.html

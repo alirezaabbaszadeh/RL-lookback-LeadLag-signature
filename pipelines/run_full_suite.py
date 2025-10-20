@@ -263,8 +263,9 @@ def main() -> int:
 
     start_time = time.time()
     dependency_status = dependency_preflight(args.skip_optional_deps)
+    invocation = " ".join([sys.executable] + sys.argv)
     run_log: Dict[str, object] = {
-        "command": " \".join([sys.executable] + sys.argv[1:]) if len(sys.argv) > 0 else "python pipelines/run_full_suite.py",
+        "command": invocation,
         "args": _serialize_args(args),
         "dependency_status": dependency_status,
         "start_time": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start_time)),

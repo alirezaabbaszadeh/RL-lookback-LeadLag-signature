@@ -43,6 +43,21 @@ def discover_artifact_root(custom_root: Path | None) -> Path:
     return Path.cwd() / "multi_stage_artifacts"
 
 
+def package_artifacts(artifact_root: Path) -> Path:
+    """Create a downloadable zip of the entire artifact tree."""
+    zip_base = artifact_root.parent / artifact_root.name
+    zip_path = zip_base.with_suffix(".zip")
+    if zip_path.exists():
+        zip_path.unlink()
+    created = shutil.make_archive(
+        str(zip_base),
+        "zip",
+        root_dir=artifact_root.parent,
+        base_dir=artifact_root.name,
+    )
+    return Path(created)
+
+
 def pip_install(requirements: Iterable[str]) -> None:
     if not requirements:
         return
@@ -139,6 +154,11 @@ def build_argument_parser(stage_registry: dict[str, StageDefinition]) -> argpars
         "--skip-cleanup",
         action="store_true",
         help="Keep packages installed after each stage (not recommended).",
+    )
+    parser.add_argument(
+        "--skip-zip",
+        action="store_true",
+        help="Skip creating a zip archive for the collected artifacts.",
     )
     parser.add_argument(
         "--list",
@@ -313,6 +333,13 @@ def main() -> None:
             for package in stage.uninstall
         }
         pip_uninstall(sorted(residual_packages))
+
+    if not args.skip_zip:
+        try:
+            zip_path = package_artifacts(artifact_root)
+            print(f"[orchestrator] archived artifacts to {zip_path}")
+        except Exception as exc:
+            print(f"[orchestrator] WARN: failed to create artifact archive: {exc}")
 
 
 if __name__ == "__main__":
