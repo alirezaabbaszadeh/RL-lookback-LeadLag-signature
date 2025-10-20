@@ -222,7 +222,7 @@ def main() -> None:
                 "gymnasium==0.29.1",
                 "stable-baselines3==2.1.0",
                 "sb3-contrib==2.1.0",
-                "torch>=2.0",
+                "torch>=2.1,<2.7",
             ],
             entrypoint=Path(__file__).parent / "stages" / "sb3_leadlag.py",
             uninstall=[
