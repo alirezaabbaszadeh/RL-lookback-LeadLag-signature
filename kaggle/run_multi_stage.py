@@ -34,6 +34,7 @@ def _get_site_packages_path(python_executable: Path) -> Path:
         check=True,
         capture_output=True,
         text=True,
+        env=_augment_pythonpath(),
     )
     return Path(result.stdout.strip())
 
@@ -50,6 +51,7 @@ def _write_pip_entrypoints(python_executable: Path) -> None:
         check=True,
         capture_output=True,
         text=True,
+        env=_augment_pythonpath(),
     )
     version = version_result.stdout.strip()
     major, _, minor = version.partition(".")
@@ -119,6 +121,7 @@ def _fallback_copy_pip(python_executable: Path, env_dir: Path, error: subprocess
         [str(python_executable), "-m", "pip", "--version"],
         capture_output=True,
         text=True,
+        env=_augment_pythonpath(),
     )
     if verification.returncode != 0:
         raise RuntimeError(
@@ -129,6 +132,21 @@ def _fallback_copy_pip(python_executable: Path, env_dir: Path, error: subprocess
 
 ORCHESTRATOR_DIR = Path(__file__).resolve().parent
 REPO_ROOT = ORCHESTRATOR_DIR.parent
+
+
+def _augment_pythonpath(env: dict[str, str] | None = None) -> dict[str, str]:
+    """Return environment vars with repo root prepended to PYTHONPATH."""
+
+    base_env = os.environ.copy() if env is None else env.copy()
+    repo_path = str(REPO_ROOT)
+    existing = base_env.get("PYTHONPATH")
+    if existing:
+        entries = existing.split(os.pathsep)
+        if repo_path not in entries:
+            base_env["PYTHONPATH"] = os.pathsep.join([repo_path, *entries])
+    else:
+        base_env["PYTHONPATH"] = repo_path
+    return base_env
 
 
 def _detect_python_binary(venv_dir: Path) -> Path:
@@ -184,6 +202,7 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
     builder = venv.EnvBuilder(with_pip=False, clear=True)
     builder.create(env_dir)
     python_executable = _detect_python_binary(env_dir)
+    python_env = _augment_pythonpath()
     try:
         subprocess.run(
             [
@@ -194,6 +213,7 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
                 "--default-pip",
             ],
             check=True,
+            env=python_env,
         )
     except subprocess.CalledProcessError as error:
         _fallback_copy_pip(python_executable, env_dir, error)
@@ -209,6 +229,7 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
             "wheel",
         ],
         check=True,
+        env=python_env,
     )
     return python_executable, env_dir
 
@@ -219,6 +240,7 @@ def pip_install(
     *,
     bootstrap: Sequence[str] = (),
 ) -> None:
+    python_env = _augment_pythonpath()
     if bootstrap:
         bootstrap_cmd = [
             str(python_executable),
@@ -229,7 +251,7 @@ def pip_install(
             "--upgrade",
             *bootstrap,
         ]
-        subprocess.run(bootstrap_cmd, check=True)
+        subprocess.run(bootstrap_cmd, check=True, env=python_env)
     if not requirements:
         return
     cmd = [
@@ -241,7 +263,7 @@ def pip_install(
         "--upgrade",
         *requirements,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=python_env)
 
 
 def pip_check(python_executable: Path) -> None:
@@ -249,6 +271,7 @@ def pip_check(python_executable: Path) -> None:
         [str(python_executable), "-m", "pip", "check"],
         capture_output=True,
         text=True,
+        env=_augment_pythonpath(),
     )
     if result.returncode != 0:
         print("[orchestrator] pip check reported issues (continuing):")
