@@ -34,7 +34,7 @@ def _get_site_packages_path(python_executable: Path) -> Path:
         check=True,
         capture_output=True,
         text=True,
-        env=_augment_pythonpath(),
+        env=_stage_env(),
     )
     return Path(result.stdout.strip())
 
@@ -51,7 +51,7 @@ def _write_pip_entrypoints(python_executable: Path) -> None:
         check=True,
         capture_output=True,
         text=True,
-        env=_augment_pythonpath(),
+        env=_stage_env(),
     )
     version = version_result.stdout.strip()
     major, _, minor = version.partition(".")
@@ -121,7 +121,7 @@ def _fallback_copy_pip(python_executable: Path, env_dir: Path, error: subprocess
         [str(python_executable), "-m", "pip", "--version"],
         capture_output=True,
         text=True,
-        env=_augment_pythonpath(),
+        env=_stage_env(),
     )
     if verification.returncode != 0:
         raise RuntimeError(
@@ -147,6 +147,31 @@ def _augment_pythonpath(env: dict[str, str] | None = None) -> dict[str, str]:
     else:
         base_env["PYTHONPATH"] = repo_path
     return base_env
+
+
+def _stage_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    """Augment environment variables for stage subprocesses."""
+
+    stage_env = _augment_pythonpath(env)
+
+    wheelhouse = Path("/kaggle/working/wheelhouse")
+    try:
+        if wheelhouse.parent.exists():
+            wheelhouse.mkdir(parents=True, exist_ok=True)
+            stage_env.setdefault("PIP_FIND_LINKS", str(wheelhouse))
+            stage_env.setdefault("PIP_NO_INDEX", "1")
+    except Exception:
+        pass  # Non-Kaggle environments may lack permission; best-effort.
+
+    cache_dir = Path("/kaggle/working/.cache/pip")
+    try:
+        if cache_dir.parent.exists():
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            stage_env.setdefault("PIP_CACHE_DIR", str(cache_dir))
+    except Exception:
+        pass
+
+    return stage_env
 
 
 def _detect_python_binary(venv_dir: Path) -> Path:
@@ -202,7 +227,7 @@ def create_virtualenv(stage_name: str, venv_root: Path) -> tuple[Path, Path]:
     builder = venv.EnvBuilder(with_pip=False, clear=True)
     builder.create(env_dir)
     python_executable = _detect_python_binary(env_dir)
-    python_env = _augment_pythonpath()
+    python_env = _stage_env()
     try:
         subprocess.run(
             [
@@ -240,7 +265,7 @@ def pip_install(
     *,
     bootstrap: Sequence[str] = (),
 ) -> None:
-    python_env = _augment_pythonpath()
+    python_env = _stage_env()
     if bootstrap:
         bootstrap_cmd = [
             str(python_executable),
@@ -271,7 +296,7 @@ def pip_check(python_executable: Path) -> None:
         [str(python_executable), "-m", "pip", "check"],
         capture_output=True,
         text=True,
-        env=_augment_pythonpath(),
+        env=_stage_env(),
     )
     if result.returncode != 0:
         print("[orchestrator] pip check reported issues (continuing):")
@@ -306,7 +331,7 @@ def run_stage(
         str(stage_dir),
     ]
 
-    env = os.environ.copy()
+    env = _stage_env()
     pythonpath_entries = [str(REPO_ROOT)]
     existing_pythonpath = env.get("PYTHONPATH")
     if existing_pythonpath:
@@ -455,7 +480,10 @@ def main() -> None:
                 "torch",
             ],
             description="Run pipelines/run_full_suite.py (includes ablation, audits, reports).",
-            bootstrap=["numpy>=1.23,<2.0"],
+            bootstrap=[
+                "numpy>=1.23,<2.0",
+                "wrapt>=1.11",
+            ],
         ),
         "leadlag_hydra": StageDefinition(
             name="leadlag_hydra",
