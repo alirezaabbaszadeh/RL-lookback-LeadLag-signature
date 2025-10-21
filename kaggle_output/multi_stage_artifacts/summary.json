@@ -9,7 +9,7 @@
       "-r",
       "/kaggle/working/RL-lookback-LeadLag-signature/requirements-kaggle.txt"
     ],
-    "timestamp": 1761071094.8580885,
+    "timestamp": 1761074124.2760398,
     "description": "Run pipelines/run_full_suite.py (includes ablation, audits, reports).",
     "error": "Stage full_suite failed (exit=1); see /kaggle/working/multi_stage_artifacts/full_suite/stderr.log"
   }

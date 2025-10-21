@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import importlib.util
@@ -295,10 +295,17 @@ def main() -> int:
                 str(args.max_missing_ratio),
                 "--zero-variance-limit",
                 str(args.max_zero_variance),
+                "--output",
+                str(logs_dir / "dataset_manifest.json"),
             ]
             if args.fail_on_quality:
                 quality_cmd.append("--exit-on-fail")
-            run_command(quality_cmd)
+            try:
+                run_command(quality_cmd)
+            except subprocess.CalledProcessError as e:
+                print(f"[full-suite] WARN: dataset_quality failed (exit={e.returncode}); continuing due to fail_on_quality={args.fail_on_quality}")
+                if args.fail_on_quality:
+                    raise
 
         # Determine baseline scenarios and validate configs
         baseline_scenarios = args.baseline_scenarios or [args.scenario]
@@ -507,5 +514,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 
