@@ -61,6 +61,41 @@ def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
     return cfg
 
 
+def _validate_scenario_schema(cfg: Dict[str, Any], *, scenario: str) -> None:
+    """Ensure the merged scenario config contains required sections."""
+
+    required_sections = ("run", "data", "analysis")
+    missing = [section for section in required_sections if section not in cfg]
+    if missing:
+        raise ValueError(f"Scenario '{scenario}' missing sections: {', '.join(missing)}")
+
+    run_section = cfg["run"]
+    if not isinstance(run_section, dict):
+        raise TypeError(f"Scenario '{scenario}' section 'run' must be a mapping")
+
+    data_section = cfg["data"]
+    if not isinstance(data_section, dict):
+        raise TypeError(f"Scenario '{scenario}' section 'data' must be a mapping")
+    price_csv = data_section.get("price_csv")
+    if not isinstance(price_csv, str) or not price_csv:
+        raise ValueError(f"Scenario '{scenario}' must define data.price_csv as a string path")
+
+    analysis_section = cfg["analysis"]
+    if not isinstance(analysis_section, dict):
+        raise TypeError(f"Scenario '{scenario}' section 'analysis' must be a mapping")
+
+    method = analysis_section.get("method")
+    if not isinstance(method, str) or not method:
+        raise ValueError(f"Scenario '{scenario}' must define analysis.method as a string")
+    lookback = analysis_section.get("lookback")
+    if not isinstance(lookback, int) or lookback <= 0:
+        raise ValueError(f"Scenario '{scenario}' must define analysis.lookback as a positive integer")
+
+    metrics_cfg = cfg.get("metrics")
+    if metrics_cfg is not None and not isinstance(metrics_cfg, dict):
+        raise TypeError(f"Scenario '{scenario}' section 'metrics' must be a mapping when provided")
+
+
 def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(base.get(key), dict):
@@ -210,6 +245,8 @@ def run_scenario(
 
     if overrides and raw_cfg is not None:
         cfg = _deep_update(cfg, overrides)
+
+    _validate_scenario_schema(cfg, scenario=cfg["run"].get("run_name", Path(config_path).stem))
 
     # seeds and output dir
     _set_seed(int(cfg["run"].get("seed", 42)))

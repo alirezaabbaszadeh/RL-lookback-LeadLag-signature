@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List
 
 from leadlag.evaluation.aggregate import aggregate
 from leadlag.reporting.logging_utils import get_logger, setup_logging
-from leadlag.training.run_scenario import _merge_extends, run_scenario
+from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema, run_scenario
 from leadlag.utils.resources import resolve_path
 
 
@@ -87,6 +87,31 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         help="Emit machine-readable JSON for listings and run summaries.",
     )
     parser.add_argument(
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format for CLI responses (default: text).",
+    )
+    parser.add_argument(
+        "--scenarios",
+        nargs="+",
+        help="Explicit scenario names or YAML paths to run.",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Report run status under the results root and exit.",
+    )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip scenarios that already have a successful run in the results root.",
+    )
+    parser.add_argument(
+        "--validate",
+        help="Validate a scenario configuration (name or path) and exit.",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         help="Logging level (DEBUG, INFO, WARNING, ERROR).",
@@ -98,6 +123,9 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.results_root is None:
         args.results_root = os.environ.get("LEADLAG_RESULTS_ROOT", "results")
+    if args.json:
+        args.format = "json"
+    args.json = args.format == "json"
     return args
 
 
@@ -151,37 +179,210 @@ def _execute_runner(runner: str, scenario_path: Path, results_root: Path) -> Pat
     raise ValueError(f"Unknown runner '{runner}'")
 
 
+def _resolve_scenario_arg(entry: str) -> Path:
+    candidate = Path(entry)
+    if candidate.exists():
+        return candidate.resolve()
+
+    name = candidate.name
+    resource = name
+    if not resource.endswith(".yaml"):
+        resource = f"{resource}.yaml"
+    resolved = resolve_path("leadlag.configs", f"scenarios/{resource}")
+    if resolved is not None and resolved.exists():
+        return resolved
+    raise FileNotFoundError(
+        f"Scenario '{entry}' not found in packaged resources or filesystem paths."
+    )
+
+
+def _wants_json(args: argparse.Namespace) -> bool:
+    return getattr(args, "json", False)
+
+
+def _has_successful_run(run_name: str, results_root: Path) -> bool:
+    if not results_root.exists():
+        return False
+    prefix = f"{run_name}_"
+    for child in results_root.iterdir():
+        if child.is_dir() and child.name.startswith(prefix):
+            if (child / "summary.csv").exists():
+                return True
+    return False
+
+
+def _collect_status(results_root: Path) -> list[dict[str, object]]:
+    runs: list[dict[str, object]] = []
+    if not results_root.exists():
+        return runs
+
+    for child in sorted(results_root.iterdir(), key=lambda p: p.name):
+        if not child.is_dir():
+            continue
+
+        if child.name == "aggregate":
+            runs.append(
+                {
+                    "run_dir": str(child),
+                    "status": "aggregate",
+                    "path": str(child),
+                }
+            )
+            continue
+
+        entry: dict[str, object] = {"run_dir": str(child)}
+        metadata_path = child / "run_metadata.json"
+        summary_path = child / "summary.csv"
+
+        scenario_name: str | None = None
+        if metadata_path.exists():
+            try:
+                meta = json.loads(metadata_path.read_text(encoding="utf-8"))
+                config_path = meta.get("config_path")
+                if isinstance(config_path, str) and config_path:
+                    scenario_name = Path(config_path).stem
+                scenario_name = scenario_name or meta.get("scenario") or meta.get("run_name")
+            except Exception:
+                scenario_name = None
+        if scenario_name:
+            entry["scenario"] = scenario_name
+
+        if summary_path.exists():
+            entry["status"] = "success"
+            entry["summary_path"] = str(summary_path)
+        elif metadata_path.exists():
+            entry["status"] = "incomplete"
+            entry["metadata_path"] = str(metadata_path)
+        else:
+            entry["status"] = "empty"
+
+        runs.append(entry)
+
+    return runs
+
+
+def _print_status(runs: list[dict[str, object]], results_root: Path, use_json: bool) -> None:
+    payload = {"results_root": str(results_root), "runs": runs}
+    if use_json:
+        print(json.dumps(payload))
+        return
+
+    if not runs:
+        print(f"No runs found under {results_root}")
+        return
+
+    for entry in runs:
+        status = entry.get("status", "unknown")
+        run_dir = entry.get("run_dir", "")
+        scenario = entry.get("scenario", "<unknown>")
+        print(f"{status:>10}  {scenario}  {run_dir}")
+
+
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv)
+    results_root = Path(args.results_root).resolve()
+
+    if args.validate:
+        try:
+            scenario_path = _resolve_scenario_arg(args.validate)
+            config = _merge_extends(scenario_path)
+            _validate_scenario_schema(config, scenario=scenario_path.stem)
+        except Exception as exc:
+            if _wants_json(args):
+                print(
+                    json.dumps(
+                        {
+                            "scenario": args.validate,
+                            "valid": False,
+                            "error": str(exc),
+                        }
+                    )
+                )
+            else:
+                print(f"Validation failed for '{args.validate}': {exc}")
+            return 1
+
+        if _wants_json(args):
+            print(
+                json.dumps(
+                    {
+                        "scenario": scenario_path.stem,
+                        "path": str(scenario_path),
+                        "valid": True,
+                    }
+                )
+            )
+        else:
+            print(f"Scenario '{scenario_path.stem}' is valid ({scenario_path})")
+        return 0
+
+    if args.status:
+        runs = _collect_status(results_root)
+        _print_status(runs, results_root, _wants_json(args))
+        return 0
+
     scenarios = discover_scenarios()
     if not scenarios:
-        if args.list and args.json:
+        if args.list and _wants_json(args):
             print(json.dumps({"scenarios": []}))
         else:
             print("No scenarios found in packaged scenarios (leadlag.configs.scenarios)")
         return 1
+    discovered_scenarios = list(scenarios)
 
-    scenario_names = [path.stem for path in scenarios]
+    scenario_names = [path.stem for path in discovered_scenarios]
     if args.list:
-        if args.json:
+        if _wants_json(args):
             print(json.dumps({"scenarios": scenario_names}))
         else:
             print("\n".join(scenario_names))
         return 0
 
-    selected = [sc for sc in scenarios if _match_filters(sc.stem, args.include, args.exclude)]
+    if args.scenarios:
+        explicit: list[Path] = []
+        errors: list[str] = []
+        for entry in args.scenarios:
+            try:
+                explicit.append(_resolve_scenario_arg(entry))
+            except FileNotFoundError as exc:
+                errors.append(str(exc))
+        if errors:
+            if _wants_json(args):
+                print(
+                    json.dumps(
+                        {
+                            "errors": errors,
+                            "selected": [],
+                            "summary": [],
+                            "aggregate": None,
+                            "results_root": str(results_root),
+                        }
+                    )
+                )
+            else:
+                for err in errors:
+                    print(err)
+            return 1
+        scenarios = [path.resolve() for path in explicit]
+    else:
+        scenarios = discovered_scenarios
+
+    selected = (
+        scenarios
+        if args.scenarios
+        else [sc for sc in scenarios if _match_filters(sc.stem, args.include, args.exclude)]
+    )
     if args.max_scenarios is not None:
         selected = selected[: max(args.max_scenarios, 0)]
 
-    results_root = Path(args.results_root).resolve()
-
     if not selected:
-        if args.json:
+        if _wants_json(args):
             payload = {
                 "selected": [],
                 "summary": [],
                 "aggregate": None,
                 "results_root": str(results_root),
+                "errors": ["no_scenarios_matched"],
             }
             print(json.dumps(payload))
         else:
@@ -196,13 +397,13 @@ def main(argv: List[str] | None = None) -> int:
 
     logger.info(
         "Discovered %s scenario(s); %s selected after filtering.",
-        len(scenarios),
+        len(discovered_scenarios),
         len(selected),
     )
     if args.dry_run:
         for sc in selected:
             logger.info("[dry-run] %s", sc)
-        if args.json:
+        if _wants_json(args):
             payload = {
                 "selected": [sc.stem for sc in selected],
                 "summary": [],
@@ -219,8 +420,23 @@ def main(argv: List[str] | None = None) -> int:
 
     for sc in selected:
         name = sc.stem
+        if args.skip_existing and _has_successful_run(name, results_root):
+            logger.info(
+                "Skipping scenario with existing successful run",
+                context={"scenario": name},
+            )
+            summary.append(
+                {
+                    "scenario": name,
+                    "status": "skipped",
+                    "runner": None,
+                    "reason": "existing_results",
+                }
+            )
+            continue
         try:
             config = _merge_extends(sc)
+            _validate_scenario_schema(config, scenario=name)
         except Exception as exc:
             logger.exception("Failed to load scenario config", context={"scenario": name})
             summary.append(
@@ -277,7 +493,9 @@ def main(argv: List[str] | None = None) -> int:
                     exit_code = 1
                     aborted = True
 
-    failures = [row for row in summary if row.get("status") != "success"]
+    failures = [
+        row for row in summary if row.get("status") not in {"success", "skipped"}
+    ]
     if failures:
         logger.warning(
             "Some scenarios did not complete successfully",
@@ -290,7 +508,7 @@ def main(argv: List[str] | None = None) -> int:
         # ensure non-zero exit when aborted early
         exit_code = 1
 
-    if args.json:
+    if _wants_json(args):
         payload = {
             "selected": [sc.stem for sc in selected],
             "summary": summary,

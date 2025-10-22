@@ -83,6 +83,7 @@ leadlag --list                  # enumerate scenario names (combine with --json 
 leadlag --dry-run --json        # inspect selection without executing runners
 leadlag --include rl            # focus only on RL-labelled scenarios
 leadlag --results-root outputs/2024-10-22 --stop-on-error
+leadlag --status --results-root outputs/2024-10-22 --json
 ```
 
 Set `LEADLAG_RESULTS_ROOT` to define the default results directory (overridden by `--results-root` when provided).
@@ -90,6 +91,8 @@ Set `LEADLAG_RESULTS_ROOT` to define the default results directory (overridden b
 Key flags:
 - `--list` enumerates packaged scenarios (use with `--json` for machine-readable output).
 - `--json` emits a structured summary (selected scenarios, per-scenario status, aggregate path).
+- `--skip-existing` skips scenarios that already have successful outputs under the results root.
+- `--status` inspects a results directory and reports run status (combine with `--json` for machine-readable output).
 - `--runner {auto,scenario,dynamic,rl}` overrides the auto-detected runner.
 - `--max-scenarios N` limits execution to the first N filtered configs.
 - `--log-level` / `--log-path` control structured logging (defaults to `<results-root>/main.log`).

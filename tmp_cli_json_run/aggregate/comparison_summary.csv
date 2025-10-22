@@ -1,0 +1,2 @@
+scenario_dir,stat,max_abs_matrix,mean_abs_matrix,n_assets,row_sum_range,row_sum_std,stability_matrix_corr,stability_rowsum_corr,git_commit
+fixed_30_20251022_204457,mean,0.7827954632636654,0.1685738874065183,72.0,48.9852041899668,9.370121869505835,0.9575247854346518,0.9574388120775869,bda18b606e7dd8500808c23e7a4491fbde976796

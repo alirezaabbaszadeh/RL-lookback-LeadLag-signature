@@ -153,7 +153,14 @@ def _template_from_dict(data: Mapping[str, Any], name: str) -> RewardTemplate:
     components = data.get("components", {})
     if not isinstance(components, Mapping):
         raise ValueError("Reward template must include a 'components' mapping")
-    weights: RewardDict = {str(k): float(v) for k, v in components.items()}
+    if not components:
+        raise ValueError("Reward template must define at least one component weight")
+    weights: RewardDict = {}
+    for key, value in components.items():
+        try:
+            weights[str(key)] = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Reward component '{key}' must be numeric") from exc
     params = data.get("params", {})
     if params and not isinstance(params, Mapping):
         raise ValueError("Reward template 'params' must be a mapping")

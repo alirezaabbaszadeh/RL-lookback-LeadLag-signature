@@ -62,3 +62,13 @@ def test_reward_template_loads_from_file(tmp_path: Path):
     template = load_reward_template(str(path))
     reward, comps = template.compute(_metrics(), _extras(), _context())
     assert reward == pytest.approx(comps["S"])
+
+
+def test_reward_template_requires_numeric_components():
+    with pytest.raises(ValueError, match="Reward component 'S' must be numeric"):
+        load_reward_template({"components": {"S": "invalid"}})
+
+
+def test_reward_template_requires_component_weights():
+    with pytest.raises(ValueError, match="at least one component"):
+        load_reward_template({"components": {}})
