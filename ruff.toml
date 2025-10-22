@@ -1,7 +1,5 @@
 line-length = 100
 target-version = "py310"
-select = ["E", "F", "I"]
-ignore = []
 exclude = [
   ".git",
   "__pycache__",
@@ -10,3 +8,12 @@ exclude = [
   "notebooks",
 ]
 
+[lint]
+select = ["E", "F", "I"]
+# Ignore import-at-top (for sys.path hacks in scripts/tests)
+ignore = ["E402"]
+
+[lint.per-file-ignores]
+"tests/*" = ["E501"]
+"scripts/*" = ["E501"]
+"kaggle/*" = ["E501"]

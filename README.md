@@ -34,17 +34,65 @@ End-to-end research environment for analysing lead-lag signatures, experimenting
 ## Quick Start
 
 ```bash
-pip install -r requirements.txt        # or use requirements-kaggle.txt for the lean stack
-# Optional RL extras (for PPO/attention/LSTM training):
-# pip install -r requirements-rl.txt
-python hydra_main.py --scenario fixed_30 --output_root results
+pip install .            # base dependencies (numpy/pandas/scipy, hydra-core, gymnasium)
+# Optional extras
+# pip install .[rl]        # Stable-Baselines3 + torch + sb3-contrib
+# pip install .[signature] # iisignature + dcor + numba
+# pip install .[kaggle]     # kaggle-environments helper
+leadlag --list                      # list packaged scenarios
+leadlag --dry-run --json             # preview run selection without executing
+# export LEADLAG_RESULTS_ROOT=/tmp/leadlag (or setenv on Windows) to override default output path
 ```
+
+Legacy requirements files remain for offline pinning:
+- `requirements.txt` mirrors the base dependency set
+- `requirements-rl.txt` and `requirements-kaggle.txt` pin optional stacks for constrained environments
+
+> The published wheel bundles code, configs, and scripts. Large artefacts (datasets, generated reports, Kaggle outputs) stay outside the package to keep installs lightweight.
+
 
 Multi-scenario or multi-seed runs:
 
 ```bash
 python hydra_main.py   --scenarios fixed_30 rl_ppo   --multi_seed_enabled   --seeds 42 52 62   --output_root results
 ```
+
+### CLI Entry Points
+
+Installing the package exposes convenient wrappers:
+
+| Command | Description |
+|---------|-------------|
+| `leadlag` | Discover, filter, and execute packaged scenarios (`leadlag.configs.scenarios`). |
+| `leadlag-full-suite` | Run the full experiment + audit pipeline (baseline, ablation, reports). |
+| `leadlag-ablation` | Execute the ablation suite and comparison plots. |
+| `leadlag-compare` | Summarise aggregate statistics into CSV/plots. |
+| `leadlag-plot-balance` | Generate equity-curve plots from completed runs. |
+| `leadlag-report` | Render the Markdown/PDF-ready research report and appendix. |
+| `leadlag-log-trajectories` | Record offline trajectories for behaviour cloning. |
+| `leadlag-train-offline` | Train the offline RL baseline and compare with online results. |
+
+### Scenario Driver CLI
+
+The `leadlag` entry point loads packaged scenarios (via `leadlag.configs.scenarios` resources),
+selects the appropriate runner automatically, and aggregates results:
+
+```bash
+leadlag                         # run every packaged scenario and aggregate into ./results
+leadlag --list                  # enumerate scenario names (combine with --json for automation)
+leadlag --dry-run --json        # inspect selection without executing runners
+leadlag --include rl            # focus only on RL-labelled scenarios
+leadlag --results-root outputs/2024-10-22 --stop-on-error
+```
+
+Set `LEADLAG_RESULTS_ROOT` to define the default results directory (overridden by `--results-root` when provided).
+
+Key flags:
+- `--list` enumerates packaged scenarios (use with `--json` for machine-readable output).
+- `--json` emits a structured summary (selected scenarios, per-scenario status, aggregate path).
+- `--runner {auto,scenario,dynamic,rl}` overrides the auto-detected runner.
+- `--max-scenarios N` limits execution to the first N filtered configs.
+- `--log-level` / `--log-path` control structured logging (defaults to `<results-root>/main.log`).
 
 Generated artifacts include merged configs, dataset manifests, metrics timelines, summary tables, plots, and optional MLflow logs.
 
@@ -106,7 +154,7 @@ Recommended Kaggle settings: Internet ON, GPU for RL workloads.
 Generate a full ablation suite (baseline, dynamic, RL, and random controls) with one command:
 
 ```bash
-python pipelines/run_ablation.py --output-root /kaggle/working/ablations
+leadlag-ablation --output-root /kaggle/working/ablations
 ```
 
 - Uses multi-seed aggregation by default (`--seeds 42 52 62`). Add `--single-seed` for quick smoke runs.
@@ -121,7 +169,7 @@ python pipelines/run_ablation.py --output-root /kaggle/working/ablations
 Run the complete set of experiments and audits with one command:
 
 ```bash
-python pipelines/run_full_suite.py --output-root /kaggle/working/full_suite
+leadlag-full-suite --output-root /kaggle/working/full_suite
 ```
 
 - Executes dataset-quality checks, baseline scenario(s), meta/offline RL baselines, leakage probes, walk-forward verification, the ablation suite, aggregate comparisons, **portfolio balance plots**, and final report generation.
@@ -137,7 +185,7 @@ python pipelines/run_full_suite.py --output-root /kaggle/working/full_suite
 - This makes it easy to compare runs later or attach metadata to reports without adding extra notebook cells.
 - To rerun or customise these plots separately:
   ```bash
-  python reporting/plot_balance_history.py       --results-root /kaggle/working/full_suite       --out /kaggle/working/full_suite/evaluation/plots/balance       --start-balance 100000
+  leadlag-plot-balance --results-root /kaggle/working/full_suite --out /kaggle/working/full_suite/evaluation/plots/balance --start-balance 100000
   ```
 - Use `--max-lines` to limit the number of overlays in the global chart when the number of runs is very large.
 
@@ -158,6 +206,27 @@ python pipelines/run_full_suite.py --output-root /kaggle/working/full_suite
   pytest -q
   ```
 All runners emit `data_manifest.json` and structured logs, allowing rapid validation of data provenance and run context.
+
+---
+
+## Developer Workflow
+
+- Enable local linting/formatting hooks:
+  ```bash
+  pip install pre-commit
+  pre-commit install
+  pre-commit run --all-files
+  ```
+- Test selection helpers:
+  - Use `pytest -m "not slow"` to skip heavy modules.
+  - `pytest -m e2e` runs only end-to-end integration tests.
+- Install extras to un-skip optional suites:
+  ```bash
+  pip install .[signature]  # enables signature pipeline tests
+  pip install .[rl]         # enables SB3/torch tests
+  ```
+- Continuous integration includes a smoke scenario run; keep `leadlag` compatible with `--include/--max-scenarios` filters.
+- Follow-up: migrate to a dedicated `src/` layout so the remaining `sys.path` adjustments (e.g., in tests and CLI modules) can be removed once packaging stabilises.
 
 ---
 

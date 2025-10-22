@@ -1,0 +1,517 @@
+from __future__ import annotations
+
+import argparse
+import json
+from importlib import resources
+from pathlib import Path
+from typing import Any, Dict, List
+
+try:
+    import hydra
+    from omegaconf import OmegaConf
+
+    HYDRA_AVAILABLE = True
+except ImportError:
+    HYDRA_AVAILABLE = False
+    OmegaConf = None  # type: ignore
+
+# Avoid importing heavy runtime modules at import time.
+
+from leadlag.utils.resources import resolve_path
+
+# Prefer the actual scenarios directory. Fall back for backward-compat.
+
+
+BASE_CONFIG = {
+    "run": {
+        "output_root": "results",
+        "run_name": "auto",
+        "seed": 42,
+    },
+    "data": {
+        "price_csv": "raw_data/daily_price.csv",
+        "universe_csv": None,
+    },
+    "analysis": {
+        "method": "signature",
+        "lookback": 30,
+        "update_freq": 1,
+        "use_parallel": False,
+        "num_cpus": 4,
+        "show_progress": False,
+        "Scaling_Method": "mean-centering",
+        "ccf_at_lag": {
+            "lag": 1,
+            "correlation_method": "pearson",
+            "quantiles": 4,
+        },
+        "signature": {
+            "sig_method": "levy",
+            "correlation_method": "pearson",
+            "quantiles": 4,
+        },
+    },
+    "metrics": {
+        "compute": [
+            "mean_abs_matrix",
+            "max_abs_matrix",
+            "row_sum_range",
+            "row_sum_std",
+            "stability_matrix_corr",
+            "stability_rowsum_corr",
+        ],
+        "plots": ["signal_strength", "stability"],
+    },
+}
+
+
+def _merge(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    import copy
+
+    result = copy.deepcopy(base)
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+SCENARIO_PRESETS = {
+    "fixed_30": {
+        "name": "fixed_30",
+        "path": "configs/scenarios/fixed_30.yaml",
+        "runner": "scenario",
+        "multi_seed": {"seeds": [42, 52, 62]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {"lookback": 30},
+                "run": {"run_name": "fixed_30"},
+            },
+        ),
+    },
+    "fixed_90": {
+        "name": "fixed_90",
+        "path": "configs/scenarios/fixed_90.yaml",
+        "runner": "scenario",
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {"lookback": 90},
+                "run": {"run_name": "fixed_90"},
+            },
+        ),
+    },
+    "dynamic_adaptive": {
+        "name": "dynamic_adaptive",
+        "path": "configs/scenarios/dynamic_adaptive.yaml",
+        "runner": "dynamic",
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {"lookback": 30},
+                "run": {"run_name": "dynamic_adaptive"},
+                "dynamic": {
+                    "min_lookback": 10,
+                    "max_lookback": 120,
+                    "step": 5,
+                },
+            },
+        ),
+    },
+    "rl_ppo": {
+        "name": "rl_ppo",
+        "path": "configs/scenarios/rl_ppo.yaml",
+        "runner": "rl",
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {
+                    "lookback": 60,
+                    "method": "signature",
+                    "signature": {"sig_method": "levy"},
+                },
+                "run": {"run_name": "rl_ppo"},
+                "rl": {
+                    "min_lookback": 10,
+                    "max_lookback": 120,
+                    "discrete_actions": True,
+                    "action_mode": "hybrid",
+                    "relative_step": 5,
+                    "episode_length": 252,
+                    "random_start": True,
+                    "ema_alpha": 0.2,
+                    "policy": "attention",
+                    "policy_kwargs": {
+                        "features_extractor_kwargs": {"features_dim": 96, "n_heads": 4}
+                    },
+                    "reward_template": "default",
+                    "total_timesteps": 2000,
+                    "n_steps": 256,
+                    "batch_size": 128,
+                    "learning_rate": 3e-4,
+                    "gamma": 0.99,
+                    "ent_coef": 0.0,
+                    "eval_freq": 0,
+                    "verbose": False,
+                    "reward_weights": {"alpha": 1.0, "beta": 0.3, "gamma": 0.08},
+                    "penalty_same": 0.05,
+                    "penalty_step": 10,
+                },
+            },
+        ),
+    },
+    "fast_smoke": {
+        "name": "fast_smoke",
+        "path": "configs/scenarios/fixed_30.yaml",
+        "runner": "scenario",
+        "multi_seed": {"enabled": False, "seeds": [1]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {"lookback": 10, "update_freq": 9999},
+                "run": {"run_name": "fast_smoke", "seed": 1},
+                "metrics": {
+                    "compute": ["mean_abs_matrix"],
+                    "plots": [],
+                },
+            },
+        ),
+    },
+    # Ablation presets: smoke (pipeline-only), lite GPU, and server-grade
+    "abl_smoke": {
+        "name": "abl_smoke",
+        "path": "configs/scenarios/abl_smoke.yaml",
+        "runner": "scenario",
+        "multi_seed": {"enabled": False, "seeds": [1]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {"lookback": 10, "update_freq": 9999},
+                "run": {"run_name": "abl_smoke", "seed": 1},
+                "metrics": {
+                    "compute": ["mean_abs_matrix", "row_sum_std", "stability_matrix_corr"],
+                    "plots": [],
+                },
+            },
+        ),
+    },
+    "abl_lite_gpu": {
+        "name": "abl_lite_gpu",
+        "path": "configs/scenarios/abl_lite_gpu.yaml",
+        "runner": "rl",
+        "multi_seed": {"enabled": False, "seeds": [11]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {
+                    "lookback": 30,
+                    "method": "signature",
+                    "signature": {"sig_method": "levy"},
+                },
+                "run": {"run_name": "abl_lite_gpu", "seed": 11},
+                "metrics": {
+                    "compute": [
+                        "mean_abs_matrix",
+                        "row_sum_std",
+                        "row_sum_range",
+                        "stability_matrix_corr",
+                    ],
+                    "plots": ["signal_strength", "stability"],
+                },
+                "rl": {
+                    "min_lookback": 10,
+                    "max_lookback": 120,
+                    "discrete_actions": True,
+                    "action_mode": "hybrid",
+                    "relative_step": 5,
+                    "episode_length": 252,
+                    "random_start": True,
+                    "ema_alpha": 0.2,
+                    "policy": "attention",
+                    "policy_kwargs": {
+                        "features_extractor_kwargs": {"features_dim": 64, "n_heads": 2}
+                    },
+                    "reward_template": "default",
+                    "total_timesteps": 20000,
+                    "n_steps": 128,
+                    "batch_size": 64,
+                    "learning_rate": 3e-4,
+                    "gamma": 0.99,
+                    "ent_coef": 0.0,
+                    "eval_freq": 0,
+                    "verbose": False,
+                },
+            },
+        ),
+    },
+    "abl_random": {
+        "name": "abl_random",
+        "path": "configs/scenarios/abl_random.yaml",
+        "runner": "rl",
+        "multi_seed": {"enabled": False, "seeds": [21]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {
+                    "lookback": 30,
+                    "method": "signature",
+                },
+                "run": {"run_name": "abl_random", "seed": 21},
+                "metrics": {
+                    "compute": [
+                        "mean_abs_matrix",
+                        "row_sum_std",
+                        "row_sum_range",
+                        "stability_matrix_corr",
+                    ],
+                    "headless": True,
+                    "plots": [],
+                },
+                "rl": {
+                    "min_lookback": 10,
+                    "max_lookback": 120,
+                    "discrete_actions": True,
+                    "action_mode": "hybrid",
+                    "policy": "random",
+                    "random_policy": True,
+                },
+            },
+        ),
+    },
+    "abl_server": {
+        "name": "abl_server",
+        "path": "configs/scenarios/abl_server.yaml",
+        "runner": "rl",
+        "multi_seed": {"enabled": True, "seeds": [101, 202, 303]},
+        "raw_config": _merge(
+            BASE_CONFIG,
+            {
+                "analysis": {
+                    "lookback": 60,
+                    "method": "signature",
+                    "signature": {"sig_method": "levy"},
+                },
+                "run": {"run_name": "abl_server"},
+                "metrics": {
+                    "compute": [
+                        "mean_abs_matrix",
+                        "max_abs_matrix",
+                        "row_sum_std",
+                        "row_sum_range",
+                        "stability_matrix_corr",
+                    ],
+                    "plots": ["signal_strength", "stability"],
+                },
+                "rl": {
+                    "min_lookback": 10,
+                    "max_lookback": 120,
+                    "discrete_actions": True,
+                    "action_mode": "hybrid",
+                    "relative_step": 5,
+                    "episode_length": 504,
+                    "random_start": True,
+                    "ema_alpha": 0.2,
+                    "policy": "attention",
+                    "policy_kwargs": {
+                        "features_extractor_kwargs": {"features_dim": 128, "n_heads": 4}
+                    },
+                    "reward_template": "default",
+                    "total_timesteps": 200000,
+                    "n_steps": 512,
+                    "batch_size": 256,
+                    "learning_rate": 3e-4,
+                    "gamma": 0.99,
+                    "ent_coef": 0.0,
+                    "eval_freq": 0,
+                    "verbose": False,
+                },
+            },
+        ),
+    },
+}
+
+for preset in SCENARIO_PRESETS.values():
+    path_value = Path(preset.get("path", ""))
+    packaged = resolve_path("leadlag.configs", f"scenarios/{path_value.name}")
+    if packaged is not None:
+        preset["path"] = str(packaged)
+
+
+def _load_scenario_cfg(entry):
+    if isinstance(entry, dict):
+        return entry
+    if isinstance(entry, str):
+        if HYDRA_AVAILABLE:
+            scenario_path = resolve_path("leadlag.configs", f"scenarios/{entry}.yaml")
+            if scenario_path is None:
+                raise FileNotFoundError(f"Scenario YAML not found for entry '{entry}'")
+            cfg = OmegaConf.load(scenario_path)
+            return OmegaConf.to_container(cfg, resolve=True)
+        preset = SCENARIO_PRESETS.get(entry)
+        if preset:
+            return json.loads(json.dumps(preset))
+        raise ValueError(f"Unknown scenario preset '{entry}'. Install hydra-core for YAML support.")
+    raise TypeError("Scenario entry must be string or dict")
+
+
+def get_available_scenarios() -> List[str]:
+    """Return a list of available scenario names from presets and YAML directory.
+
+    This does not require Hydra to be installed; it inspects file names under
+    configs/scenario and merges with keys from SCENARIO_PRESETS.
+    """
+    names = set(SCENARIO_PRESETS.keys())
+    try:
+        scenario_pkg = resources.files("leadlag.configs").joinpath("scenarios")
+        for entry in scenario_pkg.iterdir():
+            if entry.name.endswith(".yaml"):
+                names.add(Path(entry.name).stem)
+    except (ModuleNotFoundError, AttributeError):
+        pass
+
+    scenario_dir = resolve_path("leadlag.configs", "scenarios")
+    if scenario_dir and scenario_dir.is_dir():
+        for path in scenario_dir.glob("*.yaml"):
+            names.add(path.stem)
+    return sorted(names)
+
+
+def validate_scenario_cfg(cfg: Dict[str, Any]) -> None:
+    """Basic validation to catch common config mistakes early.
+
+    Ensures required fields are present and referenced files exist.
+    """
+    required_top = {"name", "path", "runner"}
+    missing = [k for k in required_top if k not in cfg]
+    if missing:
+        raise ValueError(f"Scenario cfg missing keys: {missing}")
+
+    raw_path = cfg["path"]
+    path_obj = Path(raw_path)
+    if path_obj.exists():
+        return
+    packaged = resolve_path("leadlag.configs", f"scenarios/{path_obj.name}")
+    if packaged is None or not packaged.exists():
+        raise FileNotFoundError(f"Scenario path not found: {raw_path}")
+    cfg["path"] = str(packaged)
+
+    # If raw_config present, check core sections exist
+    raw = cfg.get("raw_config")
+    if isinstance(raw, dict):
+        for section in ("run", "data", "analysis"):
+            if section not in raw:
+                raise ValueError(f"raw_config missing '{section}' section")
+
+
+def _run_single(scenario_cfg, output_root):
+    runner = scenario_cfg.get("runner", "scenario")
+    path = scenario_cfg["path"]
+    overrides = {}
+    if "raw_config" in scenario_cfg:
+        overrides["_raw_config"] = scenario_cfg["raw_config"]
+    if runner == "dynamic":
+        from leadlag.training.run_dynamic_baselines import run_dynamic  # lazy import
+
+        return run_dynamic(path, output_root, overrides)
+    if runner == "rl":
+        from leadlag.training.run_rl import run_rl  # lazy import
+
+        return run_rl(path, output_root, overrides)
+    from leadlag.training.run_scenario import run_scenario  # lazy import
+
+    return run_scenario(path, output_root, overrides)
+
+
+def _run_workflow(cfg_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
+    output_root = cfg_dict.get("output_root", "results")
+    multi_seed_cfg = cfg_dict.get("multi_seed", {})
+    enabled = multi_seed_cfg.get("enabled", False)
+    seeds = multi_seed_cfg.get("seeds", [])
+
+    scenarios = cfg_dict.get("scenarios") or [cfg_dict["scenario"]]
+    results: List[Dict[str, Any]] = []
+
+    for entry in scenarios:
+        scenario_cfg = _load_scenario_cfg(entry)
+        # lightweight validation before running
+        try:
+            validate_scenario_cfg(scenario_cfg)
+        except Exception as e:  # pragma: no cover - runtime guard
+            raise RuntimeError(
+                f"Invalid scenario configuration for '{scenario_cfg.get('name', entry)}': {e}"
+            )
+        scenario_seeds = scenario_cfg.get("multi_seed", {}).get("seeds", seeds)
+        scenario_enabled = scenario_cfg.get("multi_seed", {}).get("enabled", enabled)
+
+        if scenario_enabled and scenario_seeds:
+            from leadlag.training.runner_multiseed import run_multiseed  # lazy import
+
+            agg_dir = run_multiseed(scenario_cfg, scenario_seeds, output_root)
+            results.append({"scenario": scenario_cfg.get("name"), "path": str(agg_dir)})
+            print(f"Aggregated results saved to: {agg_dir}")
+        else:
+            out_dir = _run_single(scenario_cfg, output_root)
+            results.append({"scenario": scenario_cfg.get("name"), "path": str(out_dir)})
+            print(f"Single run saved to: {out_dir}")
+
+    summary_path = Path(output_root) / "hydra_runs.json"
+    summary_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+    return results
+
+
+if HYDRA_AVAILABLE:
+
+    @hydra.main(config_path="configs", config_name="config", version_base=None)
+    def hydra_entry(cfg):  # pragma: no cover
+        cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+        _run_workflow(cfg_dict)
+
+
+def _parse_args():  # pragma: no cover
+    parser = argparse.ArgumentParser(description="Run lead-lag scenarios")
+    parser.add_argument(
+        "--scenario",
+        type=str,
+        default="fixed_30",
+        help="Scenario name in configs/scenario/",
+    )
+    parser.add_argument("--scenarios", type=str, nargs="*", help="Multiple scenario names")
+    parser.add_argument(
+        "--output_root",
+        type=str,
+        default="results",
+        help="Output directory root",
+    )
+    parser.add_argument(
+        "--multi_seed_enabled",
+        action="store_true",
+        help="Enable multi-seed runs",
+    )
+    parser.add_argument(
+        "--seeds",
+        type=int,
+        nargs="*",
+        default=[],
+        help="Seeds for multi-seed runs",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    if HYDRA_AVAILABLE:
+        hydra_entry()  # type: ignore
+    else:
+        args = _parse_args()
+        scenario_entries = args.scenarios or [args.scenario]
+        cfg_dict = {
+            "scenario": scenario_entries[0],
+            "scenarios": scenario_entries,
+            "output_root": args.output_root,
+            "multi_seed": {
+                "enabled": args.multi_seed_enabled,
+                "seeds": args.seeds,
+            },
+        }
+        _run_workflow(cfg_dict)

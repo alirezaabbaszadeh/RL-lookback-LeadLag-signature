@@ -1,0 +1,27 @@
+version: 1
+formatters:
+  standard:
+    format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: standard
+    stream: ext://sys.stdout
+  file:
+    class: logging.FileHandler
+    level: INFO
+    formatter: standard
+    filename: run.log
+loggers:
+  run_scenario:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  runner_multiseed:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+root:
+  level: WARNING
+  handlers: [console]

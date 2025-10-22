@@ -1,0 +1,46 @@
+extends: ../base.yaml
+
+analysis:
+  lookback: 60
+  method: signature
+  signature:
+    sig_method: levy
+
+run:
+  run_name: abl_server
+
+metrics:
+  compute:
+    - mean_abs_matrix
+    - max_abs_matrix
+    - row_sum_std
+    - row_sum_range
+    - stability_matrix_corr
+  plots:
+    - signal_strength
+    - stability
+
+rl:
+  min_lookback: 10
+  max_lookback: 120
+  discrete_actions: true
+  action_mode: hybrid
+  relative_step: 5
+  episode_length: 504
+  random_start: true
+  ema_alpha: 0.2
+  policy: attention
+  policy_kwargs:
+    features_extractor_kwargs:
+      features_dim: 128
+      n_heads: 4
+  reward_template: default
+  total_timesteps: 200000
+  n_steps: 512
+  batch_size: 256
+  learning_rate: 3e-4
+  gamma: 0.99
+  ent_coef: 0.0
+  eval_freq: 0
+  verbose: false
+

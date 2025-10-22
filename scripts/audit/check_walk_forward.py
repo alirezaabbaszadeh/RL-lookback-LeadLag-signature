@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -9,8 +9,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import pandas as pd
-from training.run_scenario import run_scenario
+
 import hydra_main
+from training.run_scenario import run_scenario
 
 
 def _preset_raw_config_ccf(preset: dict) -> dict:

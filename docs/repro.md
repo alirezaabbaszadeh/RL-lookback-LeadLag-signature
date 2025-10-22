@@ -76,6 +76,14 @@ python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
 - If plotting fails (no display/matplotlib), artifacts still generate; plots are optional.
 - Some advanced features (RL training) require extra dependencies like `stable-baselines3`.
   Install with `pip install -r requirements-rl.txt` if you plan to run RL.
+- Binary compatibility (NumPy/Pandas): use the provided Conda env (`python=3.10`) or pin
+  to the versions in `requirements.txt`/`requirements-kaggle.txt`. Mixing a new Python
+  release with older wheels is the most common cause of `numpy.dtype size changed` errors.
+- Optional dependencies and skipped tests:
+  - Install `iisignature` to enable signature-specific unit tests (e.g.,
+    `pip install iisignature` or `conda install -c conda-forge iisignature`).
+  - Install the RL stack (`pip install -r requirements-rl.txt`) to enable SB3-related tests.
+  - Rerun `pytest -q` after installing to confirm previously skipped tests now execute.
 - Tests:
 
 ```
@@ -89,3 +97,24 @@ pytest -q
 3. `python hydra_main.py --scenario fixed_30 --output_root results`
 4. Inspect `results/` for artifacts; repeat with `--multi_seed_enabled --seeds 42 52 62` for aggregates.
 5. Optional: set MLflow env, rerun for experiment tracking.
+
+### Scenario Driver CLI (main.py)
+
+For bulk execution across all scenarios and automatic aggregation, use `main.py`:
+
+```bash
+# Execute every scenario under configs/scenarios/
+python main.py --results-root results
+
+# Preview scenarios without running them
+python main.py --dry-run --include rl
+
+# Fail-fast and store logs elsewhere
+python main.py --results-root runs/2024-10-22 --stop-on-error --log-level DEBUG
+```
+
+Common flags:
+- `--include/--exclude` filter scenario filenames by substring.
+- `--runner {auto,scenario,dynamic,rl}` forces a specific runner.
+- `--max-scenarios` limits the number of scenarios executed.
+- `--log-path` overrides the default `<results-root>/main.log` location.

@@ -1,19 +1,14 @@
-import os
-import sys
 from pathlib import Path
 
 import pytest
 
-# Ensure repository root is on sys.path for module imports
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from hydra_main import (
-    get_available_scenarios,
+from leadlag.hydra_main import (
     _load_scenario_cfg,
+    get_available_scenarios,
     validate_scenario_cfg,
 )
+
+pytestmark = pytest.mark.e2e
 
 
 def test_get_available_scenarios_contains_known_entries():

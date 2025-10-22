@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 try:
     import pandas as pd
 except ValueError:

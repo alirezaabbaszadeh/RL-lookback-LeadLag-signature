@@ -31,7 +31,9 @@ def test_window_processor_handles_empty_universe():
 
 def test_window_processor_batch_returns_independent_copies():
     dates = pd.date_range("2024-01-01", periods=6, freq="D")
-    data = pd.DataFrame({"A": [1, 1.1, 1.2, 1.3, 1.4, 1.5], "B": [2, 2.1, 2.2, 2.3, 2.35, 2.4]}, index=dates)
+    data = pd.DataFrame(
+        {"A": [1, 1.1, 1.2, 1.3, 1.4, 1.5], "B": [2, 2.1, 2.2, 2.3, 2.35, 2.4]}, index=dates
+    )
     processor = WindowProcessor(cache_size=2)
 
     windows = [(dates[1], dates[3]), (dates[2], dates[5])]

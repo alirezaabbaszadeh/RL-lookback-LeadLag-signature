@@ -1,0 +1,17 @@
+extends: ../base.yaml
+
+analysis:
+  lookback: 10
+  update_freq: 9999
+
+run:
+  run_name: abl_smoke
+  seed: 1
+
+metrics:
+  compute:
+    - mean_abs_matrix
+    - row_sum_std
+    - stability_matrix_corr
+  plots: []
+

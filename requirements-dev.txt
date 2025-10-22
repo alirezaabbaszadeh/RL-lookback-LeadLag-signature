@@ -1,0 +1,5 @@
+# Developer tooling (install with pip install -r requirements-dev.txt)
+pre-commit>=3.8
+ruff>=0.4
+pytest>=7.4
+build>=1.3

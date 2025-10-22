@@ -1,12 +1,14 @@
 import pytest
 
+pytestmark = pytest.mark.slow
+
 try:
     import numpy as np
     import pandas as pd
 except ValueError:
     pytest.skip("NumPy/Pandas binary mismatch", allow_module_level=True)
 
-from training.runner_multiseed import _bootstrap_ci, _aggregate_summaries
+from training.runner_multiseed import _aggregate_summaries, _bootstrap_ci
 
 
 def test_bootstrap_ci_returns_bounds():
@@ -18,14 +20,14 @@ def test_bootstrap_ci_returns_bounds():
 def test_aggregate_summaries_with_single_metric():
     df = pd.DataFrame(
         {
-            'scenario': ['s1', 's1', 's1'],
-            'metric': ['m1', 'm1', 'm1'],
-            'value_mean': [1.0, 2.0, 3.0],
+            "scenario": ["s1", "s1", "s1"],
+            "metric": ["m1", "m1", "m1"],
+            "value_mean": [1.0, 2.0, 3.0],
         }
     )
     result = _aggregate_summaries([df])
     assert not result.empty
     row = result.iloc[0]
-    assert row['scenario'] == 's1'
-    assert row['metric'] == 'm1'
-    assert 'value_mean' in row
+    assert row["scenario"] == "s1"
+    assert row["metric"] == "m1"
+    assert "value_mean" in row

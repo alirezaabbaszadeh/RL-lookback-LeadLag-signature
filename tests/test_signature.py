@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 iisignature = pytest.importorskip("iisignature")
 
 from models.leadlag.signature_extractor import SignatureConfig, SignatureExtractor
@@ -12,7 +14,9 @@ def _sample_pair() -> np.ndarray:
 
 
 def test_signature_extractor_basic_value():
-    extractor = SignatureExtractor(SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=2)
+    extractor = SignatureExtractor(
+        SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=2
+    )
     value = extractor.compute(_sample_pair())
 
     assert isinstance(value, float)
@@ -20,7 +24,9 @@ def test_signature_extractor_basic_value():
 
 
 def test_signature_extractor_batch_matches_individual():
-    extractor = SignatureExtractor(SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=2)
+    extractor = SignatureExtractor(
+        SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=2
+    )
     batch = np.stack([_sample_pair(), _sample_pair() * 1.01])
 
     individual = [extractor.compute(batch[0]), extractor.compute(batch[1])]
@@ -30,7 +36,9 @@ def test_signature_extractor_batch_matches_individual():
 
 
 def test_signature_extractor_validates_shape():
-    extractor = SignatureExtractor(SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=1)
+    extractor = SignatureExtractor(
+        SignatureConfig(order=2, scaling_method="mean-centering"), cache_size=1
+    )
 
     with pytest.raises(ValueError):
         extractor.compute(np.ones((4,)))

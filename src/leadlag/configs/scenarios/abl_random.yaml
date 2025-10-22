@@ -1,0 +1,27 @@
+extends: ../base.yaml
+
+analysis:
+  lookback: 30
+  method: signature
+
+run:
+  run_name: abl_random
+  seed: 21
+
+metrics:
+  compute:
+    - mean_abs_matrix
+    - row_sum_std
+    - row_sum_range
+    - stability_matrix_corr
+  headless: true
+  plots: []
+
+rl:
+  policy: random
+  min_lookback: 10
+  max_lookback: 120
+  discrete_actions: true
+  action_mode: hybrid
+  total_timesteps: 1  # ignored for random policy
+  random_policy: true

@@ -1,13 +1,15 @@
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 try:
     import pandas as pd
 except ValueError:
     pytest.skip("Pandas binary incompatible with current numpy", allow_module_level=True)
 
-from models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
 from models.leadlag.matrix_builder import build_matrix
+from models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
 
 
 def _make_price_df() -> "pd.DataFrame":

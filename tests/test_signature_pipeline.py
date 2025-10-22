@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.slow
+
 try:
     import pandas as pd
 except ValueError:
@@ -8,10 +10,10 @@ except ValueError:
 
 from models.leadlag.signature_extractor import SIGNATURE_AVAILABLE
 from models.leadlag.signature_feature_pipeline import (
+    TORCH_AVAILABLE,
     CompressionConfig,
     SignatureFeatureConfig,
     SignatureFeaturePipeline,
-    TORCH_AVAILABLE,
 )
 
 if not SIGNATURE_AVAILABLE:
