@@ -14,12 +14,9 @@ from pathlib import Path
 from typing import Dict, List
 
 from leadlag.training.run_rl import run_rl
+from leadlag.utils.resources import resolve_path
 
-DEFAULT_SCENARIOS = [
-    "configs/scenarios/rl_ppo.yaml",
-    "configs/scenarios/rl_ppo_lstm.yaml",
-    "configs/scenarios/rl_ppo_sharpe.yaml",
-]
+DEFAULT_SCENARIOS = ["rl_ppo", "rl_ppo_lstm", "rl_ppo_sharpe"]
 
 
 def parse_env_overrides() -> Dict[str, object]:
@@ -76,7 +73,7 @@ def main() -> None:
         "--scenarios",
         nargs="+",
         default=DEFAULT_SCENARIOS,
-        help="Scenario YAML paths (configs/scenarios/*.yaml)",
+        help="Scenario names packaged with LeadLag (or explicit YAML paths)",
     )
     args = ap.parse_args()
 
@@ -87,7 +84,13 @@ def main() -> None:
     for scn in args.scenarios:
         scn_path = Path(scn)
         if not scn_path.exists():
-            raise FileNotFoundError(f"Scenario not found: {scn}")
+            resource_name = (
+                scn_path.name if scn_path.suffix == ".yaml" else f"{scn_path.name}.yaml"
+            )
+            resolved = resolve_path("leadlag.configs", f"scenarios/{resource_name}")
+            if resolved is None or not resolved.exists():
+                raise FileNotFoundError(f"Packaged scenario not found: {scn}")
+            scn_path = resolved
         out_root = args.output_dir / scn_path.stem
         out_root.mkdir(parents=True, exist_ok=True)
         out_dir = run_rl(str(scn_path), str(out_root), overrides)

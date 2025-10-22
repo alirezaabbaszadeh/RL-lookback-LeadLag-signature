@@ -29,7 +29,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dataset", type=Path, default=Path("results/offline/offline_dataset.csv"))
     default_scenario = resolve_path("leadlag.configs", "scenarios/rl_ppo.yaml")
     if default_scenario is None:
-        default_scenario = Path("configs/scenarios/rl_ppo.yaml")
+        raise FileNotFoundError(
+            "Packaged scenario 'rl_ppo.yaml' is unavailable. Install the project with resources."
+        )
     parser.add_argument("--scenario", type=Path, default=default_scenario)
     parser.add_argument("--output-root", type=Path, default=Path("results/offline"))
     parser.add_argument("--test-size", type=float, default=0.25)

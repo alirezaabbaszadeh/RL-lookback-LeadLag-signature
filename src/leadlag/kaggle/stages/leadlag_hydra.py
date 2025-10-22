@@ -87,7 +87,7 @@ def main() -> None:
         "--scenarios",
         nargs="+",
         default=["fixed_30"],
-        help="Scenario names under configs/scenarios.",
+        help="Scenario names packaged with LeadLag.",
     )
     parser.add_argument(
         "--seeds",

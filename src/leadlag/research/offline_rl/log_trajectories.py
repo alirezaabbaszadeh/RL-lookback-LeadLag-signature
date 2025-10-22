@@ -24,7 +24,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate offline trajectories for RL training.")
     default_scenario = resolve_path("leadlag.configs", "scenarios/rl_ppo.yaml")
     if default_scenario is None:
-        default_scenario = Path("configs/scenarios/rl_ppo.yaml")
+        raise FileNotFoundError(
+            "Packaged scenario 'rl_ppo.yaml' is unavailable. Install the project with resources."
+        )
     parser.add_argument("--scenario", type=Path, default=default_scenario)
     parser.add_argument("--episodes", type=int, default=5, help="Number of episodes to record.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")

@@ -80,7 +80,7 @@ def _merge(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
 SCENARIO_PRESETS = {
     "fixed_30": {
         "name": "fixed_30",
-        "path": "configs/scenarios/fixed_30.yaml",
+        "path": "scenarios/fixed_30.yaml",
         "runner": "scenario",
         "multi_seed": {"seeds": [42, 52, 62]},
         "raw_config": _merge(
@@ -93,7 +93,7 @@ SCENARIO_PRESETS = {
     },
     "fixed_90": {
         "name": "fixed_90",
-        "path": "configs/scenarios/fixed_90.yaml",
+        "path": "scenarios/fixed_90.yaml",
         "runner": "scenario",
         "raw_config": _merge(
             BASE_CONFIG,
@@ -105,7 +105,7 @@ SCENARIO_PRESETS = {
     },
     "dynamic_adaptive": {
         "name": "dynamic_adaptive",
-        "path": "configs/scenarios/dynamic_adaptive.yaml",
+        "path": "scenarios/dynamic_adaptive.yaml",
         "runner": "dynamic",
         "raw_config": _merge(
             BASE_CONFIG,
@@ -122,7 +122,7 @@ SCENARIO_PRESETS = {
     },
     "rl_ppo": {
         "name": "rl_ppo",
-        "path": "configs/scenarios/rl_ppo.yaml",
+        "path": "scenarios/rl_ppo.yaml",
         "runner": "rl",
         "raw_config": _merge(
             BASE_CONFIG,
@@ -164,7 +164,7 @@ SCENARIO_PRESETS = {
     },
     "fast_smoke": {
         "name": "fast_smoke",
-        "path": "configs/scenarios/fixed_30.yaml",
+        "path": "scenarios/fixed_30.yaml",
         "runner": "scenario",
         "multi_seed": {"enabled": False, "seeds": [1]},
         "raw_config": _merge(
@@ -182,7 +182,7 @@ SCENARIO_PRESETS = {
     # Ablation presets: smoke (pipeline-only), lite GPU, and server-grade
     "abl_smoke": {
         "name": "abl_smoke",
-        "path": "configs/scenarios/abl_smoke.yaml",
+        "path": "scenarios/abl_smoke.yaml",
         "runner": "scenario",
         "multi_seed": {"enabled": False, "seeds": [1]},
         "raw_config": _merge(
@@ -199,7 +199,7 @@ SCENARIO_PRESETS = {
     },
     "abl_lite_gpu": {
         "name": "abl_lite_gpu",
-        "path": "configs/scenarios/abl_lite_gpu.yaml",
+        "path": "scenarios/abl_lite_gpu.yaml",
         "runner": "rl",
         "multi_seed": {"enabled": False, "seeds": [11]},
         "raw_config": _merge(
@@ -248,7 +248,7 @@ SCENARIO_PRESETS = {
     },
     "abl_random": {
         "name": "abl_random",
-        "path": "configs/scenarios/abl_random.yaml",
+        "path": "scenarios/abl_random.yaml",
         "runner": "rl",
         "multi_seed": {"enabled": False, "seeds": [21]},
         "raw_config": _merge(
@@ -282,7 +282,7 @@ SCENARIO_PRESETS = {
     },
     "abl_server": {
         "name": "abl_server",
-        "path": "configs/scenarios/abl_server.yaml",
+        "path": "scenarios/abl_server.yaml",
         "runner": "rl",
         "multi_seed": {"enabled": True, "seeds": [101, 202, 303]},
         "raw_config": _merge(
@@ -357,10 +357,10 @@ def _load_scenario_cfg(entry):
 
 
 def get_available_scenarios() -> List[str]:
-    """Return a list of available scenario names from presets and YAML directory.
+    """Return available scenario names from packaged presets and YAML resources.
 
-    This does not require Hydra to be installed; it inspects file names under
-    configs/scenario and merges with keys from SCENARIO_PRESETS.
+    This does not require Hydra to be installed; it inspects packaged scenario
+    resources and merges them with keys from SCENARIO_PRESETS.
     """
     names = set(SCENARIO_PRESETS.keys())
     try:
@@ -475,7 +475,7 @@ def _parse_args():  # pragma: no cover
         "--scenario",
         type=str,
         default="fixed_30",
-        help="Scenario name in configs/scenario/",
+        help="Scenario name from packaged scenarios",
     )
     parser.add_argument("--scenarios", type=str, nargs="*", help="Multiple scenario names")
     parser.add_argument(

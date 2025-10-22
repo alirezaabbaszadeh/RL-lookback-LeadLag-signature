@@ -48,6 +48,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest ruff
+      - name: Path hygiene check
+        run: |
+          if rg -n "configs/" -tpy src; then
+            echo "Path hygiene failed: plain configs/ literals in src"
+            exit 1
+          else
+            echo "Path hygiene passed"
+          fi
       - name: Verify dependency health
         run: |
           pip check || true
@@ -77,6 +85,7 @@ jobs:
           pip install dist/*.whl
           leadlag --list
           LEADLAG_RESULTS_ROOT=/tmp/leadlag-ci-results leadlag --dry-run --include fixed_30 --max-scenarios 1 --json
+          python -c "from leadlag.hydra_main import get_available_scenarios; print(f'available_scenarios={len(get_available_scenarios())}')"
 
   extras-tests:
     runs-on: ubuntu-latest
