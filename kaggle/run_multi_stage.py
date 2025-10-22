@@ -442,9 +442,9 @@ def main() -> None:
             requirements=[
                 # Minimal stack for production RL on LeadLag (SB3 2.x + Gymnasium)
                 "numpy>=1.23,<2.0",
-                "pandas>=1.5,<2.2.3",
+                "pandas>=1.5,<2.3",
                 "scipy>=1.10,<1.16",
-                "scikit-learn>=1.1,<1.7",
+                "scikit-learn>=1.2,<1.7",
                 "matplotlib>=3.6,<3.11",
                 "tqdm>=4.64",
                 "pyyaml>=6.0",

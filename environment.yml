@@ -10,7 +10,11 @@ dependencies:
   - scipy
   - pip
   - pip:
-      - mlflow
-      # Optional RL dependencies (uncomment as needed)
-      # - stable-baselines3
-      # - torch
+      # Install base Python requirements
+      - -r requirements.txt
+      # Optional integrations (uncomment as needed)
+      # - mlflow
+      # Optional RL dependencies (prefer requirements-rl.txt or Kaggle orchestrator)
+      # - stable-baselines3==2.1.0
+      # - sb3-contrib==2.1.0
+      # - torch>=2.1,<2.7

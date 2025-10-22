@@ -75,6 +75,7 @@ python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
 
 - If plotting fails (no display/matplotlib), artifacts still generate; plots are optional.
 - Some advanced features (RL training) require extra dependencies like `stable-baselines3`.
+  Install with `pip install -r requirements-rl.txt` if you plan to run RL.
 - Tests:
 
 ```

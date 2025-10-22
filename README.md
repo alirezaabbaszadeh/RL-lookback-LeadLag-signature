@@ -35,6 +35,8 @@ End-to-end research environment for analysing lead-lag signatures, experimenting
 
 ```bash
 pip install -r requirements.txt        # or use requirements-kaggle.txt for the lean stack
+# Optional RL extras (for PPO/attention/LSTM training):
+# pip install -r requirements-rl.txt
 python hydra_main.py --scenario fixed_30 --output_root results
 ```
 

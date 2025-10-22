@@ -28,6 +28,10 @@ reports/
 
 # Kaggle / smoke outputs
 kaggle/working/
+multi_stage_artifacts/
+kaggle_output/
+multi_stage_artifacts.zip
+.stage_venvs/
 *.h5
 *-aggregate/
 hydra_runs.json
