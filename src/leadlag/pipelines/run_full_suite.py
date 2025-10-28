@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 import hydra_main  # type: ignore
 from leadlag.reporting.logging_utils import get_logger, setup_logging
+from leadlag.cli.formatters import add_format_flags, finalize_format_args, wants_json, to_json
 
 
 def run_command(cmd: Sequence[str], logger, dry_run: bool = False) -> None:
@@ -149,7 +150,7 @@ def check_optional_dependencies(
     raise SystemExit(message)
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run the complete experiment + audit suite for Kaggle or local CI."
     )
@@ -283,12 +284,14 @@ def main() -> int:
         type=Path,
         help="Optional path for the full-suite log file.",
     )
+    add_format_flags(parser, default="text")
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview commands without executing subprocesses.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args, remove_in="0.2.0")
 
     output_root = ensure_path(args.output_root.resolve())
     logs_dir = ensure_path(output_root / "logs")
@@ -313,6 +316,9 @@ def main() -> int:
         "dependency_status": dependency_status,
         "start_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time)),
     }
+    run_log["output_root"] = str(output_root)
+    run_log["logs_dir"] = str(logs_dir)
+    run_log["dry_run"] = bool(args.dry_run)
 
     baseline_root = ensure_path(output_root / "core")
     robustness_root = ensure_path(output_root / "robustness")
@@ -604,7 +610,8 @@ def main() -> int:
         success = True
     except Exception as exc:
         error_message = repr(exc)
-        raise
+        # do not re-raise to allow controlled exit codes and JSON emission
+        success = False
     finally:
         end_time = time.time()
         run_log["success"] = success
@@ -622,7 +629,9 @@ def main() -> int:
 
     if success:
         logger.info("Pipeline completed successfully")
-    return 0
+    if wants_json(args):
+        print(to_json(run_log))
+    return 0 if success else 1
 
 
 if __name__ == "__main__":

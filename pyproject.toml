@@ -55,14 +55,14 @@ mlflow = [
 ]
 
 [project.scripts]
-leadlag = "main:main"
-leadlag-full-suite = "pipelines.run_full_suite:main"
-leadlag-ablation = "pipelines.run_ablation:main"
-leadlag-compare = "reporting.compare_scenarios:main"
-leadlag-plot-balance = "reporting.plot_balance_history:main"
-leadlag-report = "reporting.generate_report:main"
-leadlag-log-trajectories = "research.offline_rl.log_trajectories:main"
-leadlag-train-offline = "research.offline_rl.train_offline:main"
+leadlag = "leadlag.main:main"
+leadlag-full-suite = "leadlag.pipelines.run_full_suite:main"
+leadlag-ablation = "leadlag.pipelines.run_ablation:main"
+leadlag-compare = "leadlag.reporting.compare_scenarios:main"
+leadlag-plot-balance = "leadlag.reporting.plot_balance_history:main"
+leadlag-report = "leadlag.reporting.generate_report:main"
+leadlag-log-trajectories = "leadlag.research.offline_rl.log_trajectories:main"
+leadlag-train-offline = "leadlag.research.offline_rl.train_offline:main"
 
 [tool.setuptools]
 include-package-data = true

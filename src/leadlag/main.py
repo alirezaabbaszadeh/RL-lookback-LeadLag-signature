@@ -11,6 +11,8 @@ from leadlag.evaluation.aggregate import aggregate
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema, run_scenario
 from leadlag.utils.resources import resolve_path
+from leadlag.cli.formatters import add_format_flags, finalize_format_args, wants_json, to_json
+from leadlag.cli.errors import emit_error
 
 
 def discover_scenarios() -> list[Path]:
@@ -81,17 +83,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="List available packaged scenarios and exit.",
     )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit machine-readable JSON for listings and run summaries.",
-    )
-    parser.add_argument(
-        "--format",
-        choices=["text", "json"],
-        default="text",
-        help="Output format for CLI responses (default: text).",
-    )
+    add_format_flags(parser, default="text")
     parser.add_argument(
         "--scenarios",
         nargs="+",
@@ -121,11 +113,9 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         help="Optional path for the driver log file (defaults to <results-root>/main.log).",
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args, remove_in="0.2.0")
     if args.results_root is None:
         args.results_root = os.environ.get("LEADLAG_RESULTS_ROOT", "results")
-    if args.json:
-        args.format = "json"
-    args.json = args.format == "json"
     return args
 
 
@@ -197,7 +187,7 @@ def _resolve_scenario_arg(entry: str) -> Path:
 
 
 def _wants_json(args: argparse.Namespace) -> bool:
-    return getattr(args, "json", False)
+    return wants_json(args)
 
 
 def _has_successful_run(run_name: str, results_root: Path) -> bool:
@@ -264,7 +254,7 @@ def _collect_status(results_root: Path) -> list[dict[str, object]]:
 def _print_status(runs: list[dict[str, object]], results_root: Path, use_json: bool) -> None:
     payload = {"results_root": str(results_root), "runs": runs}
     if use_json:
-        print(json.dumps(payload))
+        print(to_json(payload))
         return
 
     if not runs:
@@ -288,23 +278,17 @@ def main(argv: List[str] | None = None) -> int:
             config = _merge_extends(scenario_path)
             _validate_scenario_schema(config, scenario=scenario_path.stem)
         except Exception as exc:
-            if _wants_json(args):
-                print(
-                    json.dumps(
-                        {
-                            "scenario": args.validate,
-                            "valid": False,
-                            "error": str(exc),
-                        }
-                    )
-                )
-            else:
-                print(f"Validation failed for '{args.validate}': {exc}")
+            emit_error(
+                args,
+                code="scenario_validation_failed",
+                message=f"Validation failed for '{args.validate}'",
+                details={"scenario": args.validate, "error": str(exc)},
+            )
             return 1
 
         if _wants_json(args):
             print(
-                json.dumps(
+                to_json(
                     {
                         "scenario": scenario_path.stem,
                         "path": str(scenario_path),
@@ -324,7 +308,7 @@ def main(argv: List[str] | None = None) -> int:
     scenarios = discover_scenarios()
     if not scenarios:
         if args.list and _wants_json(args):
-            print(json.dumps({"scenarios": []}))
+            print(to_json({"scenarios": []}))
         else:
             print("No scenarios found in packaged scenarios (leadlag.configs.scenarios)")
         return 1
@@ -333,7 +317,7 @@ def main(argv: List[str] | None = None) -> int:
     scenario_names = [path.stem for path in discovered_scenarios]
     if args.list:
         if _wants_json(args):
-            print(json.dumps({"scenarios": scenario_names}))
+            print(to_json({"scenarios": scenario_names}))
         else:
             print("\n".join(scenario_names))
         return 0
@@ -347,21 +331,18 @@ def main(argv: List[str] | None = None) -> int:
             except FileNotFoundError as exc:
                 errors.append(str(exc))
         if errors:
-            if _wants_json(args):
-                print(
-                    json.dumps(
-                        {
-                            "errors": errors,
-                            "selected": [],
-                            "summary": [],
-                            "aggregate": None,
-                            "results_root": str(results_root),
-                        }
-                    )
-                )
-            else:
-                for err in errors:
-                    print(err)
+            emit_error(
+                args,
+                code="invalid_scenarios",
+                message="One or more scenarios not found",
+                details={
+                    "errors": errors,
+                    "selected": [],
+                    "summary": [],
+                    "aggregate": None,
+                    "results_root": str(results_root),
+                },
+            )
             return 1
         scenarios = [path.resolve() for path in explicit]
     else:
@@ -384,7 +365,7 @@ def main(argv: List[str] | None = None) -> int:
                 "results_root": str(results_root),
                 "errors": ["no_scenarios_matched"],
             }
-            print(json.dumps(payload))
+            print(to_json(payload))
         else:
             print("No scenarios match the provided filters.")
         return 1
@@ -410,7 +391,7 @@ def main(argv: List[str] | None = None) -> int:
                 "aggregate": None,
                 "results_root": str(results_root),
             }
-            print(json.dumps(payload))
+            print(to_json(payload))
         return 0
 
     summary: list[dict[str, object]] = []
@@ -515,7 +496,7 @@ def main(argv: List[str] | None = None) -> int:
             "aggregate": str(aggregate_path) if aggregate_path else None,
             "results_root": str(results_root),
         }
-        print(json.dumps(payload))
+        print(to_json(payload))
 
     return exit_code
 

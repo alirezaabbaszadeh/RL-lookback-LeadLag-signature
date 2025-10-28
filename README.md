@@ -88,8 +88,12 @@ leadlag --results-root outputs/2024-10-22 --stop-on-error
 Set `LEADLAG_RESULTS_ROOT` to define the default results directory (overridden by `--results-root` when provided).
 
 Key flags:
-- `--list` enumerates packaged scenarios (use with `--json` for machine-readable output).
-- `--json` emits a structured summary (selected scenarios, per-scenario status, aggregate path).
+- `--list` enumerates packaged scenarios (use with `--json` or `--format json` for machine-readable output).
+- `--format json` (or `--json`) emits a structured summary (selected scenarios, per-scenario status, aggregate path).
+- `--scenarios <name or path>...` runs explicit scenario selections (ignores include/exclude filters).
+- `--validate <scenario>` loads and checks a scenario configuration without executing it.
+- `--skip-existing` skips scenarios that already have successful outputs under the results root.
+- `--status` inspects a results directory and reports run status (combine with `--json` for machine-readable output).
 - `--runner {auto,scenario,dynamic,rl}` overrides the auto-detected runner.
 - `--max-scenarios N` limits execution to the first N filtered configs.
 - `--log-level` / `--log-path` control structured logging (defaults to `<results-root>/main.log`).
@@ -176,6 +180,7 @@ leadlag-full-suite --output-root /kaggle/working/full_suite
 - Key toggles: `--baseline-seeds`, `--baseline-single-seed`, `--ablation-scenarios`, `--ablation-single-seed`, `--skip-ablation`, `--skip-meta-offline`, `--skip-audit`, `--skip-report`, `--skip-baseline`.
 - Install optional RL dependencies (`stable-baselines3`, `torch`, `sb3-contrib`) or use `--skip-optional-deps` to automatically skip RL workloads.
 - Outputs are organised under `/core`, `/meta_rl`, `/offline`, `/ablations`, `/robustness`, `/aggregate_comparison`, `/evaluation/plots/balance`, `/reports`, and `/audit` beneath the chosen output root.
+- Add `--format json` (or `--json`) to emit a machine-readable run summary after the pipeline completes.
 
 ### Portfolio Balance Charts
 - The full suite automatically calls `reporting/plot_balance_history.py` and stores equity-curve plots under `evaluation/plots/balance` (all runs, per-scenario, per-method, per-lookback).
