@@ -230,6 +230,14 @@ All runners emit `data_manifest.json` and structured logs, allowing rapid valida
   pre-commit install
   pre-commit run --all-files
   ```
+- Common chores:
+  ```bash
+  make format   # ruff format
+  make lint     # ruff check
+  make type     # mypy against src/ and tests/
+  make test     # pytest -q
+  make all      # format + lint + type + test
+  ```
 - Test selection helpers:
   - Use `pytest -m "not slow"` to skip heavy modules.
   - `pytest -m e2e` runs only end-to-end integration tests.

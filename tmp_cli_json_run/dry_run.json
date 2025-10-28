@@ -1,0 +1,45 @@
+{
+  "success": true,
+  "command": "leadlag",
+  "args": {
+    "results_root": "results",
+    "include": null,
+    "exclude": null,
+    "max_scenarios": null,
+    "runner": "auto",
+    "dry_run": true,
+    "stop_on_error": false,
+    "list": false,
+    "format": "json",
+    "json": true,
+    "scenarios": null,
+    "status": false,
+    "skip_existing": false,
+    "validate": null,
+    "log_level": "INFO",
+    "log_path": null
+  },
+  "format": "json",
+  "errors": [],
+  "message": "Dry-run completed.",
+  "data": {
+    "selected": [
+      "abl_lite_gpu",
+      "abl_random",
+      "abl_server",
+      "abl_smoke",
+      "ccf_fixed",
+      "dynamic_adaptive",
+      "fixed_30",
+      "fixed_90",
+      "rl_ppo",
+      "rl_ppo_drawdown",
+      "rl_ppo_lstm",
+      "rl_ppo_sharpe"
+    ],
+    "results_root": "/home/ali/code/RL-lookback-LeadLag-signature/results",
+    "summary": [],
+    "aggregate": null,
+    "dry_run": true
+  }
+}

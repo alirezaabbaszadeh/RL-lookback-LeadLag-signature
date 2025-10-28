@@ -348,7 +348,15 @@ def _load_scenario_cfg(entry):
             if scenario_path is None:
                 raise FileNotFoundError(f"Scenario YAML not found for entry '{entry}'")
             cfg = OmegaConf.load(scenario_path)
-            return OmegaConf.to_container(cfg, resolve=True)
+            cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+            preset = SCENARIO_PRESETS.get(entry, {})
+            if isinstance(cfg_dict, dict):
+                cfg_dict.setdefault("name", entry)
+                cfg_dict.setdefault("path", str(scenario_path))
+                runner = preset.get("runner")
+                if runner:
+                    cfg_dict.setdefault("runner", runner)
+            return cfg_dict
         preset = SCENARIO_PRESETS.get(entry)
         if preset:
             return json.loads(json.dumps(preset))
