@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -141,6 +142,7 @@ sklearn_stub.preprocessing = preprocessing_stub
 sys.modules.setdefault("sklearn.preprocessing", preprocessing_stub)
 
 from leadlag.pipelines import run_ablation
+from leadlag.cli import formatters as cli_formatters
 from leadlag.reporting import (
     compare_scenarios,
     generate_report,
@@ -161,6 +163,23 @@ class DummyLogger:
 @pytest.fixture
 def dummy_logger():
     return DummyLogger()
+
+
+def test_emit_formatted_output_envelope_keys(capsys):
+    args = argparse.Namespace(format="json", json=True)
+    cli_formatters.emit_formatted_output(
+        args,
+        success=True,
+        data={"alpha": 1},
+        command="leadlag --status",
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is True
+    assert payload["command"] == "leadlag --status"
+    assert payload["format"] == "json"
+    assert payload["data"] == {"alpha": 1}
+    assert "args" in payload and isinstance(payload["args"], dict)
+    assert payload["errors"] == []
 
 
 def test_status_summary_json(tmp_path, monkeypatch, capsys, dummy_logger):

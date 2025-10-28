@@ -25,6 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e .
       - name: Run scenario smoke test
         run: |
           mkdir -p ci_smoke
@@ -53,6 +54,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e .
           pip install pytest ruff
       - name: Path hygiene check
         run: |
@@ -95,6 +97,8 @@ jobs:
           python scripts/validate_cli_payload.py ci_cli_json/status.json
           LEADLAG_RESULTS_ROOT=/tmp/leadlag-ci-results leadlag-full-suite --format json --dry-run > ci_cli_json/full_suite.json
           python scripts/validate_cli_payload.py ci_cli_json/full_suite.json
+          leadlag-ablation --format json --dry-run --output-root /tmp/leadlag-ci-ablation --skip-missing-deps > ci_cli_json/ablation.json
+          python scripts/validate_cli_payload.py ci_cli_json/ablation.json
           python -c "from leadlag.hydra_main import get_available_scenarios; print(f'available_scenarios={len(get_available_scenarios())}')"
       - name: Upload CLI smoke payloads
         if: always()

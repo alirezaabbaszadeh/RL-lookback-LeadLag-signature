@@ -1,0 +1,45 @@
+name: Nightly Extras
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  extras:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11']
+        extras:
+          - signature
+          - rl
+          - 'rl,signature'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-rl.txt
+            requirements-kaggle.txt
+            pyproject.toml
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+          pip install .[${{ matrix.extras }}]
+      - name: Run tests
+        run: |
+          if [ "${{ matrix.extras }}" = "signature" ]; then
+            pytest tests/test_signature.py tests/test_signature_pipeline.py
+          elif [ "${{ matrix.extras }}" = "rl" ]; then
+            pytest tests/test_policy_factory.py
+          else
+            pytest -m 'not kaggle'
+          fi
