@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 import hydra_main  # type: ignore
 from leadlag.reporting.logging_utils import get_logger, setup_logging
-from leadlag.cli.formatters import add_format_flags, finalize_format_args, wants_json, to_json
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 
 
 def run_command(cmd: Sequence[str], logger, dry_run: bool = False) -> None:
@@ -292,6 +292,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(list(argv) if argv is not None else None)
     finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-full-suite"
+    if argv:
+        command = "leadlag-full-suite " + " ".join(argv)
 
     output_root = ensure_path(args.output_root.resolve())
     logs_dir = ensure_path(output_root / "logs")
@@ -629,8 +632,32 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if success:
         logger.info("Pipeline completed successfully")
-    if wants_json(args):
-        print(to_json(run_log))
+
+    errors = None
+    if not success:
+        err_entry: Dict[str, object] = {
+            "code": "full_suite_failed",
+            "message": "Full-suite pipeline failed",
+        }
+        if error_message:
+            err_entry["details"] = {"error": error_message}
+        errors = [err_entry]
+
+    text_message = (
+        "Full-suite pipeline completed successfully."
+        if success
+        else "Full-suite pipeline failed; see logs for details."
+    )
+    emit_formatted_output(
+        args,
+        data=run_log,
+        text=text_message,
+        message="Full-suite pipeline completed." if success else "Full-suite pipeline failed.",
+        errors=errors,
+        success=success,
+        pretty=True,
+        command=command,
+    )
     return 0 if success else 1
 
 

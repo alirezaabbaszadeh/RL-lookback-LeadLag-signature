@@ -8,6 +8,8 @@ from typing import Iterable, Optional
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
@@ -57,6 +59,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Inspect dataset and exit without training.",
     )
+    add_format_flags(parser, default="text")
     return parser
 
 
@@ -145,7 +148,11 @@ def _load_online_summary(path: Optional[Path]) -> Optional[pd.DataFrame]:
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-train-offline"
+    if argv:
+        command = "leadlag-train-offline " + " ".join(argv)
 
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
@@ -162,10 +169,26 @@ def main(argv: Iterable[str] | None = None) -> int:
         context={"dataset": str(args.dataset), "output_root": str(output_root)},
     )
 
+    base_data = {
+        "dataset": str(args.dataset),
+        "scenario": str(args.scenario),
+        "output_root": str(output_root),
+        "test_size": args.test_size,
+        "seed": args.seed,
+    }
+
     if args.dry_run:
         logger.info(
             "[dry-run] would train offline model",
             context={"scenario": str(args.scenario)},
+        )
+        emit_formatted_output(
+            args,
+            data={**base_data, "dry_run": True},
+            text=f"[dry-run] would train offline model for scenario: {args.scenario}",
+            message="Offline training dry-run completed.",
+            pretty=True,
+            command=command,
         )
         return 0
 
@@ -196,7 +219,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         "total_reward": eval_metrics["total_reward"],
         "steps": eval_metrics["steps"],
     }
-    with open(output_root / "offline_results.json", "w", encoding="utf-8") as f:
+    results_json_path = output_root / "offline_results.json"
+    with open(results_json_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
     comparison_rows = []
@@ -216,8 +240,10 @@ def main(argv: Iterable[str] | None = None) -> int:
                     }
                 )
     comparison_df = pd.DataFrame(comparison_rows)
+    comparison_path: Optional[Path] = None
     if not comparison_df.empty:
-        comparison_df.to_csv(output_root / "offline_vs_online.csv", index=False)
+        comparison_path = output_root / "offline_vs_online.csv"
+        comparison_df.to_csv(comparison_path, index=False)
 
     # Always write a CSV summary for downstream tooling
     summary_df = pd.DataFrame([results])
@@ -244,6 +270,35 @@ def main(argv: Iterable[str] | None = None) -> int:
                 "performance_gap": comparison_df["performance_gap"].iloc[0],
             },
         )
+
+    artifacts = {
+        "results_json": str(results_json_path),
+        "results_csv": str(summary_path),
+        "global_summary": str(global_summary_path),
+    }
+    if comparison_path:
+        artifacts["comparison_csv"] = str(comparison_path)
+
+    emit_formatted_output(
+        args,
+        data={
+            **base_data,
+            "dry_run": False,
+            "results": results,
+            "summary_csv": str(summary_path),
+            "results_json": str(results_json_path),
+            "comparison_csv": str(comparison_path) if comparison_path else None,
+        },
+        text=(
+            f"Offline training complete. Accuracy={results['accuracy']:.4f}, "
+            f"reward={results['total_reward']:.2f}."
+        ),
+        message="Offline training completed.",
+        artifacts=artifacts,
+        success=True,
+        pretty=True,
+        command=command,
+    )
     return 0
 
 

@@ -48,11 +48,11 @@ def test_relative_action_decreases_lookback():
         ema_alpha=None,
     )
 
-    obs = env.reset()
+    obs, _ = env.reset()
     assert obs.shape == (env.obs_dim,)
 
     start_lookback = env._current_lookback
-    _obs, _reward, _done, _info = env.step(0)  # action 0 => -relative_step
+    env.step(0)  # action 0 => -relative_step
     assert env._current_lookback == max(env.min_lookback, start_lookback - env.relative_step)
 
 

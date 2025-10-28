@@ -62,5 +62,6 @@ def test_full_suite_json_summary(tmp_path, full_suite_mocks, capsys):
     assert exit_code == 0
     payload = json.loads(captured.out)
     assert payload["success"] is True
-    assert payload["output_root"] == str(output_root.resolve())
-    assert payload["dry_run"] is True
+    data = payload["data"]
+    assert data["output_root"] == str(output_root.resolve())
+    assert data["dry_run"] is True

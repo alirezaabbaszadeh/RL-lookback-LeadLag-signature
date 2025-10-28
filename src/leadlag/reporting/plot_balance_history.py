@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Sequence
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
+
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover
@@ -164,9 +166,9 @@ def collect_run_infos(results_root: Path, start_balance: float) -> List[RunInfo]
     return infos
 
 
-def _plot_group(infos: List[RunInfo], title: str, out_path: Path, legend: bool = True) -> None:
+def _plot_group(infos: List[RunInfo], title: str, out_path: Path, legend: bool = True) -> Optional[Path]:
     if not infos:
-        return
+        return None
     plt.figure(figsize=(12, 6))
     for info in infos:
         plt.plot(info.equity.index, info.equity.values, label=info.label, linewidth=1)
@@ -179,23 +181,29 @@ def _plot_group(infos: List[RunInfo], title: str, out_path: Path, legend: bool =
     out_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(out_path, dpi=150)
     plt.close()
+    return out_path
 
 
 def plot_all_charts(
     infos: List[RunInfo],
     out_dir: Path,
     max_lines: Optional[int] = None,
-) -> None:
+) -> List[Path]:
+    generated: List[Path] = []
     if not infos:
-        return
+        return generated
 
     if max_lines is not None:
-        _plot_group(
+        path = _plot_group(
             infos[:max_lines],
             "Portfolio Balance History - All Runs (Subset)",
             out_dir / "balance_all_runs_subset.png",
         )
-    _plot_group(infos, "Portfolio Balance History - All Runs", out_dir / "balance_all_runs.png")
+        if path:
+            generated.append(path)
+    path = _plot_group(infos, "Portfolio Balance History - All Runs", out_dir / "balance_all_runs.png")
+    if path:
+        generated.append(path)
 
     by_scenario: Dict[str, List[RunInfo]] = {}
     by_method: Dict[str, List[RunInfo]] = {}
@@ -207,26 +215,34 @@ def plot_all_charts(
         by_lookback.setdefault(info.lookback_label, []).append(info)
 
     for scenario, items in by_scenario.items():
-        _plot_group(
+        path = _plot_group(
             items,
             f"Portfolio Balance History - Scenario: {scenario}",
             out_dir / "scenario" / f"balance_{scenario}.png",
         )
+        if path:
+            generated.append(path)
 
     for method, items in by_method.items():
-        _plot_group(
+        path = _plot_group(
             items,
             f"Portfolio Balance History - Method: {method}",
             out_dir / "method" / f"balance_method_{method}.png",
         )
+        if path:
+            generated.append(path)
 
     for lookback, items in by_lookback.items():
         label = lookback or "unknown"
-        _plot_group(
+        path = _plot_group(
             items,
             f"Portfolio Balance History - Lookback: {label}",
             out_dir / "lookback" / f"balance_lookback_{label.replace('=', '')}.png",
         )
+        if path:
+            generated.append(path)
+
+    return generated
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -252,12 +268,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="List available runs and exit without generating plots.",
     )
+    add_format_flags(parser, default="text")
     return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-plot-balance"
+    if argv:
+        command = "leadlag-plot-balance " + " ".join(argv)
+
     out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -270,18 +292,74 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     infos = collect_run_infos(args.results_root, args.start_balance)
     logger.info("Collected runs", context={"count": len(infos)})
+    runs_payload = [
+        {
+            "run_dir": str(info.run_dir),
+            "scenario": info.scenario,
+            "method": info.method,
+            "label": info.label,
+        }
+        for info in infos
+    ]
+    base_data = {
+        "results_root": str(args.results_root.resolve()),
+        "output_dir": str(out_dir),
+        "runs": runs_payload,
+        "dry_run": bool(args.dry_run),
+        "max_lines": args.max_lines,
+    }
+
     if not infos:
         logger.warning("No qualifying runs found")
+        emit_formatted_output(
+            args,
+            success=False,
+            data=base_data,
+            text="No qualifying runs found.",
+            message="No qualifying runs found.",
+            errors=[{"code": "no_runs", "message": "No qualifying runs found."}],
+            pretty=True,
+            command=command,
+        )
         return 0
+
     if args.dry_run:
         for info in infos:
             logger.info(
                 "[dry-run] run info",
                 context={"run_dir": str(info.run_dir), "label": info.label},
             )
+        dry_text_lines = ["[dry-run] Available runs:"] + [
+            f"  - {entry['label']} ({entry['run_dir']})" for entry in runs_payload
+        ]
+        emit_formatted_output(
+            args,
+            data=base_data,
+            text="\n".join(dry_text_lines),
+            message="Balance plot dry-run completed.",
+            artifacts=None,
+            pretty=True,
+            command=command,
+        )
         return 0
-    plot_all_charts(infos, out_dir, args.max_lines)
-    logger.info("Plots generated", context={"output_dir": str(out_dir)})
+
+    generated_paths = plot_all_charts(infos, out_dir, args.max_lines)
+    artifacts = {"plots": [str(path) for path in generated_paths]}
+    logger.info("Plots generated", context={"output_dir": str(out_dir), "plots": len(generated_paths)})
+
+    text_lines = [
+        f"Generated {len(generated_paths)} plot(s) in {out_dir}.",
+    ]
+    emit_formatted_output(
+        args,
+        data={**base_data, "generated": len(generated_paths)},
+        text="\n".join(text_lines),
+        message="Balance plots generated.",
+        artifacts=artifacts or None,
+        pretty=True,
+        command=command,
+    )
+
     return 0
 
 

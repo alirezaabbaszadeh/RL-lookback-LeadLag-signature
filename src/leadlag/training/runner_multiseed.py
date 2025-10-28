@@ -91,6 +91,7 @@ def _aggregate_summaries(summaries: List[pd.DataFrame]) -> pd.DataFrame:
         for col in numeric.columns:
             values = numeric[col].to_numpy()
             boot_low, boot_high = _bootstrap_ci(values)
+            record[col] = means[col]
             record[f"{col}_mean"] = means[col]
             record[f"{col}_std"] = stds[col]
             record[f"{col}_ci95"] = ci[col]

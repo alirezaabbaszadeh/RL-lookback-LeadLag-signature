@@ -6,13 +6,14 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import hydra_main  # type: ignore
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 
@@ -50,7 +51,7 @@ def run_command(cmd: Sequence[str], logger) -> None:
     subprocess.run(cmd, check=True)
 
 
-def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> bool:
+def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> Tuple[bool, Optional[str]]:
     if info.requires_signature and importlib.util.find_spec("iisignature") is None:
         message = (
             f"Scenario '{info.name}' requires the 'iisignature' package. "
@@ -61,18 +62,18 @@ def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> bool:
                 "Skipping scenario due to missing signature deps",
                 context={"scenario": info.name},
             )
-            return False
+            return False, "missing optional dependency: iisignature"
         raise SystemExit(message)
 
     if not info.requires_sb3:
-        return True
+        return True, None
     has_sb3 = importlib.util.find_spec("stable_baselines3") is not None
     has_torch = importlib.util.find_spec("torch") is not None
     has_contrib = True
     if info.requires_sb3_contrib:
         has_contrib = importlib.util.find_spec("sb3_contrib") is not None
     if has_sb3 and has_torch and has_contrib:
-        return True
+        return True, None
     missing = []
     if not has_sb3:
         missing.append("stable-baselines3")
@@ -91,7 +92,7 @@ def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> bool:
             "Skipping scenario due to missing RL deps",
             context={"scenario": info.name, "missing": ", ".join(missing)},
         )
-        return False
+        return False, "missing optional dependencies: " + ", ".join(missing)
     raise SystemExit(message)
 
 
@@ -132,7 +133,7 @@ def run_comparison(results_root: Path, out_dir: Path, metric: str, logger) -> No
     run_command(cmd, logger)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ablation scenarios end-to-end.")
     parser.add_argument(
         "--output-root",
@@ -200,11 +201,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="List scenarios after dependency checks without executing them.",
     )
-    return parser.parse_args()
+    add_format_flags(parser, default="text")
+    return parser.parse_args(list(argv) if argv is not None else None)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-ablation"
+    if argv:
+        command = "leadlag-ablation " + " ".join(argv)
     output_root: Path = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -215,10 +221,13 @@ def main() -> int:
     logger = get_logger("pipelines.run_ablation", context={"output_root": output_root})
 
     executed: List[str] = []
+    skipped: List[Dict[str, str]] = []
 
     for name in args.scenarios:
         info = load_scenario(name)
-        if not ensure_dependencies(info, args.skip_missing_deps, logger):
+        ok, reason = ensure_dependencies(info, args.skip_missing_deps, logger)
+        if not ok:
+            skipped.append({"scenario": name, "reason": reason or "optional dependencies unavailable"})
             continue
         logger.info("Scenario ready", context={"scenario": name, "runner": info.runner})
         if args.dry_run:
@@ -230,17 +239,62 @@ def main() -> int:
         except subprocess.CalledProcessError as exc:
             raise SystemExit(f"Scenario '{name}' failed with exit code {exc.returncode}") from exc
 
+    summary: Dict[str, object] = {
+        "output_root": str(output_root),
+        "dry_run": bool(args.dry_run),
+        "executed": executed,
+        "skipped": skipped,
+    }
+    artifacts: Dict[str, object] = {}
+
+    text_lines: List[str] = []
+    if executed:
+        text_lines.append("Executed scenarios: " + ", ".join(executed))
+    if skipped:
+        text_lines.append("Skipped scenarios:")
+        for entry in skipped:
+            text_lines.append(f"  - {entry['scenario']}: {entry['reason']}")
+
     if not executed:
         logger.warning("No scenarios executed; skipping comparison")
+        if not text_lines:
+            text_lines.append("No scenarios executed; skipping comparison")
+        emit_formatted_output(
+            args,
+            data=summary,
+            text="\n".join(text_lines),
+            message="No scenarios executed; skipping comparison.",
+            pretty=True,
+            command=command,
+        )
         return 0
 
     comparison_out = output_root / "ablation_comparison"
     comparison_out.mkdir(parents=True, exist_ok=True)
     if not args.dry_run:
         run_comparison(output_root, comparison_out, args.metric, logger)
+        summary["comparison_output"] = str(comparison_out)
+        artifacts["comparison_output"] = str(comparison_out)
+        text_lines.append(f"Comparison artifacts: {comparison_out}")
+    else:
+        text_lines.append(f"[dry-run] Comparison would be written to: {comparison_out}")
+
     logger.info(
         "Completed scenarios",
         context={"scenarios": ", ".join(executed), "comparison": str(comparison_out)},
+    )
+
+    message = "Ablation run completed."
+    if args.dry_run:
+        message = "Ablation dry-run completed."
+    emit_formatted_output(
+        args,
+        data=summary,
+        text="\n".join(text_lines),
+        message=message,
+        artifacts=artifacts or None,
+        pretty=True,
+        command=command,
     )
 
     return 0

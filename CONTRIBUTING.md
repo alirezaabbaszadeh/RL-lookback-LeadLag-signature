@@ -24,6 +24,7 @@ If you need optional integrations (Stable-Baselines3, MLflow, PyTorch), install 
 - Follow existing code patterns; prefer explicit logging via `reporting/logging_utils.get_logger`.
 - Keep configs declarative (YAML) and document new fields in `docs/config_reference.md` when applicable.
 - Add targeted tests in `tests/` for new modules or behaviours.
+- For CLI changes that touch formatted output, regenerate or add coverage in `tests/test_cli_formatter_outputs.py` and validate JSON envelopes with `python scripts/validate_cli_payload.py <payload.json>`.
 - Maintain ASCII text unless a file already uses Unicode.
 
 ## 4. Quality Checks

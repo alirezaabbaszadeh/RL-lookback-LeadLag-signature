@@ -40,7 +40,7 @@ pip install .            # base dependencies (numpy/pandas/scipy, hydra-core, gy
 # pip install .[signature] # iisignature + dcor + numba
 # pip install .[kaggle]     # kaggle-environments helper
 leadlag --list                      # list packaged scenarios
-leadlag --dry-run --json             # preview run selection without executing
+leadlag --dry-run --format json      # preview run selection without executing
 # export LEADLAG_RESULTS_ROOT=/tmp/leadlag (or setenv on Windows) to override default output path
 ```
 
@@ -71,6 +71,8 @@ Installing the package exposes convenient wrappers:
 | `leadlag-report` | Render the Markdown/PDF-ready research report and appendix. |
 | `leadlag-log-trajectories` | Record offline trajectories for behaviour cloning. |
 | `leadlag-train-offline` | Train the offline RL baseline and compare with online results. |
+> All CLI entry points support a shared `--format` switch. Use `--format json` (or the legacy `--json`) for machine-readable envelopes that include command metadata and artifacts.
+
 
 ### Scenario Driver CLI
 
@@ -79,21 +81,27 @@ selects the appropriate runner automatically, and aggregates results:
 
 ```bash
 leadlag                         # run every packaged scenario and aggregate into ./results
-leadlag --list                  # enumerate scenario names (combine with --json for automation)
-leadlag --dry-run --json        # inspect selection without executing runners
+leadlag --list                  # enumerate scenario names (combine with --format json for automation)
+leadlag --dry-run --format json # inspect selection without executing runners
 leadlag --include rl            # focus only on RL-labelled scenarios
 leadlag --results-root outputs/2024-10-22 --stop-on-error
+```
+
+Run the full pipeline without executing subprocesses (useful for verifying JSON envelope structure):
+
+```bash
+leadlag-full-suite --format json --dry-run --output-root /tmp/leadlag-full-suite-smoke
 ```
 
 Set `LEADLAG_RESULTS_ROOT` to define the default results directory (overridden by `--results-root` when provided).
 
 Key flags:
-- `--list` enumerates packaged scenarios (use with `--json` or `--format json` for machine-readable output).
-- `--format json` (or `--json`) emits a structured summary (selected scenarios, per-scenario status, aggregate path).
+- `--list` enumerates packaged scenarios (use with `--format json` for machine-readable output).
+- `--format json` emits a structured summary (selected scenarios, per-scenario status, aggregate path).
 - `--scenarios <name or path>...` runs explicit scenario selections (ignores include/exclude filters).
 - `--validate <scenario>` loads and checks a scenario configuration without executing it.
 - `--skip-existing` skips scenarios that already have successful outputs under the results root.
-- `--status` inspects a results directory and reports run status (combine with `--json` for machine-readable output).
+- `--status` inspects a results directory and reports run status (combine with `--format json` for machine-readable output).
 - `--runner {auto,scenario,dynamic,rl}` overrides the auto-detected runner.
 - `--max-scenarios N` limits execution to the first N filtered configs.
 - `--log-level` / `--log-path` control structured logging (defaults to `<results-root>/main.log`).

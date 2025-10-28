@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -13,6 +12,7 @@ ITEM_PATTERN = re.compile(
     r'ITEM\s*\{MODULE:\s*"(?P<module>[^"]+)",\s*ISSUE:\s*"(?P<issue>[^"]+)",\s*NEXT_STEP:\s*"(?P<next_step>[^"]+)"\}'
 )
 
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 
@@ -87,11 +87,6 @@ def format_text(items: Sequence[StatusItem]) -> str:
     return "\n".join(lines)
 
 
-def format_json(items: Sequence[StatusItem]) -> str:
-    """Return JSON formatted summary."""
-    return json.dumps([asdict(item) for item in items], indent=2)
-
-
 def collect_status(path: Path) -> List[StatusItem]:
     """Load roadmap file and return parsed STATUS_TRACKER items."""
     text = path.read_text(encoding="utf-8")
@@ -106,12 +101,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=Path("docs/future_roadmap.pseudo"),
         help="Path to roadmap pseudo-document.",
     )
-    parser.add_argument(
-        "--format",
-        choices=("text", "json"),
-        default="text",
-        help="Output format.",
-    )
+    add_format_flags(parser, default="text")
     parser.add_argument(
         "--log-level",
         default="INFO",
@@ -128,6 +118,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: Iterable[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+    finalize_format_args(args, remove_in="0.2.0")
 
     log_path = args.log_path or Path("status_summary.log")
     setup_logging(log_path, level=str(args.log_level).upper(), context={"module": "status_summary"})
@@ -136,10 +127,15 @@ def main(argv: Iterable[str] | None = None) -> int:
     items = collect_status(args.roadmap)
     logger.info("Collected status items", context={"count": len(items)})
 
-    if args.format == "json":
-        print(format_json(items))
-    else:
-        print(format_text(items))
+    payload = [asdict(item) for item in items]
+    message = f"Collected {len(items)} status item(s)."
+    emit_formatted_output(
+        args,
+        data=payload,
+        text=format_text(items),
+        message=message,
+        pretty=True,
+    )
     return 0
 
 

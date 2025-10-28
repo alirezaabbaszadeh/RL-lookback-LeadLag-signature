@@ -1,6 +1,6 @@
 import importlib.util
 import warnings
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -254,10 +254,7 @@ class LeadLagAnalyzer:
             config: LeadLagConfig object or dictionary containing all analysis parameters
             df_universe: Series with DatetimeIndex showing which coins to use on each date
         """
-        if isinstance(config, dict):
-            self.config = LeadLagConfig.from_dict(config)
-        else:
-            self.config = config
+        self.config = self._coerce_config(config)
         self.lead_lag_matrix_rolling = None
         self.df_universe = df_universe
         scaling = getattr(self.config, "Scaling_Method", "mean-centering")
@@ -265,6 +262,22 @@ class LeadLagAnalyzer:
         self._signature_extractor: Optional[SignatureExtractor] = None
         self._validate_config()
         self.selected_window_info = None
+
+    @staticmethod
+    def _coerce_config(config: Union[LeadLagConfig, Dict, Any]) -> LeadLagConfig:
+        """
+        Normalize incoming configuration into a LeadLagConfig instance.
+
+        Accepts dictionaries, already-instantiated LeadLagConfig objects,
+        and arbitrary dataclass instances carrying compatible fields.
+        """
+        if isinstance(config, LeadLagConfig):
+            return config
+        if isinstance(config, dict):
+            return LeadLagConfig.from_dict(config)
+        if is_dataclass(config):
+            return LeadLagConfig(**asdict(config))
+        raise TypeError("config must be a LeadLagConfig instance or compatible dataclass/dict")
 
     def _validate_config(self):
         """Validate the configuration parameters."""

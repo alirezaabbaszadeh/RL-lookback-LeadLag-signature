@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.envs.leadlag_env import LeadLagEnv
 from leadlag.governance.dataset import build_manifest, record_manifest, run_quality_checks
 from leadlag.reporting.logging_utils import get_logger, setup_logging
@@ -55,6 +56,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Preview trajectory metadata without writing files.",
     )
+    add_format_flags(parser, default="text")
     return parser
 
 
@@ -125,7 +127,11 @@ def _run_episode(env: LeadLagEnv, model) -> List[dict]:
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-log-trajectories"
+    if argv:
+        command = "leadlag-log-trajectories " + " ".join(argv)
 
     cfg = _merge_extends(args.scenario)
     cfg["run"] = cfg.get("run", {})
@@ -153,10 +159,26 @@ def main(argv: Iterable[str] | None = None) -> int:
         context={"scenario": str(args.scenario), "episodes": args.episodes},
     )
 
+    base_data = {
+        "scenario": str(args.scenario),
+        "episodes": args.episodes,
+        "seed": args.seed,
+        "output": str(args.output),
+        "policy": str(args.policy) if args.policy else None,
+    }
+
     if args.dry_run:
         logger.info(
             "[dry-run] would record trajectories",
             context={"output": str(args.output)},
+        )
+        emit_formatted_output(
+            args,
+            data={**base_data, "dry_run": True},
+            text=f"[dry-run] trajectories would be written to: {args.output}",
+            message="Trajectory logging dry-run completed.",
+            pretty=True,
+            command=command,
         )
         return 0
 
@@ -184,12 +206,33 @@ def main(argv: Iterable[str] | None = None) -> int:
         "dataset_path": str(output_path),
         "manifest_path": str(manifest_path),
     }
-    with open(output_path.parent / "offline_metadata.json", "w", encoding="utf-8") as f:
+    metadata_path = output_path.parent / "offline_metadata.json"
+    with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
 
     logger.info(
         "Recorded trajectories",
         context={"transitions": len(df), "output": str(output_path)},
+    )
+    emit_formatted_output(
+        args,
+        data={
+            **base_data,
+            "dry_run": False,
+            "transitions": int(len(df)),
+            "dataset_path": str(output_path),
+            "manifest_path": str(manifest_path),
+            "metadata": metadata,
+        },
+        text=f"Recorded {len(df)} transitions to {output_path}.",
+        message="Trajectories recorded.",
+        artifacts={
+            "dataset": str(output_path),
+            "manifest": str(manifest_path),
+            "metadata": str(metadata_path),
+        },
+        pretty=True,
+        command=command,
     )
     return 0
 

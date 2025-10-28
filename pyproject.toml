@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leadlag-signature-rl"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lead-lag signature RL experimentation toolkit"
 readme = "README.md"
 requires-python = ">=3.10"

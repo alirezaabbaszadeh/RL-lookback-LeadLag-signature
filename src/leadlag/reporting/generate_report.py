@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 KEY_METRICS: Sequence[str] = (
@@ -491,11 +492,17 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="List aggregates without generating report files.",
     )
-    return parser.parse_args(argv)
+    add_format_flags(parser, default="text")
+    return parser.parse_args(list(argv) if argv is not None else None)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
+    finalize_format_args(args, remove_in="0.2.0")
+    command = "leadlag-report"
+    if argv:
+        command = "leadlag-report " + " ".join(argv)
+
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     log_path = args.log_path or output_dir / "generate_report.log"
@@ -509,14 +516,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         context={"results_root": str(args.results_root.resolve()), "output_dir": str(output_dir)},
     )
 
+    base_data = {
+        "results_root": str(args.results_root.resolve()),
+        "output_dir": str(output_dir),
+    }
+
     if args.dry_run:
         dirs = discover_aggregate_dirs(args.results_root)
         logger.info("[dry-run] discovered aggregates", context={"count": len(dirs)})
         for path in dirs:
             logger.info("[dry-run] aggregate dir", context={"path": str(path)})
+        dry_text = ["[dry-run] aggregate directories:"]
+        if dirs:
+            dry_text.extend(f"  - {path}" for path in dirs)
+        else:
+            dry_text.append("  (none found)")
+        emit_formatted_output(
+            args,
+            data={**base_data, "aggregates": [str(path) for path in dirs], "dry_run": True},
+            text="\n".join(dry_text),
+            message="Report dry-run completed.",
+            pretty=True,
+            command=command,
+        )
         return 0
 
     aggregates = generate_report(args.results_root, output_dir)
+    aggregate_names = [agg.name for agg in aggregates]
+    generated_files = {
+        "report_markdown": str(output_dir / "final_report.md"),
+        "report_pdf": str(output_dir / "final_report.pdf"),
+        "appendix_markdown": str(output_dir / "appendix.md"),
+    }
     if aggregates:
         logger.info(
             "Report generated",
@@ -524,6 +555,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
     else:
         logger.warning("No aggregate directories found; generated empty report")
+
+    success = bool(aggregates)
+    errors = None
+    if not success:
+        errors = [{"code": "no_aggregates", "message": "No aggregate directories found."}]
+
+    text_lines = [f"Report directory: {output_dir}"]
+    if aggregate_names:
+        text_lines.append("Included scenarios:")
+        text_lines.extend(f"  - {name}" for name in aggregate_names)
+    else:
+        text_lines.append("No aggregates included in report.")
+
+    message = "Report generated." if success else "Report generated without aggregates."
+
+    emit_formatted_output(
+        args,
+        data={**base_data, "aggregates": aggregate_names, "generated_files": generated_files, "dry_run": False},
+        text="\n".join(text_lines),
+        message=message,
+        artifacts=generated_files,
+        errors=errors,
+        success=success,
+        pretty=True,
+        command=command,
+    )
     return 0
 
 

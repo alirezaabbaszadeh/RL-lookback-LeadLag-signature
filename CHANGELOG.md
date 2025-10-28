@@ -3,6 +3,7 @@
 All notable changes will be documented in this file. Dates follow YYYY-MM-DD.
 
 ## Unreleased
+- CI hardened with JSON envelope validator for `leadlag --status` and `leadlag-full-suite --dry-run`, extras matrix now installs combined optional dependencies, and documentation reflects the `--format json` contract.
 - Initial GitHub packaging: cleaned README, added Kaggle deployment guide, smoke tests, and governance docs.
 - Provide `requirements-kaggle.txt`, `kaggle/starter.py`, and `scripts/smoke_kaggle.py` for lean deployments.
 - Added end-to-end orchestration pipelines (`pipelines/run_ablation.py`, `pipelines/run_full_suite.py`) to cover ablations, audits, meta/offline baselines, and reporting in a single run.\n- Hardened Kaggle pipeline: dependency preflight, dataset quality thresholds, optional RL fallbacks, offline dataset moved to CSV, artifact validation/report timing, and automated balance-history charts.

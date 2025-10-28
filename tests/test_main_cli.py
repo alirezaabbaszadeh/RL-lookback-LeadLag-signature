@@ -5,6 +5,87 @@ from pathlib import Path
 
 import pytest
 
+import sys
+import types
+
+scipy_stub = types.ModuleType("scipy")
+stats_stub = types.ModuleType("scipy.stats")
+
+class _DummyTTestResult:
+    def __init__(self, statistic: float = 0.0, pvalue: float = 1.0):
+        self.statistic = statistic
+        self.pvalue = pvalue
+
+def _ttest_ind(*args, **kwargs):
+    return _DummyTTestResult()
+
+stats_stub.ttest_ind = _ttest_ind
+scipy_stub.stats = stats_stub
+sys.modules.setdefault("scipy", scipy_stub)
+sys.modules.setdefault("scipy.stats", stats_stub)
+
+sklearn_stub = types.ModuleType("sklearn")
+linear_model_stub = types.ModuleType("sklearn.linear_model")
+class _DummyLogisticRegression:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def fit(self, *args, **kwargs):
+        return self
+
+    def predict(self, X):
+        return [0] * (len(X) if hasattr(X, '__len__') else 0)
+
+linear_model_stub.LogisticRegression = _DummyLogisticRegression
+metrics_stub = types.ModuleType("sklearn.metrics")
+def _accuracy_score(*args, **kwargs):
+    return 1.0
+
+metrics_stub.accuracy_score = _accuracy_score
+model_selection_stub = types.ModuleType("sklearn.model_selection")
+def _train_test_split(X, y, *args, **kwargs):
+    return X, X, y, y
+
+model_selection_stub.train_test_split = _train_test_split
+decomposition_stub = types.ModuleType("sklearn.decomposition")
+class _DummyPCA:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def fit_transform(self, X):
+        return X
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+decomposition_stub.PCA = _DummyPCA
+preprocessing_stub = types.ModuleType("sklearn.preprocessing")
+class _DummyStandardScaler:
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def fit_transform(self, X, y=None):
+        return X
+
+preprocessing_stub.StandardScaler = _DummyStandardScaler
+sklearn_stub.linear_model = linear_model_stub
+sklearn_stub.metrics = metrics_stub
+sklearn_stub.model_selection = model_selection_stub
+sklearn_stub.decomposition = decomposition_stub
+sklearn_stub.preprocessing = preprocessing_stub
+sys.modules.setdefault("sklearn", sklearn_stub)
+sys.modules.setdefault("sklearn.linear_model", linear_model_stub)
+sys.modules.setdefault("sklearn.metrics", metrics_stub)
+sys.modules.setdefault("sklearn.model_selection", model_selection_stub)
+sys.modules.setdefault("sklearn.decomposition", decomposition_stub)
+sys.modules.setdefault("sklearn.preprocessing", preprocessing_stub)
+
 try:  # pragma: no cover - dependency guard for optional pandas wheels
     from leadlag import main
 except ValueError as exc:
@@ -119,8 +200,9 @@ def test_main_list_json(cli_env, capsys):
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    data = json.loads(captured.out)
-    assert data == {"scenarios": ["alpha", "beta"]}
+    payload = json.loads(captured.out)
+    assert payload["success"] is True
+    assert payload["data"]["scenarios"] == ["alpha", "beta"]
 
 
 def test_main_list_format_json(cli_env, capsys):
@@ -132,8 +214,9 @@ def test_main_list_format_json(cli_env, capsys):
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    data = json.loads(captured.out)
-    assert data == {"scenarios": ["alpha", "beta"]}
+    payload = json.loads(captured.out)
+    assert payload["success"] is True
+    assert payload["data"]["scenarios"] == ["alpha", "beta"]
 
 
 def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
@@ -204,14 +287,16 @@ def test_main_json_summary(cli_env, monkeypatch, capsys):
 
     assert exit_code == 0
     payload = json.loads(captured.out)
-    assert payload["selected"] == ["alpha"]
-    assert payload["aggregate"].endswith("aggregate")
-    assert Path(payload["results_root"]).is_absolute()
-    assert payload["summary"] == [
+    assert payload["success"] is True
+    data = payload["data"]
+    assert data["selected"] == ["alpha"]
+    assert data["aggregate"].endswith("aggregate")
+    assert Path(data["results_root"]).is_absolute()
+    assert data["summary"] == [
         {
             "scenario": "alpha",
             "status": "success",
-            "output": str(Path(payload["results_root"]) / "alpha_output"),
+            "output": str(Path(data["results_root"]) / "alpha_output"),
             "runner": "scenario",
         }
     ]
@@ -333,14 +418,17 @@ def test_main_explicit_scenarios(cli_env, monkeypatch, capsys):
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     assert exit_code == 0
-    assert payload["selected"] == ["alpha"]
+    assert payload["success"] is True
+    assert payload["data"]["selected"] == ["alpha"]
 
 
 def test_main_validate_packaged(capsys):
     exit_code = main.main(["--validate", "fixed_30", "--format", "json"])
     captured = capsys.readouterr()
     assert exit_code == 0
-    data = json.loads(captured.out)
+    payload = json.loads(captured.out)
+    assert payload["success"] is True
+    data = payload["data"]
     assert data["valid"] is True
     assert data["scenario"] == "fixed_30"
 
@@ -363,9 +451,12 @@ def test_main_validate_path_failure(tmp_path, capsys):
     exit_code = main.main(["--validate", str(scenario), "--format", "json"])
     captured = capsys.readouterr()
     assert exit_code == 1
-    data = json.loads(captured.out)
-    assert data["valid"] is False
-    assert "missing sections" in data["error"]
+    payload = json.loads(captured.out)
+    assert payload["success"] is False
+    data = payload.get("data", {})
+    assert data.get("valid") is False
+    assert payload["errors"][0]["code"] == "scenario_validation_failed"
+    assert "missing" in (data.get("error") or "")
 
 
 def test_main_status_json(tmp_path, capsys):
@@ -389,8 +480,10 @@ def test_main_status_json(tmp_path, capsys):
     captured = capsys.readouterr()
     assert exit_code == 0
     payload = json.loads(captured.out)
-    assert payload["results_root"] == str(results_root.resolve())
-    statuses = {entry["scenario"]: entry["status"] for entry in payload["runs"] if "scenario" in entry}
+    assert payload["success"] is True
+    data = payload["data"]
+    assert data["results_root"] == str(results_root.resolve())
+    statuses = {entry["scenario"]: entry["status"] for entry in data["runs"] if "scenario" in entry}
     assert statuses.get("alpha") == "success"
     assert statuses.get("beta") == "incomplete"
 
@@ -439,5 +532,7 @@ def test_main_skip_existing(cli_env, monkeypatch, capsys):
     assert exit_code == 0
     assert not executed
     payload = json.loads(captured.out)
-    statuses = {entry["scenario"]: entry["status"] for entry in payload["summary"]}
+    assert payload["success"] is True
+    data = payload["data"]
+    statuses = {entry["scenario"]: entry["status"] for entry in data["summary"]}
     assert statuses.get("alpha") == "skipped"
