@@ -1,0 +1,9 @@
+# Markdownlint configuration for repository docs
+# Allow slightly longer lines for tables and URLs.
+default: true
+MD013:
+  line_length: 120
+  heading_line_length: 120
+  code_block_line_length: 160
+MD033: false
+MD041: false
