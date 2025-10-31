@@ -178,6 +178,140 @@ class ExecuteCommand:
         self._render_dry_run_summary = render_dry_run_summary
         self._render_execution_summary = render_execution_summary
 
+    def _failure_invalid_request(
+        self,
+        *,
+        errors: Sequence[str],
+        requested: Sequence[str] | None,
+        command: str,
+        results_root: Path,
+    ) -> CommandResponse:
+        return CommandResponse(
+            exit_code=1,
+            code="invalid_scenarios",
+            message="One or more scenarios not found",
+            details={"errors": list(errors), "requested": list(requested or [])},
+            command=command,
+            results_root=results_root,
+        )
+
+    def _failure_no_matches(
+        self,
+        *,
+        include: Sequence[str] | None,
+        exclude: Sequence[str] | None,
+        command: str,
+        results_root: Path,
+    ) -> CommandResponse:
+        return CommandResponse(
+            exit_code=1,
+            code="no_scenarios_matched",
+            message="No scenarios match the provided filters.",
+            details={
+                "include": include,
+                "exclude": exclude,
+                "results_root": str(results_root),
+            },
+            command=command,
+            results_root=results_root,
+        )
+
+    def _resolve_selected_scenarios(
+        self,
+        args: argparse.Namespace,
+        discovered: Sequence[Path],
+        *,
+        command: str,
+        results_root: Path,
+    ) -> tuple[list[Path] | None, CommandResponse | None]:
+        if args.scenarios:
+            selected, errors = self._driver.resolve_scenario_references(args.scenarios)
+            if errors:
+                return None, self._failure_invalid_request(
+                    errors=errors,
+                    requested=args.scenarios,
+                    command=command,
+                    results_root=results_root,
+                )
+            resolved = [path.resolve() for path in selected]
+        else:
+            resolved = list(
+                self._driver.filter_scenarios(
+                    discovered,
+                    args.include,
+                    args.exclude,
+                )
+            )
+
+        if args.max_scenarios is not None:
+            resolved = resolved[: max(args.max_scenarios, 0)]
+
+        if not resolved:
+            return None, self._failure_no_matches(
+                include=args.include,
+                exclude=args.exclude,
+                command=command,
+                results_root=results_root,
+            )
+
+        return resolved, None
+
+    def _render_dry_run(
+        self,
+        execution: object,
+        *,
+        selected: Sequence[str],
+        command: str,
+        results_root: Path,
+    ) -> CommandResponse:
+        summary_payload = self._driver.DriverSummary(
+            selected=list(selected),
+            results_root=str(results_root),
+            summary=[],
+            aggregate=None,
+            dry_run=True,
+            dry_run_entries=execution.dry_run_entries,
+        )
+        dry_render = self._render_dry_run_summary(summary_payload)
+        return CommandResponse(
+            exit_code=execution.exit_code,
+            message="Dry-run completed.",
+            text=getattr(dry_render, "text", None),
+            data=getattr(dry_render, "data", None),
+            command=command,
+            results_root=results_root,
+        )
+
+    def _render_execution(
+        self,
+        execution: object,
+        *,
+        selected: Sequence[str],
+        command: str,
+        results_root: Path,
+        exit_code: int,
+    ) -> CommandResponse:
+        execution_render = self._render_execution_summary(
+            results_root,
+            summary=execution.summary,
+            aggregate=execution.aggregate,
+            selected=list(selected),
+            errors=execution.errors,
+            exit_code=exit_code,
+            aborted=execution.aborted,
+        )
+        return CommandResponse(
+            exit_code=exit_code,
+            message=getattr(execution_render, "message", None),
+            text=getattr(execution_render, "text", None),
+            data=getattr(execution_render, "data", None),
+            artifacts=getattr(execution_render, "artifacts", None),
+            errors=getattr(execution_render, "errors", None),
+            success=getattr(execution_render, "success", None),
+            command=command,
+            results_root=results_root,
+        )
+
     def __call__(self, context: CommandContext) -> CommandResponse:
         try:
             discovered = list(self._scenarios.ensure())
@@ -200,39 +334,14 @@ class ExecuteCommand:
 
         args = context.args
 
-        if args.scenarios:
-            selected, errors = self._driver.resolve_scenario_references(args.scenarios)
-            if errors:
-                return CommandResponse(
-                    exit_code=1,
-                    code="invalid_scenarios",
-                    message="One or more scenarios not found",
-                    details={"errors": errors, "requested": list(args.scenarios)},
-                    command=command_string,
-                    results_root=results_root,
-                )
-            selected = [path.resolve() for path in selected]
-        else:
-            selected = self._driver.filter_scenarios(
-                discovered, args.include, args.exclude
-            )
-
-        if args.max_scenarios is not None:
-            selected = selected[: max(args.max_scenarios, 0)]
-
-        if not selected:
-            return CommandResponse(
-                exit_code=1,
-                code="no_scenarios_matched",
-                message="No scenarios match the provided filters.",
-                details={
-                    "include": args.include,
-                    "exclude": args.exclude,
-                    "results_root": str(results_root),
-                },
-                command=command_string,
-                results_root=results_root,
-            )
+        selected, failure = self._resolve_selected_scenarios(
+            args,
+            discovered,
+            command=command_string,
+            results_root=results_root,
+        )
+        if failure is not None:
+            return failure
 
         logger.info(
             "Discovered %s scenario(s); %s selected after filtering.",
@@ -248,29 +357,15 @@ class ExecuteCommand:
         )
 
         if execution.dry_run:
-            summary_payload = self._driver.DriverSummary(
+            return self._render_dry_run(
+                execution,
                 selected=selected_names,
-                results_root=str(results_root),
-                summary=[],
-                aggregate=None,
-                dry_run=True,
-                dry_run_entries=execution.dry_run_entries,
-            )
-            dry_render = self._render_dry_run_summary(summary_payload)
-            return CommandResponse(
-                exit_code=execution.exit_code,
-                message="Dry-run completed.",
-                text=getattr(dry_render, "text", None),
-                data=getattr(dry_render, "data", None),
                 command=command_string,
                 results_root=results_root,
             )
 
         summary = execution.summary
-        errors_list = execution.errors
-        aggregate_path = execution.aggregate
         exit_code = execution.exit_code
-        aborted = execution.aborted
 
         failures = [row for row in summary if row.status not in {"success", "skipped"}]
         if failures:
@@ -281,26 +376,12 @@ class ExecuteCommand:
             if args.stop_on_error and exit_code == 0:
                 exit_code = 1
 
-        execution_render = self._render_execution_summary(
-            results_root,
-            summary=summary,
-            aggregate=aggregate_path,
+        return self._render_execution(
+            execution,
             selected=selected_names,
-            errors=errors_list,
-            exit_code=exit_code,
-            aborted=aborted,
-        )
-
-        return CommandResponse(
-            exit_code=exit_code,
-            message=getattr(execution_render, "message", None),
-            text=getattr(execution_render, "text", None),
-            data=getattr(execution_render, "data", None),
-            artifacts=getattr(execution_render, "artifacts", None),
-            errors=getattr(execution_render, "errors", None),
-            success=getattr(execution_render, "success", None),
             command=command_string,
             results_root=results_root,
+            exit_code=exit_code,
         )
 
 
