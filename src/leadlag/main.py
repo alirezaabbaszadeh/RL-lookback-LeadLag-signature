@@ -60,15 +60,25 @@ class LeadLagCLI:
 
     def build_registry(self) -> Sequence[cli_commands.CommandSpec]:
         if self._registry is None:
+            scenario_selector = cli_commands.ScenarioSelectionService(
+                driver_service=self._driver_service
+            )
+            dry_run_builder = cli_commands.DryRunResponseBuilder(
+                build_driver_summary=build_driver_summary,
+                render_dry_run_summary=render_dry_run_summary,
+            )
+            execution_builder = cli_commands.ExecutionResponseBuilder(
+                render_execution_summary=render_execution_summary,
+            )
             dependencies = cli_commands.CommandDependencies(
                 driver_service=self._driver_service,
                 scenario_manager=self._scenario_manager,
                 merge_extends=_merge_extends,
                 validate_scenario_schema=_validate_scenario_schema,
-                build_driver_summary=build_driver_summary,
                 render_status_summary=render_status_summary,
-                render_execution_summary=render_execution_summary,
-                render_dry_run_summary=render_dry_run_summary,
+                scenario_selector=scenario_selector,
+                dry_run_response_builder=dry_run_builder,
+                execution_response_builder=execution_builder,
             )
             self._registry = cli_commands.build_command_registry(dependencies)
         return self._registry

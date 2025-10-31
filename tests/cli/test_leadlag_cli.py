@@ -224,9 +224,14 @@ def test_execute_dry_run(tmp_path):
     command = cli_commands.ExecuteCommand(
         driver_service=service,
         scenarios=scenario_manager,
-        build_driver_summary=build_driver_summary,
-        render_dry_run_summary=render_dry_run_summary,
-        render_execution_summary=render_execution_summary,
+        scenario_selector=cli_commands.ScenarioSelectionService(driver_service=service),
+        dry_run_responder=cli_commands.DryRunResponseBuilder(
+            build_driver_summary=build_driver_summary,
+            render_dry_run_summary=render_dry_run_summary,
+        ),
+        execution_responder=cli_commands.ExecutionResponseBuilder(
+            render_execution_summary=render_execution_summary,
+        ),
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -300,9 +305,14 @@ def test_execute_full_run(tmp_path):
     command = cli_commands.ExecuteCommand(
         driver_service=service,
         scenarios=scenario_manager,
-        build_driver_summary=build_driver_summary,
-        render_dry_run_summary=render_dry_run_summary,
-        render_execution_summary=render_execution_summary,
+        scenario_selector=cli_commands.ScenarioSelectionService(driver_service=service),
+        dry_run_responder=cli_commands.DryRunResponseBuilder(
+            build_driver_summary=build_driver_summary,
+            render_dry_run_summary=render_dry_run_summary,
+        ),
+        execution_responder=cli_commands.ExecutionResponseBuilder(
+            render_execution_summary=render_execution_summary,
+        ),
     )
     context = cli_commands.CommandContext(
         args=args,

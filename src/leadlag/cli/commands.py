@@ -72,6 +72,156 @@ class ScenarioManager:
         return self._cache
 
 
+class ScenarioSelectionService:
+    """Resolve requested scenarios and handle invalid selections."""
+
+    def __init__(self, *, driver_service: DriverService) -> None:
+        self._driver = driver_service
+
+    def _failure_invalid_request(
+        self,
+        *,
+        errors: Sequence[str],
+        requested: Sequence[str] | None,
+        command: str,
+        results_root: Path,
+    ) -> CommandResponse:
+        return CommandResponse(
+            exit_code=1,
+            code="invalid_scenarios",
+            message="One or more scenarios not found",
+            details={"errors": list(errors), "requested": list(requested or [])},
+            command=command,
+            results_root=results_root,
+        )
+
+    def _failure_no_matches(
+        self,
+        *,
+        include: Sequence[str] | None,
+        exclude: Sequence[str] | None,
+        command: str,
+        results_root: Path,
+    ) -> CommandResponse:
+        return CommandResponse(
+            exit_code=1,
+            code="no_scenarios_matched",
+            message="No scenarios match the provided filters.",
+            details={
+                "include": include,
+                "exclude": exclude,
+                "results_root": str(results_root),
+            },
+            command=command,
+            results_root=results_root,
+        )
+
+    def resolve(
+        self,
+        args: argparse.Namespace,
+        discovered: Sequence[Path],
+        *,
+        command: str,
+        results_root: Path,
+    ) -> tuple[list[Path] | None, CommandResponse | None]:
+        if args.scenarios:
+            selected, errors = self._driver.resolve_scenario_references(args.scenarios)
+            if errors:
+                return None, self._failure_invalid_request(
+                    errors=errors,
+                    requested=args.scenarios,
+                    command=command,
+                    results_root=results_root,
+                )
+            resolved = [path.resolve() for path in selected]
+        else:
+            resolved = list(
+                self._driver.filter_scenarios(
+                    discovered,
+                    args.include,
+                    args.exclude,
+                )
+            )
+
+        if args.max_scenarios is not None:
+            resolved = resolved[: max(args.max_scenarios, 0)]
+
+        if not resolved:
+            return None, self._failure_no_matches(
+                include=args.include,
+                exclude=args.exclude,
+                command=command,
+                results_root=results_root,
+            )
+
+        return resolved, None
+
+
+class DryRunResponseBuilder:
+    """Construct response payloads for dry-run executions."""
+
+    def __init__(
+        self,
+        *,
+        build_driver_summary: Callable[[Sequence[str], Path, object], object],
+        render_dry_run_summary: Callable[[object], object],
+    ) -> None:
+        self._build_driver_summary = build_driver_summary
+        self._render_dry_run_summary = render_dry_run_summary
+
+    def __call__(
+        self,
+        execution: object,
+        *,
+        selected: Sequence[str],
+        command: str,
+        results_root: Path,
+    ) -> dict[str, object]:
+        summary_payload = self._build_driver_summary(selected, results_root, execution)
+        dry_render = self._render_dry_run_summary(summary_payload)
+        return {
+            "exit_code": execution.exit_code,
+            "message": "Dry-run completed.",
+            "text": getattr(dry_render, "text", None),
+            "data": getattr(dry_render, "data", None),
+            "command": command,
+            "results_root": results_root,
+        }
+
+
+class ExecutionResponseBuilder:
+    """Construct response payloads for executed scenarios."""
+
+    def __init__(self, *, render_execution_summary: Callable[..., object]) -> None:
+        self._render_execution_summary = render_execution_summary
+
+    def __call__(
+        self,
+        execution: object,
+        *,
+        selected: Sequence[str],
+        command: str,
+        results_root: Path,
+        exit_code: int,
+    ) -> dict[str, object]:
+        execution_render = self._render_execution_summary(
+            results_root,
+            execution=execution,
+            selected=list(selected),
+        )
+        return {
+            "exit_code": exit_code,
+            "message": getattr(execution_render, "message", None),
+            "text": getattr(execution_render, "text", None),
+            "data": getattr(execution_render, "data", None),
+            "artifacts": getattr(execution_render, "artifacts", None),
+            "errors": getattr(execution_render, "errors", None),
+            "success": getattr(execution_render, "success", None),
+            "command": command,
+            "results_root": results_root,
+        }
+
+
 class ValidateCommand:
     def __init__(
         self,
@@ -170,138 +320,15 @@ class ExecuteCommand:
         *,
         driver_service,
         scenarios: ScenarioManager,
-        build_driver_summary: Callable[[Sequence[str], Path, object], object],
-        render_dry_run_summary: Callable[[object], object],
-        render_execution_summary: Callable[..., object],
+        scenario_selector: ScenarioSelectionService,
+        dry_run_responder: Callable[..., dict[str, object]],
+        execution_responder: Callable[..., dict[str, object]],
     ) -> None:
         self._driver = driver_service
         self._scenarios = scenarios
-        self._build_driver_summary = build_driver_summary
-        self._render_dry_run_summary = render_dry_run_summary
-        self._render_execution_summary = render_execution_summary
-
-    def _failure_invalid_request(
-        self,
-        *,
-        errors: Sequence[str],
-        requested: Sequence[str] | None,
-        command: str,
-        results_root: Path,
-    ) -> CommandResponse:
-        return CommandResponse(
-            exit_code=1,
-            code="invalid_scenarios",
-            message="One or more scenarios not found",
-            details={"errors": list(errors), "requested": list(requested or [])},
-            command=command,
-            results_root=results_root,
-        )
-
-    def _failure_no_matches(
-        self,
-        *,
-        include: Sequence[str] | None,
-        exclude: Sequence[str] | None,
-        command: str,
-        results_root: Path,
-    ) -> CommandResponse:
-        return CommandResponse(
-            exit_code=1,
-            code="no_scenarios_matched",
-            message="No scenarios match the provided filters.",
-            details={
-                "include": include,
-                "exclude": exclude,
-                "results_root": str(results_root),
-            },
-            command=command,
-            results_root=results_root,
-        )
-
-    def _resolve_selected_scenarios(
-        self,
-        args: argparse.Namespace,
-        discovered: Sequence[Path],
-        *,
-        command: str,
-        results_root: Path,
-    ) -> tuple[list[Path] | None, CommandResponse | None]:
-        if args.scenarios:
-            selected, errors = self._driver.resolve_scenario_references(args.scenarios)
-            if errors:
-                return None, self._failure_invalid_request(
-                    errors=errors,
-                    requested=args.scenarios,
-                    command=command,
-                    results_root=results_root,
-                )
-            resolved = [path.resolve() for path in selected]
-        else:
-            resolved = list(
-                self._driver.filter_scenarios(
-                    discovered,
-                    args.include,
-                    args.exclude,
-                )
-            )
-
-        if args.max_scenarios is not None:
-            resolved = resolved[: max(args.max_scenarios, 0)]
-
-        if not resolved:
-            return None, self._failure_no_matches(
-                include=args.include,
-                exclude=args.exclude,
-                command=command,
-                results_root=results_root,
-            )
-
-        return resolved, None
-
-    def _render_dry_run(
-        self,
-        execution: object,
-        *,
-        selected: Sequence[str],
-        command: str,
-        results_root: Path,
-    ) -> CommandResponse:
-        summary_payload = self._build_driver_summary(selected, results_root, execution)
-        dry_render = self._render_dry_run_summary(summary_payload)
-        return CommandResponse(
-            exit_code=execution.exit_code,
-            message="Dry-run completed.",
-            text=getattr(dry_render, "text", None),
-            data=getattr(dry_render, "data", None),
-            command=command,
-            results_root=results_root,
-        )
-
-    def _render_execution(
-        self,
-        execution: object,
-        *,
-        selected: Sequence[str],
-        command: str,
-        results_root: Path,
-        exit_code: int,
-    ) -> CommandResponse:
-        execution_render = self._render_execution_summary(
-            results_root,
-            execution=execution,
-            selected=list(selected),
-        )
-        return CommandResponse(
-            exit_code=exit_code,
-            message=getattr(execution_render, "message", None),
-            text=getattr(execution_render, "text", None),
-            data=getattr(execution_render, "data", None),
-            artifacts=getattr(execution_render, "artifacts", None),
-            errors=getattr(execution_render, "errors", None),
-            success=getattr(execution_render, "success", None),
-            command=command,
-            results_root=results_root,
-        )
+        self._scenario_selector = scenario_selector
+        self._dry_run_responder = dry_run_responder
+        self._execution_responder = execution_responder
 
     def __call__(self, context: CommandContext) -> CommandResponse:
         try:
@@ -325,7 +352,7 @@ class ExecuteCommand:
 
         args = context.args
 
-        selected, failure = self._resolve_selected_scenarios(
+        selected, failure = self._scenario_selector.resolve(
             args,
             discovered,
             command=command_string,
@@ -348,12 +375,13 @@ class ExecuteCommand:
         )
 
         if execution.dry_run:
-            return self._render_dry_run(
+            payload = self._dry_run_responder(
                 execution,
                 selected=selected_names,
                 command=command_string,
                 results_root=results_root,
             )
+            return CommandResponse(**payload)
 
         summary = execution.summary
         exit_code = execution.exit_code
@@ -367,13 +395,14 @@ class ExecuteCommand:
             if args.stop_on_error and exit_code == 0:
                 exit_code = 1
 
-        return self._render_execution(
+        payload = self._execution_responder(
             execution,
             selected=selected_names,
             command=command_string,
             results_root=results_root,
             exit_code=exit_code,
         )
+        return CommandResponse(**payload)
 
 
 @dataclass(frozen=True)
@@ -382,10 +411,10 @@ class CommandDependencies:
     scenario_manager: ScenarioManager
     merge_extends: Callable[[Path], dict]
     validate_scenario_schema: Callable[[dict, str], None]
-    build_driver_summary: Callable[[Sequence[str], Path, object], object]
     render_status_summary: Callable[[Path, Iterable[object]], object]
-    render_execution_summary: Callable[..., object]
-    render_dry_run_summary: Callable[[object], object]
+    scenario_selector: ScenarioSelectionService
+    dry_run_response_builder: Callable[..., dict[str, object]]
+    execution_response_builder: Callable[..., dict[str, object]]
 
 
 def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSpec, ...]:
@@ -402,9 +431,9 @@ def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSp
     execute = ExecuteCommand(
         driver_service=dependencies.driver_service,
         scenarios=dependencies.scenario_manager,
-        build_driver_summary=dependencies.build_driver_summary,
-        render_dry_run_summary=dependencies.render_dry_run_summary,
-        render_execution_summary=dependencies.render_execution_summary,
+        scenario_selector=dependencies.scenario_selector,
+        dry_run_responder=dependencies.dry_run_response_builder,
+        execution_responder=dependencies.execution_response_builder,
     )
 
     return (
