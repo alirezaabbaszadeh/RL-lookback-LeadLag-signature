@@ -1,120 +1,125 @@
-Reproducibility Guide
+# Reproducibility Guide
 
-This guide describes how to reproduce baseline and RL experiments for the LeadLag-signature RL project.
+> **Metadata**
+> - Last updated: 2025-02-15
+> - Maintainer: Experimentation Working Group
+> - Status: Published
+> - Source of truth: `docs/repro.md`
 
-1) Environment
+This guide documents the end-to-end workflow for reproducing baseline and RL experiments in the LeadLag-signature RL project. Follow it in conjunction with the [Hydra configuration reference](config_reference.md) and [Ablation guide](ablation_guide.md).
 
-- Python 3.10 recommended
-- Create Conda environment:
+## Environment setup
 
-```
+```bash
 conda env create -f environment.yml
 conda activate leadlag
 ```
 
-Alternatively, use Docker (see Dockerfile below).
+- Python 3.10 is the validated interpreter across CI, Kaggle, and local development.
+- Optional extras can be installed via `pip install .[rl]`, `pip install .[signature]`, or `pip install .[mlflow]` after activating the environment.
+- `requirements.txt`, `requirements-rl.txt`, and `requirements-kaggle.txt` remain available for fully pinned offline installs.
 
-2) Quick Runs
+## Quick runs with the packaged CLI
 
-- Single scenario (no Hydra installed):
-
-```
-python hydra_main.py --scenario fixed_30 --output_root results
-```
-
-- Multiple scenarios with multi-seed aggregation:
-
-```
-python hydra_main.py --scenarios fixed_30 fixed_90 --multi_seed_enabled --seeds 42 52 62 --output_root results
-```
-
-Artifacts will be written under `results/`.
-
-3) Using Preset Scenarios
-
-- `fixed_30`, `fixed_90`, `dynamic_adaptive`, `rl_ppo`, `fast_smoke` are available in code presets.
-- To see all preset names programmatically:
-
-```
-from hydra_main import get_available_scenarios
-print(get_available_scenarios())
-```
-
-4) Outputs
-
-- Per-run: `config_merged.yaml`, `run_metadata.json`, `data_manifest.json`, `metrics_timeseries.csv`, `summary.csv`, `fig_*.png` (optional), `profiles/*.{pstats,json}`
-- Aggregates (multi-seed): `stats.csv`, `significance.csv`, `welch.csv` (when multiple scenarios compared), `runs.json`
-
-5) Optional MLflow
-
-If `mlflow` is installed, the code logs metrics and artifacts automatically.
-Set `MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_NAME` as needed.
-
-6) Docker
-
-Build image:
-
-```
-docker build -t leadlag-rl:latest .
-```
-
-Run (mount your data directory if needed):
-
-```
-docker run --rm -it -v %CD%:/workspace leadlag-rl:latest \
-  python hydra_main.py --scenario fixed_30 --output_root results
-```
-
-7) Troubleshooting
-
-- Run governance checks before committing results:
-
-```
-python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
-```
-
-- If plotting fails (no display/matplotlib), artifacts still generate; plots are optional.
-- Some advanced features (RL training) require extra dependencies like `stable-baselines3`.
-  Install with `pip install -r requirements-rl.txt` if you plan to run RL.
-- Binary compatibility (NumPy/Pandas): use the provided Conda env (`python=3.10`) or pin
-  to the versions in `requirements.txt`/`requirements-kaggle.txt`. Mixing a new Python
-  release with older wheels is the most common cause of `numpy.dtype size changed` errors.
-- Optional dependencies and skipped tests:
-  - Install `iisignature` to enable signature-specific unit tests (e.g.,
-    `pip install iisignature` or `conda install -c conda-forge iisignature`).
-  - Install the RL stack (`pip install -r requirements-rl.txt`) to enable SB3-related tests.
-  - Rerun `pytest -q` after installing to confirm previously skipped tests now execute.
-- Tests:
-
-```
-pytest -q
-```
-
-8) Repro Steps (<= 10)
-
-1. `conda env create -f environment.yml && conda activate leadlag`
-2. `python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv` (adjust path if custom)
-3. `python hydra_main.py --scenario fixed_30 --output_root results`
-4. Inspect `results/` for artifacts; repeat with `--multi_seed_enabled --seeds 42 52 62` for aggregates.
-5. Optional: set MLflow env, rerun for experiment tracking.
-
-### Scenario Driver CLI (main.py)
-
-For bulk execution across all scenarios and automatic aggregation, use `main.py`:
+Single scenario (uses the descriptor defaults for seeds and outputs artefacts under `results/` by default):
 
 ```bash
-# Execute every scenario under configs/scenarios/
-python main.py --results-root results
-
-# Preview scenarios without running them
-python main.py --dry-run --include rl
-
-# Fail-fast and store logs elsewhere
-python main.py --results-root runs/2024-10-22 --stop-on-error --log-level DEBUG
+leadlag --scenarios fixed_30
 ```
 
-Common flags:
-- `--include/--exclude` filter scenario filenames by substring.
-- `--runner {auto,scenario,dynamic,rl}` forces a specific runner.
-- `--max-scenarios` limits the number of scenarios executed.
-- `--log-path` overrides the default `<results-root>/main.log` location.
+Multiple scenarios with aggregation and explicit output root:
+
+```bash
+leadlag --scenarios fixed_30 rl_ppo --results-root runs/repro
+```
+
+Preview what will run without executing:
+
+```bash
+leadlag --dry-run --format json --include rl
+```
+
+Set `LEADLAG_RESULTS_ROOT` to change the default results directory when `--results-root` is omitted.
+
+## Hydra overrides and scripting
+
+For Hydra-style overrides (custom seeds, inline descriptors, parameter sweeps) call the module directly:
+
+```bash
+python -m leadlag.hydra_main \
+  scenario=fixed_30 \
+  multi_seed.enabled=true \
+  multi_seed.seeds='[42, 52, 62]' \
+  output_root=results/fixed_30_multiseed
+```
+
+Additional examples:
+
+```bash
+# Run sequential scenarios defined inline
+python -m leadlag.hydra_main \
+  scenarios='[fixed_30, rl_ppo]' \
+  output_root=results/batch
+
+# Validate a scenario without executing it
+python -m leadlag.hydra_main --cfg job --resolve
+```
+
+Artefacts per run include `config_merged.yaml`, `run_metadata.json`, `data_manifest.json`, `metrics_timeseries.csv`, `summary.csv`, and optional figures or profiling data. When multi-seed aggregation is enabled, Hydra also produces `stats.csv`, `significance.csv`, `welch.csv`, and `runs.json`.
+
+## Optional MLflow integration
+
+When `mlflow` is installed, the orchestration layer logs metrics and artefacts automatically. Configure the target instance via:
+
+```bash
+export MLFLOW_TRACKING_URI=<tracking-url>
+export MLFLOW_EXPERIMENT_NAME="LeadLag Signature"
+```
+
+Re-run the desired scenario commands and the CLI will stream metrics to the configured experiment.
+
+## Docker workflow
+
+```bash
+docker build -t leadlag-rl:latest .
+docker run --rm -it \
+  -v "$(pwd)":/workspace \
+  leadlag-rl:latest \
+  leadlag --scenarios fixed_30 --results-root /workspace/results
+```
+
+Mount additional data volumes or override the entry command as needed.
+
+## Troubleshooting checklist
+
+- **Dataset quality**: `python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv`
+- **Governance manifests**: ensure `data_manifest.json` exists per run before promoting results.
+- **Plotting issues**: plots are optional; headless environments still produce CSV outputs.
+- **Optional dependencies**: install `iisignature` for signature-specific tests and `pip install -r requirements-rl.txt` for Stable-Baselines3 scenarios.
+- **Binary compatibility**: stick to the provided Conda environment or dependency pins to avoid `numpy.dtype size changed` errors.
+- **Tests**: `pytest -q` verifies that optional dependencies are wired correctly once installed.
+
+## End-to-end reproducibility checklist
+
+1. `conda env create -f environment.yml && conda activate leadlag`
+2. `python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv`
+3. `leadlag --scenarios fixed_30 --results-root results`
+4. Inspect `results/` for artefacts; re-run with Hydra overrides if custom seeds or paths are required.
+5. (Optional) Configure MLflow variables and re-run scenarios to log experiments.
+
+## Scenario Driver CLI (`leadlag`)
+
+For bulk execution across all descriptors and aggregation tooling, rely on the packaged command:
+
+```bash
+# Execute every scenario discovered in configs/scenario/
+leadlag --results-root results
+
+# Preview scenarios without running them
+leadlag --dry-run --include rl
+
+# Fail-fast and store logs elsewhere
+leadlag --results-root runs/2024-10-22 --stop-on-error --log-level DEBUG
+```
+
+The CLI writes structured logs to `<results-root>/main.log` and renders JSON envelopes when `--format json` is set, making it suitable for automation in CI or Kaggle notebooks.

@@ -10,8 +10,8 @@
 
 ## Reproduce
 ```bash
-python hydra_main.py --scenarios fixed_30 rl_ppo --multi_seed_enabled --seeds 42 52 62 --output_root results/manual
-python reporting/compare_scenarios.py --aggregate results/manual/fixed_30_aggregate
+leadlag --scenarios fixed_30 rl_ppo --results-root results/manual
+python -m leadlag.reporting.compare_scenarios --aggregate results/manual/fixed_30_aggregate
 ```
 
 ## Outcome

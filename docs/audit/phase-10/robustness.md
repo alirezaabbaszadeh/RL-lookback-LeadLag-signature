@@ -11,7 +11,7 @@
   ```bash
   python scripts/audit/check_walk_forward.py --scenario fixed_30
   python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv
-  python hydra_main.py --scenarios fixed_30 research_full --multi_seed_enabled --seeds 42 52 62
+  leadlag --scenarios fixed_30 research_full --results-root results/manual
   ```
   The outputs are stored in `docs/audit/phase-2/` and `results/aggregate/`, providing traceable evidence.
 
