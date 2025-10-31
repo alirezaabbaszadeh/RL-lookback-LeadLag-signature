@@ -1,7 +1,7 @@
 # Documentation Standards
 
 > **Metadata**
-> - Last updated: 2025-10-31
+> - Last updated: 2025-11-01
 > - Maintainer: Documentation Working Group
 > - Status: Draft for feedback
 > - Source of truth: `docs/standards.md`
@@ -100,6 +100,67 @@ If new terminology is introduced, add it to this section to prevent drift across
   within the metadata block.
 - Retire or archive files by adding a `Status: Deprecated` annotation in the metadata and linking to
   the replacement resource.
+
+## Proposed documentation and reporting hierarchy
+
+To reduce sprawl and clarify ownership, the following captures the current structure under `docs/` and
+`reports/`, then outlines the proposed folder hierarchy to consolidate related content.
+
+```text
+docs/
+├── ablation_guide.md
+├── advanced_research_plan.md
+├── audit/
+│   ├── phase-0/
+│   ├── phase-1/
+│   └── … (phases 2–12)
+├── config_reference.md
+├── data_preprocessing.md
+├── deployment/
+├── documentation_inventory.md
+├── evaluation_visuals.md
+├── future_roadmap.pseudo
+├── kaggle_artifacts.md
+├── metrics_dictionary.md
+├── repro.md
+├── standards.md (this document)
+└── standards_feedback_request.md
+
+reports/
+├── appendix.md
+├── final_report.md
+└── final_report.pdf
+```
+
+### Target layout
+
+| Proposed Path            | Purpose / Expected Contents                                             | Current Assets to Migrate                             | Notes |
+| ------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------- | ----- |
+| `docs/guides/`           | Step-by-step guides, runbooks, and onboarding material.                | `ablation_guide.md`, `repro.md`, `data_preprocessing.md` | Create index page `docs/guides/README.md` summarising available guides. |
+| `docs/reference/`        | Configuration and terminology references.                              | `config_reference.md`, `metrics_dictionary.md`        | Ensure tables align with reference formatting guidelines. |
+| `docs/roadmap/`          | Forward-looking plans and decision records.                            | `future_roadmap.pseudo`, `advanced_research_plan.md`, contents of `docs/adr/` | Convert roadmap pseudo-file to Markdown during migration. |
+| `docs/audit/`            | (Retained) Phase-by-phase audit records.                               | Existing `docs/audit/phase-*` directories             | Introduce index file with navigation between phases. |
+| `docs/deployment/`       | (Retained) Environment-specific deployment guides.                     | Existing deployment subfolders                        | No structural change required; ensure metadata conforms. |
+| `docs/inventory/`        | Meta-documentation, inventories, standards, and governance material.   | `documentation_inventory.md`, `standards.md`, `standards_feedback_request.md` | Consider renaming `documentation_inventory.md` to `index.md` for clarity. |
+| `docs/archives/`         | Deprecated or superseded documents kept for historical context.        | Stale versions flagged during audit reviews           | Apply `Status: Deprecated` metadata upon relocation. |
+| `reports/current/`       | Active campaign reports and appendices.                                | `final_report.md`, `appendix.md`, `final_report.pdf`  | Add README detailing campaign identifiers and data vintage. |
+| `reports/archives/`      | Prior campaign reports and supporting materials.                       | Older PDF/Markdown once superseded by new campaigns   | Naming convention `YYYY-QX-<descriptor>.md` recommended. |
+
+### Migration and rename checklist
+
+- Relocate narrative guides into `docs/guides/`, creating new Markdown index and updating relative
+  links in each moved file.
+- Move configuration/terminology references into `docs/reference/`, adjusting cross-links from other
+  documents (e.g., deployment guides) accordingly.
+- Consolidate planning artefacts under `docs/roadmap/` and rename `future_roadmap.pseudo` to
+  `future_roadmap.md` during the migration, ensuring metadata and heading format compliance.
+- Group governance and standards documentation under `docs/inventory/`, renaming
+  `documentation_inventory.md` to `index.md` to serve as the folder landing page.
+- Establish `reports/current/` for active reports and create `reports/archives/` for historical
+  campaigns; update generation scripts and metadata references (such as in `docs/standards.md`) to
+  reflect the new paths.
+- For any assets relocated to `docs/archives/`, append a `Status: Deprecated` metadata entry and link
+  back to the replacement location within the document body.
 
 ## Feedback workflow
 
