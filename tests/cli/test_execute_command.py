@@ -8,8 +8,13 @@ from leadlag.cli.commands import (
     CommandContext,
     CommandResponse,
     ExecuteCommand,
+    ExecutionPlan,
+    ExecutionResponseHandler,
+    ExecutionSetup,
+    ScenarioDiscovery,
     ScenarioManager,
 )
+from leadlag.cli.responders import DryRunResponder, ExecutionResponder
 
 
 class DummyLogger:
@@ -156,12 +161,21 @@ def test_execute_command_dry_run_uses_builder(tmp_path):
         execute_scenarios=execute_scenarios,
     )
 
-    command = ExecuteCommand(
+    discovery = ScenarioDiscovery(scenario_manager)
+    setup = ExecutionSetup(
         driver_service=driver_service,
-        scenarios=scenario_manager,
         scenario_selector=selector,
+    )
+    responder = ExecutionResponseHandler(
         dry_run_responder=dry_builder,
         execution_responder=exec_builder,
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
 
     response = command(_context(args))
@@ -207,12 +221,21 @@ def test_execute_command_success_uses_execution_responder(tmp_path):
         execute_scenarios=execute_scenarios,
     )
 
-    command = ExecuteCommand(
+    discovery = ScenarioDiscovery(scenario_manager)
+    setup = ExecutionSetup(
         driver_service=driver_service,
-        scenarios=scenario_manager,
         scenario_selector=selector,
+    )
+    responder = ExecutionResponseHandler(
         dry_run_responder=dry_builder,
         execution_responder=exec_builder,
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
 
     response = command(_context(args))
@@ -243,12 +266,21 @@ def test_execute_command_returns_selection_failure(tmp_path):
         execute_scenarios=lambda *args, **kwargs: SimpleNamespace(),
     )
 
-    command = ExecuteCommand(
+    discovery = ScenarioDiscovery(scenario_manager)
+    setup = ExecutionSetup(
         driver_service=driver_service,
-        scenarios=scenario_manager,
         scenario_selector=selector,
+    )
+    responder = ExecutionResponseHandler(
         dry_run_responder=dry_builder,
         execution_responder=exec_builder,
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
 
     response = command(_context(args))
@@ -273,12 +305,21 @@ def test_execute_command_returns_shared_response_when_no_scenarios(tmp_path):
         execute_scenarios=lambda *args, **kwargs: SimpleNamespace(),
     )
 
-    command = ExecuteCommand(
+    discovery = ScenarioDiscovery(scenario_manager)
+    setup = ExecutionSetup(
         driver_service=driver_service,
-        scenarios=scenario_manager,
         scenario_selector=selector,
+    )
+    responder = ExecutionResponseHandler(
         dry_run_responder=dry_builder,
         execution_responder=exec_builder,
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
 
     response = command(_context(args))
@@ -292,3 +333,141 @@ def test_execute_command_returns_shared_response_when_no_scenarios(tmp_path):
     assert selector.calls == []
     assert dry_builder.calls == []
     assert exec_builder.calls == []
+
+
+def test_execution_response_handler_returns_dry_run_payload(tmp_path):
+    logger = DummyLogger()
+
+    def build_driver_summary(selected, results_root, execution):
+        return SimpleNamespace(text="dry text", data={"selected": list(selected)})
+
+    def render_dry_run_summary(summary):
+        return summary
+
+    def render_execution_summary(*args, **kwargs):
+        raise AssertionError("Execution responder should not be called")
+
+    handler = ExecutionResponseHandler(
+        dry_run_responder=DryRunResponder(
+            build_driver_summary=build_driver_summary,
+            render_dry_run_summary=render_dry_run_summary,
+        ),
+        execution_responder=ExecutionResponder(
+            render_execution_summary=render_execution_summary,
+        ),
+    )
+
+    plan = ExecutionPlan(
+        command="leadlag --dry-run",
+        results_root=tmp_path,
+        logger=logger,
+        options=SimpleNamespace(),
+        selected=[tmp_path / "alpha.yaml"],
+        selected_names=["alpha"],
+    )
+    execution = SimpleNamespace(dry_run=True, exit_code=0)
+    args = Namespace(stop_on_error=False)
+
+    response = handler(execution, plan=plan, args=args)
+
+    assert response.exit_code == 0
+    assert response.message == "Dry-run completed."
+    assert response.data == {"selected": ["alpha"]}
+
+
+def test_execution_response_handler_handles_success(tmp_path):
+    logger = DummyLogger()
+
+    def build_driver_summary(selected, results_root, execution):
+        return SimpleNamespace(text="dry text", data={"selected": list(selected)})
+
+    def render_dry_run_summary(summary):
+        return summary
+
+    def render_execution_summary(results_root, *, execution, selected):
+        return SimpleNamespace(
+            message="executed",
+            text="executed text",
+            data={"selected": selected},
+            success=True,
+        )
+
+    handler = ExecutionResponseHandler(
+        dry_run_responder=DryRunResponder(
+            build_driver_summary=build_driver_summary,
+            render_dry_run_summary=render_dry_run_summary,
+        ),
+        execution_responder=ExecutionResponder(
+            render_execution_summary=render_execution_summary,
+        ),
+    )
+
+    plan = ExecutionPlan(
+        command="leadlag",
+        results_root=tmp_path,
+        logger=logger,
+        options=SimpleNamespace(),
+        selected=[tmp_path / "alpha.yaml"],
+        selected_names=["alpha"],
+    )
+    execution = SimpleNamespace(
+        dry_run=False,
+        exit_code=0,
+        summary=[SimpleNamespace(status="success")],
+    )
+    args = Namespace(stop_on_error=False)
+
+    response = handler(execution, plan=plan, args=args)
+
+    assert response.exit_code == 0
+    assert response.message == "executed"
+    assert response.data == {"selected": ["alpha"]}
+    assert logger.warnings == []
+
+
+def test_execution_response_handler_adjusts_exit_code_on_failures(tmp_path):
+    logger = DummyLogger()
+
+    def build_driver_summary(selected, results_root, execution):
+        return SimpleNamespace(text="dry text", data={"selected": list(selected)})
+
+    def render_dry_run_summary(summary):
+        return summary
+
+    def render_execution_summary(results_root, *, execution, selected):
+        return SimpleNamespace(
+            message="executed",
+            text="executed text",
+            data={"selected": selected},
+            errors=["boom"],
+        )
+
+    handler = ExecutionResponseHandler(
+        dry_run_responder=DryRunResponder(
+            build_driver_summary=build_driver_summary,
+            render_dry_run_summary=render_dry_run_summary,
+        ),
+        execution_responder=ExecutionResponder(
+            render_execution_summary=render_execution_summary,
+        ),
+    )
+
+    plan = ExecutionPlan(
+        command="leadlag",
+        results_root=tmp_path,
+        logger=logger,
+        options=SimpleNamespace(),
+        selected=[tmp_path / "alpha.yaml"],
+        selected_names=["alpha"],
+    )
+    execution = SimpleNamespace(
+        dry_run=False,
+        exit_code=0,
+        summary=[SimpleNamespace(status="failed")],
+    )
+    args = Namespace(stop_on_error=True)
+
+    response = handler(execution, plan=plan, args=args)
+
+    assert response.exit_code == 1
+    assert logger.warnings == [("Some scenarios did not complete successfully", {"failures": 1})]

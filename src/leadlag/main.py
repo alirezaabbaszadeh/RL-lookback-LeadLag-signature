@@ -16,6 +16,7 @@ from leadlag.cli.errors import ERROR_UNKNOWN, emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.cli import commands as cli_commands
 from leadlag.cli.dependencies import DriverService, build_driver_service
+from leadlag.cli.responders import DryRunResponder, ExecutionResponder
 from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
 
 
@@ -63,11 +64,11 @@ class LeadLagCLI:
             scenario_selector = cli_commands.ScenarioSelectionService(
                 driver_service=self._driver_service
             )
-            dry_run_builder = cli_commands.DryRunResponseBuilder(
+            dry_run_builder = DryRunResponder(
                 build_driver_summary=build_driver_summary,
                 render_dry_run_summary=render_dry_run_summary,
             )
-            execution_builder = cli_commands.ExecutionResponseBuilder(
+            execution_builder = ExecutionResponder(
                 render_execution_summary=render_execution_summary,
             )
             dependencies = cli_commands.CommandDependencies(

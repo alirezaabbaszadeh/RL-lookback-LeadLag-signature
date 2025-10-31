@@ -7,6 +7,7 @@ from pathlib import Path
 from leadlag import main as cli_main
 from leadlag.cli import commands as cli_commands
 from leadlag.cli.dependencies import build_driver_service
+from leadlag.cli.responders import DryRunResponder, ExecutionResponder
 from leadlag.driver.logging import (
     build_driver_summary,
     render_dry_run_summary,
@@ -221,17 +222,25 @@ def test_execute_dry_run(tmp_path):
         execute_scenarios=lambda selected, options, logger=None: execution_result,
     )
 
-    command = cli_commands.ExecuteCommand(
+    discovery = cli_commands.ScenarioDiscovery(scenario_manager)
+    setup = cli_commands.ExecutionSetup(
         driver_service=service,
-        scenarios=scenario_manager,
         scenario_selector=cli_commands.ScenarioSelectionService(driver_service=service),
-        dry_run_responder=cli_commands.DryRunResponseBuilder(
+    )
+    responder = cli_commands.ExecutionResponseHandler(
+        dry_run_responder=DryRunResponder(
             build_driver_summary=build_driver_summary,
             render_dry_run_summary=render_dry_run_summary,
         ),
-        execution_responder=cli_commands.ExecutionResponseBuilder(
+        execution_responder=ExecutionResponder(
             render_execution_summary=render_execution_summary,
         ),
+    )
+    command = cli_commands.ExecuteCommand(
+        driver_service=service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -302,17 +311,25 @@ def test_execute_full_run(tmp_path):
         execute_scenarios=lambda selected, options, logger=None: execution_result,
     )
 
-    command = cli_commands.ExecuteCommand(
+    discovery = cli_commands.ScenarioDiscovery(scenario_manager)
+    setup = cli_commands.ExecutionSetup(
         driver_service=service,
-        scenarios=scenario_manager,
         scenario_selector=cli_commands.ScenarioSelectionService(driver_service=service),
-        dry_run_responder=cli_commands.DryRunResponseBuilder(
+    )
+    responder = cli_commands.ExecutionResponseHandler(
+        dry_run_responder=DryRunResponder(
             build_driver_summary=build_driver_summary,
             render_dry_run_summary=render_dry_run_summary,
         ),
-        execution_responder=cli_commands.ExecutionResponseBuilder(
+        execution_responder=ExecutionResponder(
             render_execution_summary=render_execution_summary,
         ),
+    )
+    command = cli_commands.ExecuteCommand(
+        driver_service=service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
     context = cli_commands.CommandContext(
         args=args,
