@@ -67,12 +67,12 @@ def test_execute_scenarios_success_runs_and_aggregates(
     assert aggregate_calls == [results_root]
     assert result.aggregate == results_root / "aggregate"
     assert result.summary == [
-        {
-            "scenario": "alpha",
-            "status": "success",
-            "output": str(results_root / "alpha_20240101_000000"),
-            "runner": "dynamic",
-        }
+        service.ScenarioResult(
+            scenario="alpha",
+            status="success",
+            runner="dynamic",
+            output=str(results_root / "alpha_20240101_000000"),
+        )
     ]
     assert result.errors == []
     assert result.exit_code == 0
@@ -102,12 +102,12 @@ def test_execute_scenarios_failure_stops_when_requested(
     assert result.exit_code == 1
     assert result.aborted is True
     assert result.summary == [
-        {
-            "scenario": "alpha",
-            "status": "load_failed",
-            "runner": None,
-            "error": "bad config",
-        }
+        service.ScenarioResult(
+            scenario="alpha",
+            status="load_failed",
+            runner=None,
+            error="bad config",
+        )
     ]
     assert result.errors[0]["code"] == "scenario_load_failed"
 
@@ -133,7 +133,7 @@ def test_execute_scenarios_dry_run_logs_entries(
     assert result.dry_run is True
     assert result.summary == []
     assert result.exit_code == 0
-    assert [entry["name"] for entry in result.dry_run_entries] == ["alpha"]
+    assert [entry.name for entry in result.dry_run_entries] == ["alpha"]
     dry_messages = [msg for level, msg, _ in logger.records if level == "info"]
     assert any("[dry-run]" in msg for msg in dry_messages)
 
@@ -156,7 +156,7 @@ def test_collect_status_reports_runs(tmp_path: Path) -> None:
 
     runs = service.collect_status(results_root)
 
-    statuses = {entry["run_dir"]: entry["status"] for entry in runs}
+    statuses = {entry.run_dir: entry.status for entry in runs}
     assert str(aggregate_dir) in statuses and statuses[str(aggregate_dir)] == "aggregate"
     assert statuses[str(success)] == "success"
     assert statuses[str(empty)] == "empty"
@@ -190,3 +190,67 @@ def test_execute_scenarios_aggregation_failure_recorded(
     assert result.errors and result.errors[0]["code"] == "aggregation_failed"
     assert result.exit_code == 0
     assert result.aborted is False
+
+
+def test_structured_models_serialize_to_expected_payloads(
+    tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_root = tmp_path / "results"
+
+    monkeypatch.setattr(
+        service,
+        "_merge_extends",
+        lambda *_args, **_kwargs: {
+            "run": {"run_name": "alpha"},
+            "dynamic": {},
+        },
+    )
+    monkeypatch.setattr(service, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        service,
+        "_execute_runner",
+        lambda *_args, **_kwargs: (results_root / "alpha_run").mkdir(parents=True)
+        or results_root / "alpha_run",
+    )
+    monkeypatch.setattr(service, "aggregate", lambda root: Path(root) / "aggregate")
+
+    logger = DummyLogger()
+    options = service.ExecutionOptions(results_root=results_root)
+    result = service.execute_scenarios([scenario_file], options, logger=logger)
+
+    summary_payloads = [entry.to_payload() for entry in result.summary]
+    assert summary_payloads == [
+        {
+            "scenario": "alpha",
+            "status": "success",
+            "runner": "dynamic",
+            "output": str(results_root / "alpha_run"),
+        }
+    ]
+    assert list(summary_payloads[0].keys()) == [
+        "scenario",
+        "status",
+        "runner",
+        "output",
+    ]
+
+    driver_summary = service.DriverSummary(
+        selected=["alpha"],
+        results_root=str(results_root),
+        summary=result.summary,
+        aggregate=str(results_root / "aggregate"),
+        dry_run=False,
+    )
+    driver_payload = driver_summary.to_payload()
+    assert list(driver_payload.keys()) == [
+        "selected",
+        "results_root",
+        "summary",
+        "aggregate",
+        "dry_run",
+    ]
+    assert driver_payload["summary"] == summary_payloads
+
+    status_entries = service.collect_status(results_root)
+    status_payloads = [entry.to_payload() for entry in status_entries]
+    assert all("run_dir" in payload and "status" in payload for payload in status_payloads)

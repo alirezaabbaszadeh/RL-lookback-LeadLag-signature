@@ -1,8 +1,12 @@
 """Driver service utilities for LeadLag scenario execution."""
 
 from .service import (
+    DriverSummary,
     ExecutionOptions,
     ExecutionResult,
+    RunStatusEntry,
+    ScenarioResult,
+    ScenarioSelection,
     collect_status,
     discover_scenarios,
     execute_scenarios,
@@ -13,8 +17,12 @@ from .service import (
 )
 
 __all__ = [
+    "DriverSummary",
     "ExecutionOptions",
     "ExecutionResult",
+    "RunStatusEntry",
+    "ScenarioResult",
+    "ScenarioSelection",
     "collect_status",
     "discover_scenarios",
     "execute_scenarios",
