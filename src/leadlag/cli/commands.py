@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence
 
+from leadlag.cli.dependencies import DriverService
+
 
 class NoScenariosAvailable(RuntimeError):
     """Raised when packaged scenarios cannot be discovered."""
@@ -304,7 +306,7 @@ class ExecuteCommand:
 
 @dataclass(frozen=True)
 class CommandDependencies:
-    driver_service: object
+    driver_service: DriverService
     scenario_manager: ScenarioManager
     merge_extends: Callable[[Path], dict]
     validate_scenario_schema: Callable[[dict, str], None]

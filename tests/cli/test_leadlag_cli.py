@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from dataclasses import replace
 from pathlib import Path
 
 from leadlag import main as cli_main
 from leadlag.cli import commands as cli_commands
+from leadlag.cli.dependencies import build_driver_service
 
 
 class DummyLogger:
@@ -68,28 +70,19 @@ def test_cli_dispatch_converts_response(tmp_path):
     assert result.payload["command"] == "leadlag"
 
 
-def test_validate_success(monkeypatch, tmp_path):
+def test_validate_success(tmp_path):
     args = _base_args(tmp_path, validate="demo")
     scenario_path = tmp_path / "demo.yaml"
-
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "resolve_scenario_reference",
-        lambda value: scenario_path,
-    )
-    monkeypatch.setattr(cli_main, "_merge_extends", lambda path: {"config": True})
 
     validated: dict[str, object] = {}
 
     def _validate(config, scenario):
         validated["scenario"] = scenario
 
-    monkeypatch.setattr(cli_main, "_validate_scenario_schema", _validate)
-
     command = cli_commands.ValidateCommand(
-        resolve_scenario_reference=cli_main.driver_service.resolve_scenario_reference,
-        merge_extends=cli_main._merge_extends,
-        validate_scenario_schema=cli_main._validate_scenario_schema,
+        resolve_scenario_reference=lambda value: scenario_path,
+        merge_extends=lambda path: {"config": True},
+        validate_scenario_schema=_validate,
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -104,20 +97,14 @@ def test_validate_success(monkeypatch, tmp_path):
     assert validated["scenario"] == "demo"
 
 
-def test_validate_failure(monkeypatch, tmp_path):
+def test_validate_failure(tmp_path):
     args = _base_args(tmp_path, validate="broken")
 
     def _raise(_value):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "resolve_scenario_reference",
-        _raise,
-    )
-
     command = cli_commands.ValidateCommand(
-        resolve_scenario_reference=cli_main.driver_service.resolve_scenario_reference,
+        resolve_scenario_reference=_raise,
         merge_extends=cli_main._merge_extends,
         validate_scenario_schema=cli_main._validate_scenario_schema,
     )
@@ -133,14 +120,8 @@ def test_validate_failure(monkeypatch, tmp_path):
     assert result.code == "scenario_validation_failed"
 
 
-def test_status_summary(monkeypatch, tmp_path):
+def test_status_summary(tmp_path):
     args = _base_args(tmp_path)
-
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "collect_status",
-        lambda root: ["status"],
-    )
 
     class DummyStatus:
         def __init__(self) -> None:
@@ -149,15 +130,9 @@ def test_status_summary(monkeypatch, tmp_path):
             self.errors = None
             self.success = True
 
-    monkeypatch.setattr(
-        cli_main,
-        "render_status_summary",
-        lambda root, runs: DummyStatus(),
-    )
-
     command = cli_commands.StatusCommand(
-        collect_status=cli_main.driver_service.collect_status,
-        render_status_summary=cli_main.render_status_summary,
+        collect_status=lambda root: ["status"],
+        render_status_summary=lambda root, runs: DummyStatus(),
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -190,34 +165,28 @@ def test_list_discovers_scenarios(monkeypatch, tmp_path):
     assert "alpha\nbeta" == result.text
 
 
-def test_execute_dry_run(monkeypatch, tmp_path):
+def test_execute_dry_run(tmp_path):
     args = _base_args(tmp_path, dry_run=True)
 
     scenarios = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
     scenario_manager = cli_commands.ScenarioManager(lambda: scenarios)
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "filter_scenarios",
-        lambda discovered, include, exclude: list(discovered),
-    )
+    service = build_driver_service()
 
     def _prepare(_args):
         prepared_root = tmp_path / "results"
-        options = cli_main.driver_service.ExecutionOptions(
+        options = service.ExecutionOptions(
             results_root=prepared_root,
             runner_preference=_args.runner,
             skip_existing=_args.skip_existing,
             stop_on_error=_args.stop_on_error,
             dry_run=_args.dry_run,
         )
-        return cli_main.driver_service.ExecutionSetup(
+        return service.ExecutionSetup(
             results_root=prepared_root,
             logger=DummyLogger(),
             options=options,
             command="leadlag --dry-run",
         )
-
-    monkeypatch.setattr(cli_main.driver_service, "prepare_execution", _prepare)
 
     class DummyExecution:
         dry_run = True
@@ -228,22 +197,19 @@ def test_execute_dry_run(monkeypatch, tmp_path):
         exit_code = 0
         aborted = False
 
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "execute_scenarios",
-        lambda selected, options, logger=None: DummyExecution(),
-    )
-
-    monkeypatch.setattr(
-        cli_main,
-        "render_dry_run_summary",
-        lambda payload: Namespace(data={"selected": payload.selected}, text="dry"),
+    service = replace(
+        service,
+        filter_scenarios=lambda discovered, include, exclude: list(discovered),
+        prepare_execution=_prepare,
+        execute_scenarios=lambda selected, options, logger=None: DummyExecution(),
     )
 
     command = cli_commands.ExecuteCommand(
-        driver_service=cli_main.driver_service,
+        driver_service=service,
         scenarios=scenario_manager,
-        render_dry_run_summary=cli_main.render_dry_run_summary,
+        render_dry_run_summary=lambda payload: Namespace(
+            data={"selected": payload.selected}, text="dry"
+        ),
         render_execution_summary=cli_main.render_execution_summary,
     )
     context = cli_commands.CommandContext(
@@ -261,40 +227,34 @@ def test_execute_dry_run(monkeypatch, tmp_path):
     assert result.results_root == (tmp_path / "results").resolve()
 
 
-def test_execute_full_run(monkeypatch, tmp_path):
+def test_execute_full_run(tmp_path):
     args = _base_args(tmp_path)
 
     scenarios = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
     scenario_manager = cli_commands.ScenarioManager(lambda: scenarios)
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "filter_scenarios",
-        lambda discovered, include, exclude: [discovered[0]],
-    )
+    service = build_driver_service()
 
     def _prepare(_args):
         prepared_root = tmp_path / "results"
-        options = cli_main.driver_service.ExecutionOptions(
+        options = service.ExecutionOptions(
             results_root=prepared_root,
             runner_preference=_args.runner,
             skip_existing=_args.skip_existing,
             stop_on_error=_args.stop_on_error,
             dry_run=_args.dry_run,
         )
-        return cli_main.driver_service.ExecutionSetup(
+        return service.ExecutionSetup(
             results_root=prepared_root,
             logger=DummyLogger(),
             options=options,
             command="leadlag",
         )
 
-    monkeypatch.setattr(cli_main.driver_service, "prepare_execution", _prepare)
-
     class DummyExecution:
         dry_run = False
         dry_run_entries: list = []
         summary = [
-            cli_main.driver_service.ScenarioResult(
+            service.ScenarioResult(
                 scenario="alpha",
                 status="success",
                 runner="auto",
@@ -306,10 +266,11 @@ def test_execute_full_run(monkeypatch, tmp_path):
         exit_code = 0
         aborted = False
 
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "execute_scenarios",
-        lambda selected, options, logger=None: DummyExecution(),
+    service = replace(
+        service,
+        filter_scenarios=lambda discovered, include, exclude: [discovered[0]],
+        prepare_execution=_prepare,
+        execute_scenarios=lambda selected, options, logger=None: DummyExecution(),
     )
 
     class DummyRender:
@@ -334,17 +295,11 @@ def test_execute_full_run(monkeypatch, tmp_path):
             self.errors = None
             self.success = True
 
-    monkeypatch.setattr(
-        cli_main,
-        "render_execution_summary",
-        lambda root, **kwargs: DummyRender(),
-    )
-
     command = cli_commands.ExecuteCommand(
-        driver_service=cli_main.driver_service,
+        driver_service=service,
         scenarios=scenario_manager,
         render_dry_run_summary=cli_main.render_dry_run_summary,
-        render_execution_summary=cli_main.render_execution_summary,
+        render_execution_summary=lambda root, **kwargs: DummyRender(),
     )
     context = cli_commands.CommandContext(
         args=args,

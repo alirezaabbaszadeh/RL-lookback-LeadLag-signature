@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import sys
 import types
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
+
+from leadlag.driver import execution
 
 scipy_stub = types.ModuleType("scipy")
 stats_stub = types.ModuleType("scipy.stats")
@@ -90,8 +93,7 @@ try:  # pragma: no cover - dependency guard for optional pandas wheels
 except ValueError as exc:
     pytest.skip(f"Dependency import failed: {exc}", allow_module_level=True)
 
-
-driver_service = main.driver_service
+from leadlag.cli.dependencies import build_driver_service
 
 
 class DummyLogger:
@@ -120,10 +122,12 @@ def cli_env(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
+    base_service = build_driver_service()
+
     def fake_prepare_execution(args):
         results_root = Path(args.results_root).expanduser().resolve()
         results_root.mkdir(parents=True, exist_ok=True)
-        options = driver_service.ExecutionOptions(
+        options = base_service.ExecutionOptions(
             results_root=results_root,
             runner_preference=args.runner,
             skip_existing=args.skip_existing,
@@ -131,16 +135,16 @@ def cli_env(tmp_path, monkeypatch):
             dry_run=args.dry_run,
         )
         command = getattr(args, "_leadlag_command", "leadlag")
-        return driver_service.ExecutionSetup(
+        return base_service.ExecutionSetup(
             results_root=results_root,
             logger=dummy_logger,
             options=options,
             command=command,
         )
 
-    monkeypatch.setattr(driver_service, "prepare_execution", fake_prepare_execution)
+    service = replace(base_service, prepare_execution=fake_prepare_execution)
 
-    return tmp_path, config_dir, dummy_logger
+    return tmp_path, config_dir, dummy_logger, service
 
 
 def _write_basic_scenario(path: Path, *, run_name: str | None = None) -> None:
@@ -163,33 +167,36 @@ def _write_basic_scenario(path: Path, *, run_name: str | None = None) -> None:
 
 
 def test_match_filters_basic():
-    assert driver_service.matches_filters("alpha", include=["alp"], exclude=None)
-    assert not driver_service.matches_filters("beta", include=["alp"], exclude=None)
-    assert not driver_service.matches_filters("alpha", include=None, exclude=["alp"])
-    assert driver_service.matches_filters("alpha", include=None, exclude=["zzz"])
+    service = build_driver_service()
+    assert service.matches_filters("alpha", include=["alp"], exclude=None)
+    assert not service.matches_filters("beta", include=["alp"], exclude=None)
+    assert not service.matches_filters("alpha", include=None, exclude=["alp"])
+    assert service.matches_filters("alpha", include=None, exclude=["zzz"])
 
 
 def test_discover_scenarios_sorted(cli_env):
-    _, config_dir, _ = cli_env
+    _, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "b.yaml", run_name="b")
     _write_basic_scenario(config_dir / "a.yaml", run_name="a")
     (config_dir / "ignored.txt").write_text("ignore", encoding="utf-8")
 
-    scenarios = driver_service.discover_scenarios()
+    scenarios = service.discover_scenarios()
     assert [path.name for path in scenarios] == ["a.yaml", "b.yaml"]
 
 
-def test_main_dry_run_filters(cli_env, monkeypatch):
-    _, config_dir, logger = cli_env
+def test_main_dry_run_filters(cli_env):
+    _, config_dir, logger, service = cli_env
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
     _write_basic_scenario(config_dir / "beta.yaml", run_name="beta")
 
     def fail_aggregate(_root: str) -> Path:  # pragma: no cover - should never run
         raise AssertionError("aggregate must not run during dry-run")
 
-    monkeypatch.setattr(driver_service, "aggregate", fail_aggregate)
+    service = replace(service, aggregate=fail_aggregate)
 
-    exit_code = main.main(["--dry-run", "--include", "alpha"])
+    exit_code = main.main(
+        ["--dry-run", "--include", "alpha"], build_driver_service=lambda: service
+    )
     assert exit_code == 0
 
     dry_run_messages = [
@@ -199,7 +206,7 @@ def test_main_dry_run_filters(cli_env, monkeypatch):
 
 
 def test_main_list_outputs_names(cli_env, capsys):
-    _, config_dir, _ = cli_env
+    _, config_dir, _, _service = cli_env
     _write_basic_scenario(config_dir / "beta.yaml", run_name="beta")
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
 
@@ -212,11 +219,11 @@ def test_main_list_outputs_names(cli_env, capsys):
 
 
 def test_main_list_json(cli_env, capsys):
-    _, config_dir, _ = cli_env
+    _, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "beta.yaml", run_name="beta")
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
 
-    exit_code = main.main(["--list", "--json"])
+    exit_code = main.main(["--list", "--json"], build_driver_service=lambda: service)
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -226,11 +233,13 @@ def test_main_list_json(cli_env, capsys):
 
 
 def test_main_list_format_json(cli_env, capsys):
-    _, config_dir, _ = cli_env
+    _, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "beta.yaml", run_name="beta")
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
 
-    exit_code = main.main(["--list", "--format", "json"])
+    exit_code = main.main(
+        ["--list", "--format", "json"], build_driver_service=lambda: service
+    )
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -240,7 +249,7 @@ def test_main_list_format_json(cli_env, capsys):
 
 
 def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
-    root, config_dir, _ = cli_env
+    root, config_dir, _, service = cli_env
     scenario_path = config_dir / "dynamic.yaml"
     _write_basic_scenario(scenario_path, run_name="dynamic")
 
@@ -266,12 +275,16 @@ def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
         aggregate_calls.append(root_path)
         return root_path / "aggregate"
 
-    monkeypatch.setattr(driver_service, "_merge_extends", fake_merge)
-    monkeypatch.setattr(driver_service, "_execute_runner", fake_execute)
-    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
+    monkeypatch.setattr(main, "_merge_extends", fake_merge)
+    monkeypatch.setattr(execution, "_merge_extends", fake_merge)
+    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
     results_root = root / "outputs"
-    exit_code = main.main(["--results-root", str(results_root)])
+    exit_code = main.main(
+        ["--results-root", str(results_root)],
+        build_driver_service=lambda: service,
+    )
 
     assert exit_code == 0
     assert merge_calls == [scenario_path]
@@ -280,7 +293,7 @@ def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
 
 
 def test_main_json_summary(cli_env, monkeypatch, capsys):
-    root, config_dir, _ = cli_env
+    root, config_dir, _, service = cli_env
     scenario_path = config_dir / "alpha.yaml"
     _write_basic_scenario(scenario_path, run_name="alpha")
 
@@ -298,11 +311,12 @@ def test_main_json_summary(cli_env, monkeypatch, capsys):
     def fake_aggregate(root_str: str) -> Path:
         return Path(root_str) / "aggregate"
 
-    monkeypatch.setattr(driver_service, "_merge_extends", fake_merge)
-    monkeypatch.setattr(driver_service, "_execute_runner", fake_execute)
-    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
+    monkeypatch.setattr(main, "_merge_extends", fake_merge)
+    monkeypatch.setattr(execution, "_merge_extends", fake_merge)
+    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
-    exit_code = main.main(["--json"])
+    exit_code = main.main(["--json"], build_driver_service=lambda: service)
     captured = capsys.readouterr()
 
     assert exit_code == 0
@@ -323,19 +337,9 @@ def test_main_json_summary(cli_env, monkeypatch, capsys):
 
 
 def test_main_runner_error_without_stop(cli_env, monkeypatch):
-    root, config_dir, logger = cli_env
+    root, config_dir, logger, service = cli_env
     scenario_path = config_dir / "failure.yaml"
     _write_basic_scenario(scenario_path, run_name="failure")
-
-    monkeypatch.setattr(
-        driver_service,
-        "_merge_extends",
-        lambda path: {
-            "run": {"run_name": "failure"},
-            "data": {"price_csv": "data.csv"},
-            "analysis": {"method": "signature", "lookback": 30},
-        },
-    )
 
     def failing_execute(runner: str, sc_path: Path, results_root: Path) -> Path:
         raise RuntimeError("boom")
@@ -346,11 +350,32 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
         aggregate_calls.append(Path(_root))
         return Path(_root) / "aggregate"
 
-    monkeypatch.setattr(driver_service, "_execute_runner", failing_execute)
-    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
+    monkeypatch.setattr(
+        main,
+        "_merge_extends",
+        lambda path: {
+            "run": {"run_name": "failure"},
+            "data": {"price_csv": "data.csv"},
+            "analysis": {"method": "signature", "lookback": 30},
+        },
+    )
+    monkeypatch.setattr(
+        execution,
+        "_merge_extends",
+        lambda path: {
+            "run": {"run_name": "failure"},
+            "data": {"price_csv": "data.csv"},
+            "analysis": {"method": "signature", "lookback": 30},
+        },
+    )
+    monkeypatch.setattr(execution, "_execute_runner", failing_execute)
+    monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
     results_root = root / "results"
-    exit_code = main.main(["--results-root", str(results_root)])
+    exit_code = main.main(
+        ["--results-root", str(results_root)],
+        build_driver_service=lambda: service,
+    )
 
     assert exit_code == 0  # default is continue-on-error
     assert aggregate_calls == []  # no successes, so no aggregation
@@ -359,11 +384,14 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
 
 
 def test_main_runner_error_with_stop(cli_env, monkeypatch):
-    root, config_dir, _ = cli_env
+    root, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "failure.yaml", run_name="failure")
 
+    def raising_execute(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
     monkeypatch.setattr(
-        driver_service,
+        main,
         "_merge_extends",
         lambda path: {
             "run": {"run_name": "failure"},
@@ -371,75 +399,79 @@ def test_main_runner_error_with_stop(cli_env, monkeypatch):
             "analysis": {"method": "signature", "lookback": 30},
         },
     )
-
-    def raising_execute(*_args, **_kwargs):
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(driver_service, "_execute_runner", raising_execute)
     monkeypatch.setattr(
-        driver_service, "aggregate", lambda root: Path(root) / "aggregate"
+        execution,
+        "_merge_extends",
+        lambda path: {
+            "run": {"run_name": "failure"},
+            "data": {"price_csv": "data.csv"},
+            "analysis": {"method": "signature", "lookback": 30},
+        },
     )
+    monkeypatch.setattr(execution, "_execute_runner", raising_execute)
+    monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
 
     results_root = root / "results"
-    exit_code = main.main(["--results-root", str(results_root), "--stop-on-error"])
+    exit_code = main.main(
+        ["--results-root", str(results_root), "--stop-on-error"],
+        build_driver_service=lambda: service,
+    )
 
     assert exit_code == 1
 
 
 def test_main_merge_failure_respects_stop(cli_env, monkeypatch):
-    root, config_dir, logger = cli_env
+    root, config_dir, logger, service = cli_env
     _write_basic_scenario(config_dir / "bad.yaml", run_name="bad")
 
     def failing_merge(_path: Path) -> dict:
         raise ValueError("broken config")
 
-    monkeypatch.setattr(driver_service, "_merge_extends", failing_merge)
-    monkeypatch.setattr(
-        driver_service, "aggregate", lambda root: Path(root) / "aggregate"
-    )
+    monkeypatch.setattr(main, "_merge_extends", failing_merge)
+    monkeypatch.setattr(execution, "_merge_extends", failing_merge)
+    monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
 
-    exit_continue = main.main([])
+    exit_continue = main.main([], build_driver_service=lambda: service)
     assert exit_continue == 0
 
-    exit_stop = main.main(["--stop-on-error"])
+    exit_stop = main.main(["--stop-on-error"], build_driver_service=lambda: service)
     assert exit_stop == 1
 
     exception_messages = [msg for level, msg, _ in logger.records if level == "exception"]
     assert any("Failed to load scenario" in msg for msg in exception_messages)
 
 
-def test_main_no_matching_filters(cli_env, monkeypatch):
-    _, config_dir, _ = cli_env
+def test_main_no_matching_filters(cli_env):
+    _, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
 
-    monkeypatch.setattr(driver_service, "aggregate", lambda root: Path(root) / "aggregate")
+    service = replace(service, aggregate=lambda root: Path(root) / "aggregate")
 
-    exit_code = main.main(["--include", "missing"])
+    exit_code = main.main(["--include", "missing"], build_driver_service=lambda: service)
     assert exit_code == 1
 
 
 def test_main_explicit_scenarios(cli_env, monkeypatch, capsys):
-    root, config_dir, _ = cli_env
+    root, config_dir, _, service = cli_env
     alpha = config_dir / "alpha.yaml"
     beta = config_dir / "beta.yaml"
     _write_basic_scenario(alpha, run_name="alpha")
     _write_basic_scenario(beta, run_name="beta")
 
-    monkeypatch.setattr(
-        driver_service, "_execute_runner", lambda *args, **kwargs: Path("unused")
-    )
-    monkeypatch.setattr(driver_service, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(execution, "_execute_runner", lambda *args, **kwargs: Path("unused"))
+    monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
 
     exit_code = main.main(
         [
             "--scenarios",
-        str(alpha),
-        str(beta),
+            str(alpha),
+            str(beta),
             "--max-scenarios",
             "1",
             "--dry-run",
             "--json",
-        ]
+        ],
+        build_driver_service=lambda: service,
     )
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
@@ -515,7 +547,7 @@ def test_main_status_json(tmp_path, capsys):
 
 
 def test_main_skip_existing(cli_env, monkeypatch, capsys):
-    root, config_dir, _ = cli_env
+    root, config_dir, _, service = cli_env
     scenario_path = config_dir / "alpha.yaml"
     scenario_path.write_text(
         "\n".join(
@@ -543,7 +575,7 @@ def test_main_skip_existing(cli_env, monkeypatch, capsys):
         executed.append("called")
         raise AssertionError("runner should be skipped")
 
-    monkeypatch.setattr(driver_service, "_execute_runner", fail_execute)
+    monkeypatch.setattr(execution, "_execute_runner", fail_execute)
     exit_code = main.main(
         [
             "--results-root",
@@ -552,7 +584,8 @@ def test_main_skip_existing(cli_env, monkeypatch, capsys):
             "alpha",
             "--skip-existing",
             "--json",
-        ]
+        ],
+        build_driver_service=lambda: service,
     )
     captured = capsys.readouterr()
     assert exit_code == 0
