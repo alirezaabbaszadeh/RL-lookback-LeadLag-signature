@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+
 import importlib.util
 import subprocess
 import sys
@@ -8,13 +9,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+if __package__ in {None, ""}:
+    _SRC_ROOT = Path(__file__).resolve().parents[2]
+    if str(_SRC_ROOT) not in sys.path:
+        sys.path.insert(0, str(_SRC_ROOT))
 
-import hydra_main  # type: ignore
+from leadlag import hydra_main  # type: ignore
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
 
 @dataclass
@@ -105,7 +110,7 @@ def run_scenario(
 ) -> None:
     cmd: List[str] = [
         sys.executable,
-        str(ROOT / "hydra_main.py"),
+        str(PACKAGE_ROOT / "hydra_main.py"),
         "--scenario",
         info.name,
         "--output_root",
@@ -122,7 +127,7 @@ def run_scenario(
 def run_comparison(results_root: Path, out_dir: Path, metric: str, logger) -> None:
     cmd = [
         sys.executable,
-        str(ROOT / "reporting" / "compare_scenarios.py"),
+        str(PACKAGE_ROOT / "reporting" / "compare_scenarios.py"),
         "--results_root",
         str(results_root),
         "--out",

@@ -10,12 +10,35 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+if __package__ in {None, ""}:
+    # When executed as ``python src/leadlag/pipelines/run_full_suite.py`` the
+    # ``leadlag`` package is not importable because the ``src`` directory is
+    # missing from ``sys.path``. Add it lazily instead of mutating the import
+    # path at module import time when the module is imported regularly.
+    _SRC_ROOT = Path(__file__).resolve().parents[2]
+    if str(_SRC_ROOT) not in sys.path:
+        sys.path.insert(0, str(_SRC_ROOT))
 
-import hydra_main  # type: ignore
+from leadlag import hydra_main  # type: ignore
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _project_root() -> Path:
+    """Return the repository root (where ``pyproject.toml`` lives)."""
+
+    marker = Path(__file__).resolve()
+    for parent in marker.parents:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    # Fallback to the src directory when running from an unpacked wheel.
+    return marker.parents[2]
+
+
+PROJECT_ROOT = _project_root()
 
 
 def run_command(cmd: Sequence[str], logger, dry_run: bool = False) -> None:
@@ -338,7 +361,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.skip_audit:
             quality_cmd = [
                 python_exe,
-                str(ROOT / "scripts" / "audit" / "dataset_quality.py"),
+                str(PROJECT_ROOT / "scripts" / "audit" / "dataset_quality.py"),
                 "--path",
                 str(args.data_path),
                 "--missing-tolerance",
@@ -426,7 +449,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     continue
                 baseline_cmd: List[str] = [
                     python_exe,
-                    str(ROOT / "hydra_main.py"),
+                    str(PACKAGE_ROOT / "hydra_main.py"),
                     "--scenario",
                     scenario_name,
                     "--output_root",
@@ -443,7 +466,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
+                    str(PACKAGE_ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
                     "--output-root",
                     str(meta_root),
                     "--samples",
@@ -458,7 +481,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "research" / "offline_rl" / "log_trajectories.py"),
+                    str(PACKAGE_ROOT / "research" / "offline_rl" / "log_trajectories.py"),
                     "--episodes",
                     str(args.offline_episodes),
                     "--output",
@@ -470,7 +493,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "research" / "offline_rl" / "train_offline.py"),
+                    str(PACKAGE_ROOT / "research" / "offline_rl" / "train_offline.py"),
                     "--dataset",
                     str(dataset_path),
                     "--output-root",
@@ -484,7 +507,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_command(
             [
                 python_exe,
-                str(ROOT / "evaluation" / "finance_kpis.py"),
+                str(PACKAGE_ROOT / "evaluation" / "finance_kpis.py"),
                 "--results-root",
                 str(baseline_root),
                 "--output",
@@ -498,7 +521,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.skip_ablation:
             ablation_cmd: List[str] = [
                 python_exe,
-                str(ROOT / "pipelines" / "run_ablation.py"),
+                str(PACKAGE_ROOT / "pipelines" / "run_ablation.py"),
                 "--output-root",
                 str(ablation_root),
             ]
@@ -516,7 +539,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "scripts" / "audit" / "leakage_probes.py"),
+                    str(PROJECT_ROOT / "scripts" / "audit" / "leakage_probes.py"),
                     "--scenario",
                     args.scenario,
                     "--seed",
@@ -532,7 +555,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "scripts" / "audit" / "check_walk_forward.py"),
+                    str(PROJECT_ROOT / "scripts" / "audit" / "check_walk_forward.py"),
                     "--scenario",
                     args.scenario,
                     "--seed",
@@ -550,7 +573,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_command(
             [
                 python_exe,
-                str(ROOT / "reporting" / "compare_scenarios.py"),
+                str(PACKAGE_ROOT / "reporting" / "compare_scenarios.py"),
                 "--results_root",
                 str(output_root),
                 "--out",
@@ -566,7 +589,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "reporting" / "generate_report.py"),
+                    str(PACKAGE_ROOT / "reporting" / "generate_report.py"),
                     "--results-root",
                     str(output_root),
                     "--output-dir",
@@ -585,7 +608,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "reporting" / "plot_balance_history.py"),
+                    str(PACKAGE_ROOT / "reporting" / "plot_balance_history.py"),
                     "--results-root",
                     str(output_root),
                     "--out",
@@ -600,7 +623,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_command(
                 [
                     python_exe,
-                    str(ROOT / "scripts" / "audit" / "validate_artifacts.py"),
+                    str(PROJECT_ROOT / "scripts" / "audit" / "validate_artifacts.py"),
                     "--root",
                     str(output_root),
                     "--out",

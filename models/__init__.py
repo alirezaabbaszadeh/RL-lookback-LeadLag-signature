@@ -1,4 +1,4 @@
-"""Compatibility shim for legacy ``training`` namespace imports."""
+"""Compatibility layer exposing lead-lag models via the legacy namespace."""
 
 from __future__ import annotations
 
@@ -12,8 +12,11 @@ def _ensure_leadlag_importable() -> None:
         sys.path.insert(0, str(src_root))
 
 
-try:  # Prefer the installed package layout when available.
-    from leadlag.training import *  # type: ignore  # noqa: F401,F403
+try:
+    from leadlag import models as _package_models  # type: ignore
 except ModuleNotFoundError:
     _ensure_leadlag_importable()
-    from leadlag.training import *  # type: ignore  # noqa: F401,F403
+    from leadlag import models as _package_models  # type: ignore
+
+globals().update({name: getattr(_package_models, name) for name in dir(_package_models)})
+__all__ = getattr(_package_models, "__all__", [])
