@@ -97,7 +97,7 @@ docs/
 ├── deployment/
 ├── documentation_inventory.md
 ├── evaluation_visuals.md
-├── future_roadmap.pseudo
+├── (archived) future_roadmap.pseudo → `archive/2025-10-19-roadmap/docs/`
 ├── kaggle_artifacts.md
 ├── metrics_dictionary.md
 ├── repro.md
@@ -105,9 +105,7 @@ docs/
 └── standards_feedback_request.md
 
 reports/
-├── appendix.md
-├── final_report.md
-└── final_report.pdf
+└── README.md
 ```
 
 ### 3.1 Target layout summary
@@ -116,13 +114,13 @@ reports/
 | ------------- | ------------------ | --------------- |
 | `docs/guides/` | Step-by-step guides, runbooks, onboarding material. | Move `ablation_guide.md`, `repro.md`, `data_preprocessing.md`; create `docs/guides/README.md`. |
 | `docs/reference/` | Configuration and terminology references. | Move `config_reference.md`, `metrics_dictionary.md`; align tables with reference format. |
-| `docs/roadmap/` | Forward-looking plans and decision records. | Move `future_roadmap.pseudo` (convert to Markdown), `advanced_research_plan.md`, contents of `docs/adr/`. |
+| `docs/roadmap/` | Forward-looking plans and decision records. | Move archived snapshot `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` (convert to Markdown), `advanced_research_plan.md`, contents of `docs/adr/`. |
 | `docs/audit/` | Retained structure for phase-based audit logs. | Add index linking phases. |
 | `docs/deployment/` | Retained for environment-specific runbooks. | Ensure metadata compliance only. |
 | `docs/inventory/` | Meta-documentation, standards, governance. | Move `documentation_inventory.md`, `standards.md`, `standards_feedback_request.md`; rename `documentation_inventory.md` to `index.md`. |
 | `docs/archives/` | Deprecated or superseded artefacts. | Apply `Status: Deprecated` metadata when relocating files. |
-| `reports/current/` | Active campaign reports and appendices. | Move `final_report.md`, `appendix.md`, `final_report.pdf`; add README with campaign identifiers. |
-| `reports/archives/` | Historical report sets. | Adopt naming convention `YYYY-QX-<descriptor>.md` for archived files. |
+| `reports/current/` | Active campaign reports and appendices. | Directory currently empty aside from `README.md`; last outputs archived at `archive/2025-10-17-research-report/reports/`. |
+| `reports/archives/` | Historical report sets. | Adopt naming convention `YYYY-QX-<descriptor>.md`; existing 2025 set lives in `archive/2025-10-17-research-report/reports/`. |
 
 ### 3.2 Migration checklist
 

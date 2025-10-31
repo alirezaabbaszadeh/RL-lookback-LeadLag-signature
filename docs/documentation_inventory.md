@@ -16,15 +16,16 @@ The table below summarizes the current documentation assets, their owners (where
 | `docs/data_preprocessing.md` | — | Describes data sourcing, cleaning, manifests, and governance tooling. | Current. Matches observed pipeline behaviour. |
 | `docs/deployment/kaggle_setup.md` | — | Detailed Kaggle “one-command” orchestration guide, notebook cell, and troubleshooting advice. | Current, though overlaps with README’s Kaggle section. |
 | `docs/evaluation_visuals.md` | — | Defines required evaluation plots, tables, and aggregate artifacts. | Current. Aligns with reporting outputs. |
-| `docs/future_roadmap.pseudo` | `roadmap_bot` (per metadata) | Formal roadmap with quality gates, module owners, initiatives, and status tracker. | Current. States latest review date and owners. |
+| `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` | `roadmap_bot` (per metadata) | Formal roadmap with quality gates, module owners, initiatives, and status tracker. | Archived 2025-10-19. Retained for historical reference. |
 | `docs/kaggle_artifacts.md` | — | Inventory of files produced by `kaggle/run_all.py`, annotated by artifact type. | Current. Matches deployment outputs. |
 | `docs/metrics_dictionary.md` | — | Metric definitions spanning time-series, run summaries, and aggregates, plus observability hooks. | Current. Useful for analytics consumers. |
 | `docs/standards.md` | Documentation Working Group | Shared style guide covering headings, metadata, terminology, and review workflow. | Draft. Circulated for feedback via `docs/standards_feedback_request.md`. |
 | `docs/standards_feedback_request.md` | Documentation Working Group | Shared issue doc used to collect stakeholder feedback on documentation standards. | Open. Comment window closes 2025-11-07. |
 | `docs/repro.md` | — | Reproducibility guide covering Conda/Docker setup, scenario execution, outputs, MLflow, and troubleshooting. | Current. Complements README quickstart. |
 | `reporting/` | — | Legacy CLI wrappers that delegate to `leadlag.reporting.*` modules with deprecation warnings. | Redundant; wrappers marked deprecated pending removal. |
-| `reports/final_report.md` | — | Generated research report summarising 2025 experiments and statistics. | Stale—timestamped 2025 and references archived Windows runs. |
-| `reports/appendix.md` | — | Reproducibility appendix for the same 2025 run, with environment and artifact inventory. | Stale—mirrors outdated run metadata. |
-| `reports/final_report.pdf` | — | PDF version of the 2025 report (binary artifact). | Stale alongside the Markdown sources. |
+| `archive/2025-10-17-research-report/reports/final_report.md` | — | Generated research report summarising 2025 experiments and statistics. | Archived 2025-10-17. Superseded by future runs. |
+| `archive/2025-10-17-research-report/reports/appendix.md` | — | Reproducibility appendix for the same 2025 run, with environment and artifact inventory. | Archived 2025-10-17 with the rest of the campaign outputs. |
+| `archive/2025-10-17-research-report/reports/final_report.pdf` | — | PDF version of the 2025 report (binary artifact). | Archived 2025-10-17 with the Markdown sources. |
+| `reports/README.md` | — | Placeholder describing where active reports will appear. | Current. Notes that historical outputs moved to the archive. |
 | `notebooks/LeadLag_signature.ipynb` | — | Notebook for data preparation and lead-lag analysis; installs dependencies inline and loads CSVs from a fixed relative path. | Likely outdated—assumes `../LeadLag_signature` path and manual pip installs. |
 

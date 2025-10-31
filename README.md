@@ -261,7 +261,9 @@ All runners emit `data_manifest.json` and structured logs, allowing rapid valida
 ## Release Workflow
 
 1. Ensure the repository is clean (`git status`), smoke tests pass, and the governance audit succeeds.
-2. Update `CHANGELOG.md` with the latest roadmap entries (`docs/future_roadmap.pseudo`). Add release bullet points if needed.
+2. Update `CHANGELOG.md` with the latest roadmap decisions (see
+   `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` for the previous
+   pseudo-roadmap structure). Add release bullet points if needed.
 3. Tag and publish:
    ```bash
    git tag -a vX.Y.Z -m "Release vX.Y.Z"
@@ -276,6 +278,7 @@ All runners emit `data_manifest.json` and structured logs, allowing rapid valida
 - `docs/repro.md` - reproducibility guide (conda + Docker + CLI usage).
 - `docs/data_preprocessing.md` - data cleaning steps and governance tooling.
 - `docs/deployment/kaggle_setup.md` - Kaggle-ready checklist and notebook structure.
-- `docs/future_roadmap.pseudo` - roadmap, status tracker, and change log history.
+- Historical roadmap snapshot:
+  `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo`.
 
 Questions or contributions? Stay tuned for `CONTRIBUTING.md` and `CHANGELOG.md`, or open an issue once this repository is published. Happy experimenting!

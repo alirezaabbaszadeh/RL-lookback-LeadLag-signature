@@ -119,7 +119,7 @@ docs/
 ├── deployment/
 ├── documentation_inventory.md
 ├── evaluation_visuals.md
-├── future_roadmap.pseudo
+├── (archived) future_roadmap.pseudo → see `archive/2025-10-19-roadmap/docs/`
 ├── kaggle_artifacts.md
 ├── metrics_dictionary.md
 ├── repro.md
@@ -127,9 +127,7 @@ docs/
 └── standards_feedback_request.md
 
 reports/
-├── appendix.md
-├── final_report.md
-└── final_report.pdf
+└── README.md
 ```
 
 ### Target layout
@@ -138,13 +136,13 @@ reports/
 | ------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------- | ----- |
 | `docs/guides/`           | Step-by-step guides, runbooks, and onboarding material.                | `ablation_guide.md`, `repro.md`, `data_preprocessing.md` | Create index page `docs/guides/README.md` summarising available guides. |
 | `docs/reference/`        | Configuration and terminology references.                              | `config_reference.md`, `metrics_dictionary.md`        | Ensure tables align with reference formatting guidelines. |
-| `docs/roadmap/`          | Forward-looking plans and decision records.                            | `future_roadmap.pseudo`, `advanced_research_plan.md`, contents of `docs/adr/` | Convert roadmap pseudo-file to Markdown during migration. |
+| `docs/roadmap/`          | Forward-looking plans and decision records.                            | Archived snapshot `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo`, `advanced_research_plan.md`, contents of `docs/adr/` | Convert the archived pseudo-file to Markdown before reintroducing. |
 | `docs/audit/`            | (Retained) Phase-by-phase audit records.                               | Existing `docs/audit/phase-*` directories             | Introduce index file with navigation between phases. |
 | `docs/deployment/`       | (Retained) Environment-specific deployment guides.                     | Existing deployment subfolders                        | No structural change required; ensure metadata conforms. |
 | `docs/inventory/`        | Meta-documentation, inventories, standards, and governance material.   | `documentation_inventory.md`, `standards.md`, `standards_feedback_request.md` | Consider renaming `documentation_inventory.md` to `index.md` for clarity. |
 | `docs/archives/`         | Deprecated or superseded documents kept for historical context.        | Stale versions flagged during audit reviews           | Apply `Status: Deprecated` metadata upon relocation. |
-| `reports/current/`       | Active campaign reports and appendices.                                | `final_report.md`, `appendix.md`, `final_report.pdf`  | Add README detailing campaign identifiers and data vintage. |
-| `reports/archives/`      | Prior campaign reports and supporting materials.                       | Older PDF/Markdown once superseded by new campaigns   | Naming convention `YYYY-QX-<descriptor>.md` recommended. |
+| `reports/current/`       | Active campaign reports and appendices.                                | `reports/README.md` (directory now empty; prior outputs archived)  | Add README detailing campaign identifiers and data vintage. |
+| `reports/archives/`      | Prior campaign reports and supporting materials.                       | `archive/2025-10-17-research-report/reports/`         | Naming convention `YYYY-QX-<descriptor>.md` recommended. |
 
 ### Migration and rename checklist
 
@@ -152,8 +150,9 @@ reports/
   links in each moved file.
 - Move configuration/terminology references into `docs/reference/`, adjusting cross-links from other
   documents (e.g., deployment guides) accordingly.
-- Consolidate planning artefacts under `docs/roadmap/` and rename `future_roadmap.pseudo` to
-  `future_roadmap.md` during the migration, ensuring metadata and heading format compliance.
+- Consolidate planning artefacts under `docs/roadmap/` and, when reactivating the roadmap,
+  convert `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` into
+  `future_roadmap.md`, ensuring metadata and heading format compliance.
 - Group governance and standards documentation under `docs/inventory/`, renaming
   `documentation_inventory.md` to `index.md` to serve as the folder landing page.
 - Establish `reports/current/` for active reports and create `reports/archives/` for historical
