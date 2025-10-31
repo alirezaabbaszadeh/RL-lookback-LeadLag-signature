@@ -27,12 +27,13 @@ def build_manifest(
     extras: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Construct a manifest describing the dataset that powered a run."""
+    tzinfo = getattr(prices.index, "tz", None)
     manifest: Dict[str, Any] = {
         "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "row_count": int(len(prices)),
         "asset_count": int(prices.shape[1]),
         "columns": list(map(str, prices.columns)),
-        "index_timezone": str(getattr(prices.index, "tz", None)),
+        "index_timezone": str(tzinfo) if tzinfo is not None else None,
     }
 
     if source_path is not None:
