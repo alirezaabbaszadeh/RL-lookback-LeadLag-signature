@@ -6,9 +6,9 @@ import json
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 if __package__ in {None, ""}:
     # When executed as ``python src/leadlag/pipelines/run_full_suite.py`` the
@@ -20,7 +20,11 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(_SRC_ROOT))
 
 from leadlag import hydra_main  # type: ignore
-from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
+from leadlag.cli.formatters import (
+    add_format_flags,
+    emit_formatted_output,
+    finalize_format_args,
+)
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +56,7 @@ def ensure_path(path: Path) -> Path:
     return path
 
 
-@dataclass
+@dataclass(frozen=True)
 class ScenarioRequirements:
     name: str
     requires_signature: bool
@@ -60,16 +64,122 @@ class ScenarioRequirements:
     requires_sb3_contrib: bool
 
 
-def _serialize_args(args: argparse.Namespace) -> Dict[str, object]:
-    result: Dict[str, object] = {}
-    for key, value in vars(args).items():
-        if isinstance(value, Path):
-            result[key] = str(value)
-        elif isinstance(value, list):
-            result[key] = [str(item) if isinstance(item, Path) else item for item in value]
-        else:
-            result[key] = value
-    return result
+@dataclass(frozen=True)
+class FullSuiteCLIOptions:
+    output_root: Path
+    data_path: Path
+    scenario: str
+    baseline_scenarios: tuple[str, ...] | None
+    meta_samples: int
+    offline_episodes: int
+    baseline_seeds: tuple[int, ...]
+    baseline_single_seed: bool
+    leakage_limit_days: int
+    skip_ablation: bool
+    skip_audit: bool
+    skip_report: bool
+    skip_meta_offline: bool
+    skip_baseline: bool
+    skip_optional_deps: bool
+    ablation_scenarios: tuple[str, ...] | None
+    ablation_single_seed: bool
+    max_missing_ratio: float
+    max_zero_variance: int
+    fail_on_quality: bool
+    skip_schema_check: bool
+    log_level: str
+    log_path: Path | None
+    output_format: str
+    wants_json: bool
+    dry_run: bool
+    command: str
+
+    def to_namespace(self) -> argparse.Namespace:
+        namespace = argparse.Namespace(
+            output_root=self.output_root,
+            data_path=self.data_path,
+            scenario=self.scenario,
+            baseline_scenarios=list(self.baseline_scenarios) if self.baseline_scenarios else None,
+            meta_samples=self.meta_samples,
+            offline_episodes=self.offline_episodes,
+            baseline_seeds=list(self.baseline_seeds),
+            baseline_single_seed=self.baseline_single_seed,
+            leakage_limit_days=self.leakage_limit_days,
+            skip_ablation=self.skip_ablation,
+            skip_audit=self.skip_audit,
+            skip_report=self.skip_report,
+            skip_meta_offline=self.skip_meta_offline,
+            skip_baseline=self.skip_baseline,
+            skip_optional_deps=self.skip_optional_deps,
+            ablation_scenarios=list(self.ablation_scenarios) if self.ablation_scenarios else None,
+            ablation_single_seed=self.ablation_single_seed,
+            max_missing_ratio=self.max_missing_ratio,
+            max_zero_variance=self.max_zero_variance,
+            fail_on_quality=self.fail_on_quality,
+            skip_schema_check=self.skip_schema_check,
+            log_level=self.log_level,
+            log_path=self.log_path,
+            format=self.output_format,
+            json=self.wants_json,
+            dry_run=self.dry_run,
+        )
+        setattr(namespace, "_leadlag_command", self.command)
+        return namespace
+
+    def serialize(self) -> dict[str, object]:
+        serialized: dict[str, object] = {}
+        for field in fields(self):
+            value = getattr(self, field.name)
+            if isinstance(value, Path):
+                serialized[field.name] = str(value)
+            elif isinstance(value, tuple):
+                serialized[field.name] = [
+                    str(item) if isinstance(item, Path) else item for item in value
+                ]
+            else:
+                serialized[field.name] = value
+        return serialized
+
+
+@dataclass(frozen=True)
+class FullSuitePaths:
+    output_root: Path
+    logs_dir: Path
+    baseline_root: Path
+    robustness_root: Path
+    ablation_root: Path
+    meta_root: Path
+    offline_root: Path
+
+
+@dataclass
+class FullSuiteContext:
+    config: FullSuiteCLIOptions
+    logger: Any
+    dependency_status: Dict[str, bool]
+    paths: FullSuitePaths
+    python_executable: str
+    run_log: Dict[str, object]
+    start_time: float
+
+
+@dataclass(frozen=True)
+class WorkflowResult:
+    success: bool
+    run_log: dict[str, object]
+    error_message: str | None = None
+
+    @property
+    def errors(self) -> list[dict[str, object]] | None:
+        if self.success:
+            return None
+        entry: dict[str, object] = {
+            "code": "full_suite_failed",
+            "message": "Full-suite pipeline failed",
+        }
+        if self.error_message:
+            entry["details"] = {"error": self.error_message}
+        return [entry]
 
 
 def inspect_scenario(name: str) -> ScenarioRequirements:
@@ -172,9 +282,9 @@ def check_optional_dependencies(
     raise SystemExit(message)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the complete experiment + audit suite for Kaggle or local CI."
+        description="Run the complete experiment + audit suite for Kaggle or local CI.",
     )
     parser.add_argument(
         "--output-root",
@@ -312,375 +422,461 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Preview commands without executing subprocesses.",
     )
-    args = parser.parse_args(list(argv) if argv is not None else None)
-    finalize_format_args(args, remove_in="0.2.0")
+    return parser
+
+
+def parse_args(
+    argv: Iterable[str] | None = None,
+    *,
+    parser: argparse.ArgumentParser | None = None,
+) -> FullSuiteCLIOptions:
+    parser = parser or build_parser()
+    raw_argv = list(argv) if argv is not None else None
+    namespace = parser.parse_args(raw_argv if raw_argv is not None else None)
+    finalize_format_args(namespace, remove_in="0.2.0")
     command = "leadlag-full-suite"
-    if argv:
-        command = "leadlag-full-suite " + " ".join(argv)
-
-    output_root = ensure_path(args.output_root.resolve())
-    logs_dir = ensure_path(output_root / "logs")
-    log_path = args.log_path or logs_dir / "full_suite.log"
-    setup_logging(
-        Path(log_path),
-        level=str(args.log_level).upper(),
-        context={"module": "full_suite"},
+    if raw_argv:
+        command = "leadlag-full-suite " + " ".join(str(arg) for arg in raw_argv)
+    return FullSuiteCLIOptions(
+        output_root=namespace.output_root.resolve(),
+        data_path=namespace.data_path,
+        scenario=namespace.scenario,
+        baseline_scenarios=tuple(namespace.baseline_scenarios) if namespace.baseline_scenarios else None,
+        meta_samples=namespace.meta_samples,
+        offline_episodes=namespace.offline_episodes,
+        baseline_seeds=tuple(namespace.baseline_seeds),
+        baseline_single_seed=bool(namespace.baseline_single_seed),
+        leakage_limit_days=namespace.leakage_limit_days,
+        skip_ablation=bool(namespace.skip_ablation),
+        skip_audit=bool(namespace.skip_audit),
+        skip_report=bool(namespace.skip_report),
+        skip_meta_offline=bool(namespace.skip_meta_offline),
+        skip_baseline=bool(namespace.skip_baseline),
+        skip_optional_deps=bool(namespace.skip_optional_deps),
+        ablation_scenarios=tuple(namespace.ablation_scenarios) if namespace.ablation_scenarios else None,
+        ablation_single_seed=bool(namespace.ablation_single_seed),
+        max_missing_ratio=float(namespace.max_missing_ratio),
+        max_zero_variance=int(namespace.max_zero_variance),
+        fail_on_quality=bool(namespace.fail_on_quality),
+        skip_schema_check=bool(namespace.skip_schema_check),
+        log_level=str(namespace.log_level),
+        log_path=namespace.log_path,
+        output_format=str(getattr(namespace, "format", "text")),
+        wants_json=bool(getattr(namespace, "json", False)),
+        dry_run=bool(namespace.dry_run),
+        command=command,
     )
-    logger = get_logger(
-        "pipelines.run_full_suite",
-        context={"output_root": output_root, "dry_run": args.dry_run},
-    )
 
-    start_time = time.time()
-    logger.info("Starting full-suite pipeline")
-    dependency_status = dependency_preflight(args.skip_optional_deps, logger)
-    invocation = " ".join([sys.executable] + sys.argv)
-    run_log: Dict[str, object] = {
-        "command": invocation,
-        "args": _serialize_args(args),
-        "dependency_status": dependency_status,
-        "start_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time)),
-    }
-    run_log["output_root"] = str(output_root)
-    run_log["logs_dir"] = str(logs_dir)
-    run_log["dry_run"] = bool(args.dry_run)
 
-    baseline_root = ensure_path(output_root / "core")
-    robustness_root = ensure_path(output_root / "robustness")
-    ablation_root = output_root / "ablations"
-    meta_root = output_root / "meta_rl"
-    offline_root = output_root / "offline"
-
-    python_exe = sys.executable
-
-    success = False
-    error_message: Optional[str] = None
+def _run_dataset_audit(context: FullSuiteContext) -> None:
+    config = context.config
+    if config.skip_audit:
+        return
+    quality_cmd: list[str] = [
+        context.python_executable,
+        str(PROJECT_ROOT / "scripts" / "audit" / "dataset_quality.py"),
+        "--path",
+        str(config.data_path),
+        "--missing-tolerance",
+        str(config.max_missing_ratio),
+        "--zero-variance-limit",
+        str(config.max_zero_variance),
+        "--output",
+        str(context.paths.logs_dir / "dataset_manifest.json"),
+    ]
+    if config.fail_on_quality:
+        quality_cmd.append("--exit-on-fail")
     try:
-        # Dataset audit
-        if not args.skip_audit:
-            quality_cmd = [
-                python_exe,
-                str(PROJECT_ROOT / "scripts" / "audit" / "dataset_quality.py"),
-                "--path",
-                str(args.data_path),
-                "--missing-tolerance",
-                str(args.max_missing_ratio),
-                "--zero-variance-limit",
-                str(args.max_zero_variance),
-                "--output",
-                str(logs_dir / "dataset_manifest.json"),
-            ]
-            if args.fail_on_quality:
-                quality_cmd.append("--exit-on-fail")
-            try:
-                run_command(quality_cmd, logger, args.dry_run)
-            except subprocess.CalledProcessError as e:
-                logger.warning(
-                    "dataset_quality failed",
-                    context={
-                        "exit_code": e.returncode,
-                        "fail_on_quality": args.fail_on_quality,
-                    },
-                )
-                if args.fail_on_quality:
-                    raise
+        run_command(quality_cmd, context.logger, config.dry_run)
+    except subprocess.CalledProcessError as exc:
+        context.logger.warning(
+            "dataset_quality failed",
+            context={"exit_code": exc.returncode, "fail_on_quality": config.fail_on_quality},
+        )
+        if config.fail_on_quality:
+            raise
 
-        # Determine baseline scenarios and validate configs
-        baseline_scenarios = args.baseline_scenarios or [args.scenario]
-        validated_baselines: List[str] = []
-        for scenario_name in baseline_scenarios:
+
+def _prepare_baselines(context: FullSuiteContext) -> list[str]:
+    config = context.config
+    baseline_scenarios = list(config.baseline_scenarios) if config.baseline_scenarios else [config.scenario]
+    validated: list[str] = []
+    for scenario_name in baseline_scenarios:
+        requirements = inspect_scenario(scenario_name)
+        if not check_optional_dependencies(
+            requirements,
+            context.dependency_status,
+            config.skip_optional_deps,
+            context.logger,
+        ):
+            continue
+        try:
+            cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
+            hydra_main.validate_scenario_cfg(cfg)
+            validated.append(scenario_name)
+        except Exception as exc:  # pragma: no cover - validation guard
+            context.logger.warning(
+                "Baseline validation failed",
+                context={"scenario": scenario_name, "error": repr(exc)},
+            )
+    context.run_log["baseline_scenarios_requested"] = baseline_scenarios
+    context.run_log["validated_baselines"] = validated
+    if not validated:
+        context.logger.warning("No baseline scenarios scheduled for execution")
+    return validated
+
+
+def _run_baselines(context: FullSuiteContext, validated: list[str]) -> None:
+    config = context.config
+    if config.skip_baseline:
+        return
+    for scenario_name in validated:
+        requirements = inspect_scenario(scenario_name)
+        if not check_optional_dependencies(
+            requirements,
+            context.dependency_status,
+            config.skip_optional_deps,
+            context.logger,
+        ):
+            continue
+        baseline_cmd: list[str] = [
+            context.python_executable,
+            str(PACKAGE_ROOT / "hydra_main.py"),
+            "--scenario",
+            scenario_name,
+            "--output_root",
+            str(context.paths.baseline_root),
+        ]
+        if not config.baseline_single_seed and config.baseline_seeds:
+            baseline_cmd.append("--multi_seed_enabled")
+            baseline_cmd.append("--seeds")
+            baseline_cmd.extend(str(seed) for seed in config.baseline_seeds)
+        run_command(baseline_cmd, context.logger, config.dry_run)
+
+
+def _run_finance_kpis(context: FullSuiteContext) -> None:
+    finance_output = ensure_path(context.paths.baseline_root / "evaluation") / "finance_kpis.csv"
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "evaluation" / "finance_kpis.py"),
+            "--results-root",
+            str(context.paths.baseline_root),
+            "--output",
+            str(finance_output),
+        ],
+        context.logger,
+        context.config.dry_run,
+    )
+
+
+def _run_meta_offline(context: FullSuiteContext) -> None:
+    config = context.config
+    if config.skip_meta_offline:
+        return
+    ensure_path(context.paths.meta_root)
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
+            "--output-root",
+            str(context.paths.meta_root),
+            "--samples",
+            str(config.meta_samples),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+
+    ensure_path(context.paths.offline_root)
+    dataset_path = context.paths.offline_root / "offline_dataset.csv"
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "research" / "offline_rl" / "log_trajectories.py"),
+            "--episodes",
+            str(config.offline_episodes),
+            "--output",
+            str(dataset_path),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "research" / "offline_rl" / "train_offline.py"),
+            "--dataset",
+            str(dataset_path),
+            "--output-root",
+            str(context.paths.offline_root),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+
+
+def _run_ablation(context: FullSuiteContext) -> list[str]:
+    config = context.config
+    if config.skip_ablation:
+        context.run_log["validated_ablation"] = list(config.ablation_scenarios or [])
+        return []
+    scenarios = list(config.ablation_scenarios) if config.ablation_scenarios else None
+    validated: list[str] = []
+    if scenarios:
+        for scenario_name in scenarios:
             requirements = inspect_scenario(scenario_name)
             if not check_optional_dependencies(
                 requirements,
-                dependency_status,
-                args.skip_optional_deps,
-                logger,
+                context.dependency_status,
+                config.skip_optional_deps,
+                context.logger,
             ):
                 continue
             try:
                 cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
                 hydra_main.validate_scenario_cfg(cfg)
-                validated_baselines.append(scenario_name)
-            except Exception as exc:  # pragma: no cover - validation guard
-                logger.warning(
-                    "Baseline validation failed",
+                validated.append(scenario_name)
+            except Exception as exc:
+                context.logger.warning(
+                    "Ablation validation failed",
                     context={"scenario": scenario_name, "error": repr(exc)},
                 )
-        run_log["baseline_scenarios_requested"] = baseline_scenarios
-        run_log["validated_baselines"] = validated_baselines
-        if not validated_baselines:
-            logger.warning("No baseline scenarios scheduled for execution")
+    context.run_log["validated_ablation"] = validated if scenarios else []
+    ablation_cmd: List[str] = [
+        context.python_executable,
+        str(PACKAGE_ROOT / "pipelines" / "run_ablation.py"),
+        "--output-root",
+        str(context.paths.ablation_root),
+    ]
+    if config.skip_optional_deps:
+        ablation_cmd.append("--skip-missing-deps")
+    if config.ablation_single_seed:
+        ablation_cmd.append("--single-seed")
+    selected = validated if scenarios else None
+    if selected:
+        ablation_cmd.append("--scenarios")
+        ablation_cmd.extend(selected)
+    run_command(ablation_cmd, context.logger, config.dry_run)
+    return validated
 
-        # Validate ablation scenarios (if provided)
-        ablation_scenarios = args.ablation_scenarios
-        if ablation_scenarios:
-            validated_ablation: List[str] = []
-            for scenario_name in list(ablation_scenarios):
-                requirements = inspect_scenario(scenario_name)
-                if not check_optional_dependencies(
-                    requirements,
-                    dependency_status,
-                    args.skip_optional_deps,
-                    logger,
-                ):
-                    continue
-                try:
-                    cfg = hydra_main._load_scenario_cfg(scenario_name)  # pylint: disable=protected-access
-                    hydra_main.validate_scenario_cfg(cfg)
-                    validated_ablation.append(scenario_name)
-                except Exception as exc:
-                    logger.warning(
-                        "Ablation validation failed",
-                        context={"scenario": scenario_name, "error": repr(exc)},
-                    )
-            ablation_scenarios = validated_ablation or None
-        run_log["validated_ablation"] = ablation_scenarios or []
 
-        if not args.skip_baseline:
-            for scenario_name in validated_baselines:
-                requirements = inspect_scenario(scenario_name)
-                if not check_optional_dependencies(
-                    requirements,
-                    dependency_status,
-                    args.skip_optional_deps,
-                    logger,
-                ):
-                    continue
-                baseline_cmd: List[str] = [
-                    python_exe,
-                    str(PACKAGE_ROOT / "hydra_main.py"),
-                    "--scenario",
-                    scenario_name,
-                    "--output_root",
-                    str(baseline_root),
-                ]
-                if not args.baseline_single_seed and args.baseline_seeds:
-                    baseline_cmd.append("--multi_seed_enabled")
-                    baseline_cmd.append("--seeds")
-                    baseline_cmd.extend(str(seed) for seed in args.baseline_seeds)
-                run_command(baseline_cmd, logger, args.dry_run)
+def _run_audits(context: FullSuiteContext) -> None:
+    config = context.config
+    if config.skip_audit:
+        return
+    run_command(
+        [
+            context.python_executable,
+            str(PROJECT_ROOT / "scripts" / "audit" / "leakage_probes.py"),
+            "--scenario",
+            config.scenario,
+            "--seed",
+            "7",
+            "--limit_days",
+            str(config.leakage_limit_days),
+            "--out",
+            str(context.paths.robustness_root),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+    run_command(
+        [
+            context.python_executable,
+            str(PROJECT_ROOT / "scripts" / "audit" / "check_walk_forward.py"),
+            "--scenario",
+            config.scenario,
+            "--seed",
+            "13",
+            "--limit_days",
+            str(config.leakage_limit_days),
+            "--output-root",
+            str(context.paths.robustness_root),
+        ],
+        context.logger,
+        config.dry_run,
+    )
 
-        if not args.skip_meta_offline:
-            ensure_path(meta_root)
-            run_command(
-                [
-                    python_exe,
-                    str(PACKAGE_ROOT / "research" / "meta_rl" / "run_meta_rl.py"),
-                    "--output-root",
-                    str(meta_root),
-                    "--samples",
-                    str(args.meta_samples),
-                ],
-                logger,
-                args.dry_run,
-            )
 
-            ensure_path(offline_root)
-            dataset_path = offline_root / "offline_dataset.csv"
-            run_command(
-                [
-                    python_exe,
-                    str(PACKAGE_ROOT / "research" / "offline_rl" / "log_trajectories.py"),
-                    "--episodes",
-                    str(args.offline_episodes),
-                    "--output",
-                    str(dataset_path),
-                ],
-                logger,
-                args.dry_run,
-            )
-            run_command(
-                [
-                    python_exe,
-                    str(PACKAGE_ROOT / "research" / "offline_rl" / "train_offline.py"),
-                    "--dataset",
-                    str(dataset_path),
-                    "--output-root",
-                    str(offline_root),
-                ],
-                logger,
-                args.dry_run,
-            )
+def _run_reporting(context: FullSuiteContext) -> None:
+    config = context.config
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "reporting" / "compare_scenarios.py"),
+            "--results_root",
+            str(context.paths.output_root),
+            "--out",
+            str(context.paths.output_root / "aggregate_comparison"),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+    if config.skip_report:
+        return
+    report_dir = ensure_path(context.paths.output_root / "reports")
+    report_start = time.time()
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "reporting" / "generate_report.py"),
+            "--results-root",
+            str(context.paths.output_root),
+            "--output-dir",
+            str(report_dir),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+    elapsed = time.time() - report_start
+    context.logger.info(
+        "Report generated",
+        context={"elapsed_seconds": round(elapsed, 1), "report_dir": str(report_dir)},
+    )
+    run_command(
+        [
+            context.python_executable,
+            str(PACKAGE_ROOT / "reporting" / "plot_balance_history.py"),
+            "--results-root",
+            str(context.paths.output_root),
+            "--out",
+            str(context.paths.output_root / "evaluation" / "plots" / "balance"),
+        ],
+        context.logger,
+        config.dry_run,
+    )
 
-        finance_output = ensure_path(baseline_root / "evaluation") / "finance_kpis.csv"
-        run_command(
-            [
-                python_exe,
-                str(PACKAGE_ROOT / "evaluation" / "finance_kpis.py"),
-                "--results-root",
-                str(baseline_root),
-                "--output",
-                str(finance_output),
-            ],
-            logger,
-            args.dry_run,
+
+def _run_schema_validation(context: FullSuiteContext) -> None:
+    config = context.config
+    if config.skip_schema_check:
+        return
+    audit_dir = ensure_path(context.paths.output_root / "audit")
+    run_command(
+        [
+            context.python_executable,
+            str(PROJECT_ROOT / "scripts" / "audit" / "validate_artifacts.py"),
+            "--root",
+            str(context.paths.output_root),
+            "--out",
+            str(audit_dir),
+        ],
+        context.logger,
+        config.dry_run,
+    )
+
+
+class FullSuiteCoordinator:
+    def __init__(self, config: FullSuiteCLIOptions) -> None:
+        self.config = config
+
+    def _initialise_context(self, start_time: float) -> FullSuiteContext:
+        output_root = ensure_path(self.config.output_root)
+        logs_dir = ensure_path(output_root / "logs")
+        log_path = self.config.log_path or logs_dir / "full_suite.log"
+        setup_logging(
+            Path(log_path),
+            level=str(self.config.log_level).upper(),
+            context={"module": "full_suite"},
+        )
+        logger = get_logger(
+            "pipelines.run_full_suite",
+            context={"output_root": output_root, "dry_run": self.config.dry_run},
+        )
+        dependency_status = dependency_preflight(self.config.skip_optional_deps, logger)
+        run_log: dict[str, object] = {
+            "command": " ".join([sys.executable, *sys.argv[1:]]) if sys.argv else sys.executable,
+            "args": self.config.serialize(),
+            "dependency_status": dependency_status,
+            "start_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(start_time)),
+            "output_root": str(output_root),
+            "logs_dir": str(logs_dir),
+            "dry_run": bool(self.config.dry_run),
+        }
+        paths = FullSuitePaths(
+            output_root=output_root,
+            logs_dir=logs_dir,
+            baseline_root=ensure_path(output_root / "core"),
+            robustness_root=ensure_path(output_root / "robustness"),
+            ablation_root=output_root / "ablations",
+            meta_root=output_root / "meta_rl",
+            offline_root=output_root / "offline",
+        )
+        return FullSuiteContext(
+            config=self.config,
+            logger=logger,
+            dependency_status=dependency_status,
+            paths=paths,
+            python_executable=sys.executable,
+            run_log=run_log,
+            start_time=start_time,
         )
 
-        # Ablation pipeline
-        if not args.skip_ablation:
-            ablation_cmd: List[str] = [
-                python_exe,
-                str(PACKAGE_ROOT / "pipelines" / "run_ablation.py"),
-                "--output-root",
-                str(ablation_root),
-            ]
-            if args.skip_optional_deps:
-                ablation_cmd.append("--skip-missing-deps")
-            if args.ablation_single_seed:
-                ablation_cmd.append("--single-seed")
-            if args.ablation_scenarios:
-                ablation_cmd.append("--scenarios")
-                ablation_cmd.extend(args.ablation_scenarios)
-            run_command(ablation_cmd, logger, args.dry_run)
-
-        # Leakage probes and walk-forward verification
-        if not args.skip_audit:
-            run_command(
-                [
-                    python_exe,
-                    str(PROJECT_ROOT / "scripts" / "audit" / "leakage_probes.py"),
-                    "--scenario",
-                    args.scenario,
-                    "--seed",
-                    "7",
-                    "--limit_days",
-                    str(args.leakage_limit_days),
-                    "--out",
-                    str(robustness_root),
-                ],
-                logger,
-                args.dry_run,
-            )
-            run_command(
-                [
-                    python_exe,
-                    str(PROJECT_ROOT / "scripts" / "audit" / "check_walk_forward.py"),
-                    "--scenario",
-                    args.scenario,
-                    "--seed",
-                    "13",
-                    "--limit_days",
-                    str(args.leakage_limit_days),
-                    "--output-root",
-                    str(robustness_root),
-                ],
-                logger,
-                args.dry_run,
-            )
-
-        # Generate unified comparison plots for the entire output root
-        run_command(
-            [
-                python_exe,
-                str(PACKAGE_ROOT / "reporting" / "compare_scenarios.py"),
-                "--results_root",
-                str(output_root),
-                "--out",
-                str(output_root / "aggregate_comparison"),
-            ],
-            logger,
-            args.dry_run,
-        )
-
-        if not args.skip_report:
-            report_dir = ensure_path(output_root / "reports")
-            report_start = time.time()
-            run_command(
-                [
-                    python_exe,
-                    str(PACKAGE_ROOT / "reporting" / "generate_report.py"),
-                    "--results-root",
-                    str(output_root),
-                    "--output-dir",
-                    str(report_dir),
-                ],
-                logger,
-                args.dry_run,
-            )
-            elapsed = time.time() - report_start
-            logger.info(
-                "Report generated",
-                context={"elapsed_seconds": round(elapsed, 1), "report_dir": str(report_dir)},
-            )
-
-            # Portfolio balance history plots (all runs + per-scenario)
-            run_command(
-                [
-                    python_exe,
-                    str(PACKAGE_ROOT / "reporting" / "plot_balance_history.py"),
-                    "--results-root",
-                    str(output_root),
-                    "--out",
-                    str(output_root / "evaluation" / "plots" / "balance"),
-                ],
-                logger,
-                args.dry_run,
-            )
-
-        if not args.skip_schema_check:
-            audit_dir = ensure_path(output_root / "audit")
-            run_command(
-                [
-                    python_exe,
-                    str(PROJECT_ROOT / "scripts" / "audit" / "validate_artifacts.py"),
-                    "--root",
-                    str(output_root),
-                    "--out",
-                    str(audit_dir),
-                ],
-                logger,
-                args.dry_run,
-            )
-
-        success = True
-    except Exception as exc:
-        error_message = repr(exc)
-        # do not re-raise to allow controlled exit codes and JSON emission
-        success = False
-    finally:
+    def _finalise(self, context: FullSuiteContext, success: bool, error_message: str | None) -> None:
         end_time = time.time()
-        run_log["success"] = success
-        run_log["end_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(end_time))
-        run_log["elapsed_seconds"] = round(end_time - start_time, 3)
+        context.run_log["success"] = success
+        context.run_log["end_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(end_time))
+        context.run_log["elapsed_seconds"] = round(end_time - context.start_time, 3)
         if error_message:
-            run_log["error"] = error_message
+            context.run_log["error"] = error_message
         try:
-            logs_dir.mkdir(parents=True, exist_ok=True)
-            (logs_dir / f"run_summary_{int(end_time)}.json").write_text(
-                json.dumps(run_log, indent=2), encoding="utf-8"
+            context.paths.logs_dir.mkdir(parents=True, exist_ok=True)
+            (context.paths.logs_dir / f"run_summary_{int(end_time)}.json").write_text(
+                json.dumps(context.run_log, indent=2), encoding="utf-8"
             )
         except Exception:
             pass
+        if success:
+            context.logger.info("Pipeline completed successfully")
 
-    if success:
-        logger.info("Pipeline completed successfully")
+    def run(self) -> WorkflowResult:
+        start_time = time.time()
+        context = self._initialise_context(start_time)
+        context.logger.info("Starting full-suite pipeline")
+        success = False
+        error_message: str | None = None
+        try:
+            _run_dataset_audit(context)
+            validated_baselines = _prepare_baselines(context)
+            _run_baselines(context, validated_baselines)
+            _run_meta_offline(context)
+            _run_finance_kpis(context)
+            _run_ablation(context)
+            _run_audits(context)
+            _run_reporting(context)
+            _run_schema_validation(context)
+            success = True
+        except Exception as exc:  # pragma: no cover - defensive guard
+            error_message = repr(exc)
+            success = False
+        finally:
+            self._finalise(context, success, error_message)
+        return WorkflowResult(success=success, run_log=context.run_log, error_message=error_message)
 
-    errors = None
-    if not success:
-        err_entry: Dict[str, object] = {
-            "code": "full_suite_failed",
-            "message": "Full-suite pipeline failed",
-        }
-        if error_message:
-            err_entry["details"] = {"error": error_message}
-        errors = [err_entry]
 
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    config = parse_args(list(argv) if argv is not None else None, parser=parser)
+    coordinator = FullSuiteCoordinator(config)
+    result = coordinator.run()
+    args_namespace = config.to_namespace()
     text_message = (
         "Full-suite pipeline completed successfully."
-        if success
+        if result.success
         else "Full-suite pipeline failed; see logs for details."
     )
     emit_formatted_output(
-        args,
-        data=run_log,
+        args_namespace,
+        data=result.run_log,
         text=text_message,
-        message="Full-suite pipeline completed." if success else "Full-suite pipeline failed.",
-        errors=errors,
-        success=success,
+        message="Full-suite pipeline completed." if result.success else "Full-suite pipeline failed.",
+        errors=result.errors,
+        success=result.success,
         pretty=True,
-        command=command,
+        command=config.command,
     )
-    return 0 if success else 1
+    return 0 if result.success else 1
 
 
 if __name__ == "__main__":
