@@ -89,7 +89,9 @@ def _validate_scenario_schema(cfg: Dict[str, Any], *, scenario: str) -> None:
         raise ValueError(f"Scenario '{scenario}' must define analysis.method as a string")
     lookback = analysis_section.get("lookback")
     if not isinstance(lookback, int) or lookback <= 0:
-        raise ValueError(f"Scenario '{scenario}' must define analysis.lookback as a positive integer")
+        raise ValueError(
+            f"Scenario '{scenario}' must define analysis.lookback as a positive integer"
+        )
 
     metrics_cfg = cfg.get("metrics")
     if metrics_cfg is not None and not isinstance(metrics_cfg, dict):

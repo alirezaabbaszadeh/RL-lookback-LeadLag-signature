@@ -2,14 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
-
-import sys
-
-
-import types
 
 
 class _DummyPlotModule:
@@ -141,8 +138,8 @@ preprocessing_stub.StandardScaler = _DummyStandardScaler
 sklearn_stub.preprocessing = preprocessing_stub
 sys.modules.setdefault("sklearn.preprocessing", preprocessing_stub)
 
-from leadlag.pipelines import run_ablation
 from leadlag.cli import formatters as cli_formatters
+from leadlag.pipelines import run_ablation
 from leadlag.reporting import (
     compare_scenarios,
     generate_report,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Final, Set
+from typing import Set
 
 _EMITTED_KEYS: Set[str] = set()
 

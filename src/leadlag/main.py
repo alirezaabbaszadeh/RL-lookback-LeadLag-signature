@@ -5,14 +5,14 @@ import json
 import os
 from importlib import resources
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence
+from typing import Dict, Iterable, Sequence
 
+from leadlag.cli.errors import emit_error
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.evaluation.aggregate import aggregate
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema, run_scenario
 from leadlag.utils.resources import resolve_path
-from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
-from leadlag.cli.errors import emit_error
 
 
 def discover_scenarios() -> list[Path]:
@@ -510,7 +510,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 aggregate_path = aggregate(str(results_root))
                 logger.info("Aggregated comparison complete", context={"aggregate": aggregate_path})
-            except Exception as exc:  # pragma: no cover - aggregate failures should not hide scenario results
+            except Exception as exc:  # pragma: no cover
+                # Aggregation failures should not prevent returning individual scenario results.
                 logger.exception("Aggregation failed", context={"results_root": results_root})
                 errors_list.append(
                     {
@@ -537,7 +538,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     artifacts = {"aggregate": str(aggregate_path)} if aggregate_path else None
     success = exit_code == 0 and not failures and not aborted
-    message = "LeadLag scenarios completed." if success else "LeadLag scenarios completed with errors."
+    message = (
+        "LeadLag scenarios completed."
+        if success
+        else "LeadLag scenarios completed with errors."
+    )
 
     text_lines = [f"Results root: {results_root}"]
     if summary:

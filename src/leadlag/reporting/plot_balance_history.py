@@ -166,7 +166,12 @@ def collect_run_infos(results_root: Path, start_balance: float) -> List[RunInfo]
     return infos
 
 
-def _plot_group(infos: List[RunInfo], title: str, out_path: Path, legend: bool = True) -> Optional[Path]:
+def _plot_group(
+    infos: List[RunInfo],
+    title: str,
+    out_path: Path,
+    legend: bool = True,
+) -> Optional[Path]:
     if not infos:
         return None
     plt.figure(figsize=(12, 6))
@@ -201,7 +206,11 @@ def plot_all_charts(
         )
         if path:
             generated.append(path)
-    path = _plot_group(infos, "Portfolio Balance History - All Runs", out_dir / "balance_all_runs.png")
+    path = _plot_group(
+        infos,
+        "Portfolio Balance History - All Runs",
+        out_dir / "balance_all_runs.png",
+    )
     if path:
         generated.append(path)
 
@@ -345,7 +354,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     generated_paths = plot_all_charts(infos, out_dir, args.max_lines)
     artifacts = {"plots": [str(path) for path in generated_paths]}
-    logger.info("Plots generated", context={"output_dir": str(out_dir), "plots": len(generated_paths)})
+    logger.info(
+        "Plots generated",
+        context={"output_dir": str(out_dir), "plots": len(generated_paths)},
+    )
 
     text_lines = [
         f"Generated {len(generated_paths)} plot(s) in {out_dir}.",

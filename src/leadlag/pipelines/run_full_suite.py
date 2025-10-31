@@ -20,9 +20,8 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(_SRC_ROOT))
 
 from leadlag import hydra_main  # type: ignore
-from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
-
+from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 

@@ -8,11 +8,10 @@ from typing import Iterable, Optional
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-
-from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.envs.leadlag_env import LeadLagEnv
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.run_scenario import (

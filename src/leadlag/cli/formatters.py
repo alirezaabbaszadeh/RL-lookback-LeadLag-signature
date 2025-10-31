@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+
 def add_format_flags(parser: argparse.ArgumentParser, *, default: str = "text") -> None:
     parser.add_argument(
         "--format",
