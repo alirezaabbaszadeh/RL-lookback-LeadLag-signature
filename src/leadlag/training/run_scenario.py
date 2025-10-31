@@ -33,20 +33,13 @@ from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.reporting.profiling import profile_to
 from leadlag.utils.config import deep_update
 from leadlag.utils.resources import resolve_path
-
-
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    if yaml is None:
-        raise RuntimeError("PyYAML is required to load configs. Install with: pip install pyyaml")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
+from leadlag.utils.yaml import load_yaml
 
 def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
-    cfg = _load_yaml(cfg_path)
+    cfg = load_yaml(cfg_path)
     if "extends" in cfg and cfg["extends"]:
         base_path = (cfg_path.parent / cfg["extends"]).resolve()
-        base = _load_yaml(base_path)
+        base = load_yaml(base_path)
 
         # shallow merge: base <- cfg
         merged = deep_update(base, {k: v for k, v in cfg.items() if k != "extends"})

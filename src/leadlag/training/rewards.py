@@ -7,11 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
 from leadlag.utils.resources import resolve_path
-
-try:
-    import yaml
-except ImportError:  # pragma: no cover - yaml optional in prod
-    yaml = None
+from leadlag.utils.yaml import load_yaml
 
 
 RewardDict = Dict[str, float]
@@ -55,7 +51,7 @@ def load_reward_template(template: Optional[Any]) -> Optional[RewardTemplate]:
         return _template_from_dict(template, name="inline")
     if isinstance(template, str):
         path = _resolve_template_path(template)
-        data = _load_yaml(path)
+        data = load_yaml(path)
         if not isinstance(data, Mapping):
             raise ValueError(f"Reward template at {path} must be a mapping")
         name = data.get("name", Path(path).stem)
@@ -181,10 +177,3 @@ def _resolve_template_path(name: str) -> Path:
     raise FileNotFoundError(
         f"Reward template '{name}' not found (looked for {path} and packaged rewards)"
     )
-
-
-def _load_yaml(path: Path) -> Any:
-    if yaml is None:
-        raise ImportError("PyYAML is required to load reward templates")
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
