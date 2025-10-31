@@ -4,6 +4,7 @@ from argparse import Namespace
 from pathlib import Path
 
 from leadlag import main as cli_main
+from leadlag.cli import commands as cli_commands
 
 
 class DummyLogger:
@@ -43,9 +44,32 @@ def _base_args(tmp_path: Path, **overrides) -> Namespace:
     return args
 
 
+def test_cli_dispatch_converts_response(tmp_path):
+    args = _base_args(tmp_path)
+    cli = cli_main.LeadLagCLI(args)
+
+    response = cli_commands.CommandResponse(
+        exit_code=0,
+        message="ok",
+        data={"value": 1},
+    )
+
+    spec = cli_commands.CommandSpec(
+        "dummy",
+        lambda _args: True,
+        lambda context: response,
+    )
+
+    result = cli.dispatch([spec])
+
+    assert result.exit_code == 0
+    assert result.payload["message"] == "ok"
+    assert result.payload["data"] == {"value": 1}
+    assert result.payload["command"] == "leadlag"
+
+
 def test_validate_success(monkeypatch, tmp_path):
     args = _base_args(tmp_path, validate="demo")
-    cli = cli_main.LeadLagCLI(args)
     scenario_path = tmp_path / "demo.yaml"
 
     monkeypatch.setattr(
@@ -62,18 +86,26 @@ def test_validate_success(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli_main, "_validate_scenario_schema", _validate)
 
-    result = cli.validate()
+    command = cli_commands.ValidateCommand(
+        resolve_scenario_reference=cli_main.driver_service.resolve_scenario_reference,
+        merge_extends=cli_main._merge_extends,
+        validate_scenario_schema=cli_main._validate_scenario_schema,
+    )
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
+    )
+    result = command(context)
 
     assert result.exit_code == 0
     assert result.emitter == "output"
-    assert result.payload["data"]["valid"] is True
-    assert result.payload["command"] == "leadlag"
+    assert result.data["valid"] is True
     assert validated["scenario"] == "demo"
 
 
 def test_validate_failure(monkeypatch, tmp_path):
     args = _base_args(tmp_path, validate="broken")
-    cli = cli_main.LeadLagCLI(args)
 
     def _raise(_value):
         raise RuntimeError("boom")
@@ -84,16 +116,25 @@ def test_validate_failure(monkeypatch, tmp_path):
         _raise,
     )
 
-    result = cli.validate()
+    command = cli_commands.ValidateCommand(
+        resolve_scenario_reference=cli_main.driver_service.resolve_scenario_reference,
+        merge_extends=cli_main._merge_extends,
+        validate_scenario_schema=cli_main._validate_scenario_schema,
+    )
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
+    )
+    result = command(context)
 
     assert result.exit_code == 1
     assert result.emitter == "error"
-    assert result.payload["code"] == "scenario_validation_failed"
+    assert result.code == "scenario_validation_failed"
 
 
 def test_status_summary(monkeypatch, tmp_path):
     args = _base_args(tmp_path)
-    cli = cli_main.LeadLagCLI(args)
 
     monkeypatch.setattr(
         cli_main.driver_service,
@@ -114,43 +155,46 @@ def test_status_summary(monkeypatch, tmp_path):
         lambda root, runs: DummyStatus(),
     )
 
-    result = cli.status()
+    command = cli_commands.StatusCommand(
+        collect_status=cli_main.driver_service.collect_status,
+        render_status_summary=cli_main.render_status_summary,
+    )
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
+    )
+    result = command(context)
 
     assert result.exit_code == 0
     assert result.emitter == "output"
-    assert result.payload["data"] == {"runs": 1}
-    assert result.payload["command"] == "leadlag"
+    assert result.data == {"runs": 1}
 
 
 def test_list_discovers_scenarios(monkeypatch, tmp_path):
     args = _base_args(tmp_path)
-    cli = cli_main.LeadLagCLI(args)
 
     discovered = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "discover_scenarios",
-        lambda: discovered,
+    scenario_manager = cli_commands.ScenarioManager(lambda: discovered)
+    command = cli_commands.ListCommand(scenarios=scenario_manager)
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
     )
-
-    result = cli.list()
+    result = command(context)
 
     assert result.exit_code == 0
     assert result.emitter == "output"
-    assert result.payload["data"] == {"scenarios": ["alpha", "beta"]}
-    assert "alpha\nbeta" == result.payload["text"]
+    assert result.data == {"scenarios": ["alpha", "beta"]}
+    assert "alpha\nbeta" == result.text
 
 
 def test_execute_dry_run(monkeypatch, tmp_path):
     args = _base_args(tmp_path, dry_run=True)
-    cli = cli_main.LeadLagCLI(args)
 
     scenarios = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "discover_scenarios",
-        lambda: scenarios,
-    )
+    scenario_manager = cli_commands.ScenarioManager(lambda: scenarios)
     monkeypatch.setattr(
         cli_main.driver_service,
         "filter_scenarios",
@@ -196,25 +240,32 @@ def test_execute_dry_run(monkeypatch, tmp_path):
         lambda payload: Namespace(data={"selected": payload.selected}, text="dry"),
     )
 
-    result = cli.execute()
+    command = cli_commands.ExecuteCommand(
+        driver_service=cli_main.driver_service,
+        scenarios=scenario_manager,
+        render_dry_run_summary=cli_main.render_dry_run_summary,
+        render_execution_summary=cli_main.render_execution_summary,
+    )
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
+    )
+    result = command(context)
 
     assert result.exit_code == 0
     assert result.emitter == "output"
-    assert result.payload["message"] == "Dry-run completed."
-    assert result.payload["data"] == {"selected": ["alpha", "beta"]}
-    assert result.payload["command"] == "leadlag --dry-run"
+    assert result.message == "Dry-run completed."
+    assert result.data == {"selected": ["alpha", "beta"]}
+    assert result.command == "leadlag --dry-run"
+    assert result.results_root == (tmp_path / "results").resolve()
 
 
 def test_execute_full_run(monkeypatch, tmp_path):
     args = _base_args(tmp_path)
-    cli = cli_main.LeadLagCLI(args)
 
     scenarios = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
-    monkeypatch.setattr(
-        cli_main.driver_service,
-        "discover_scenarios",
-        lambda: scenarios,
-    )
+    scenario_manager = cli_commands.ScenarioManager(lambda: scenarios)
     monkeypatch.setattr(
         cli_main.driver_service,
         "filter_scenarios",
@@ -289,11 +340,22 @@ def test_execute_full_run(monkeypatch, tmp_path):
         lambda root, **kwargs: DummyRender(),
     )
 
-    result = cli.execute()
+    command = cli_commands.ExecuteCommand(
+        driver_service=cli_main.driver_service,
+        scenarios=scenario_manager,
+        render_dry_run_summary=cli_main.render_dry_run_summary,
+        render_execution_summary=cli_main.render_execution_summary,
+    )
+    context = cli_commands.CommandContext(
+        args=args,
+        results_root=Path(args.results_root),
+        command="leadlag",
+    )
+    result = command(context)
 
     assert result.exit_code == 0
     assert result.emitter == "output"
-    assert result.payload["message"] == "LeadLag scenarios completed."
-    assert result.payload["data"]["selected"] == ["alpha"]
-    assert result.payload["success"] is True
-    assert result.payload["command"] == "leadlag"
+    assert result.message == "LeadLag scenarios completed."
+    assert result.data["selected"] == ["alpha"]
+    assert result.success is True
+    assert result.command == "leadlag"
