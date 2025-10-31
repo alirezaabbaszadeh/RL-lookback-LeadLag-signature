@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from leadlag.evaluation.aggregate import aggregate  # re-exported for legacy patches
-from leadlag.training.run_scenario import (  # re-exported for legacy patches
+from leadlag.training.scenario_config import (  # re-exported for legacy patches
     _merge_extends,
     _validate_scenario_schema,
 )

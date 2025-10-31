@@ -14,12 +14,9 @@ from sklearn.model_selection import train_test_split
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.envs.leadlag_env import LeadLagEnv
 from leadlag.reporting.logging_utils import get_logger, setup_logging
-from leadlag.training.run_scenario import (
-    _config_to_leadlag,
-    _merge_extends,
-    _read_prices,
-    _set_seed,
-)
+from leadlag.training.run_scenario import _config_to_leadlag
+from leadlag.training.scenario_config import _merge_extends
+from leadlag.training.run_support import read_prices as _read_prices, _set_seed
 from leadlag.utils.resources import resolve_path
 
 

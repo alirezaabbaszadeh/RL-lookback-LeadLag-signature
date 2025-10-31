@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 from copy import deepcopy
 from pathlib import Path
@@ -18,72 +20,168 @@ from leadlag.evaluation.metrics import (
     summarize_metrics,
 )
 from leadlag.models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
-from leadlag.reporting.profiling import profile_to
-from leadlag.utils.config import deep_update
-from leadlag.utils.yaml import load_yaml
-from leadlag.training.run_support import (
-    prepare_run_environment,
-    read_prices as _read_prices,
-    _detect_git,
-    _env_info,
-    _set_seed,
+from leadlag.training.pipeline import (
+    PipelineContext,
+    ScenarioPipeline,
+    ScenarioPipelineHooks,
 )
-
-def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
-    cfg = load_yaml(cfg_path)
-    if "extends" in cfg and cfg["extends"]:
-        base_path = (cfg_path.parent / cfg["extends"]).resolve()
-        base = load_yaml(base_path)
-
-        # shallow merge: base <- cfg
-        merged = deep_update(base, {k: v for k, v in cfg.items() if k != "extends"})
-        return merged
-    return cfg
+from leadlag.training.run_support import prepare_run_environment
+from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
+from leadlag.utils.config import deep_update
 
 
-def _validate_scenario_schema(cfg: Dict[str, Any], *, scenario: str) -> None:
-    """Ensure the merged scenario config contains required sections."""
-
-    required_sections = ("run", "data", "analysis")
-    missing = [section for section in required_sections if section not in cfg]
-    if missing:
-        raise ValueError(f"Scenario '{scenario}' missing sections: {', '.join(missing)}")
-
-    run_section = cfg["run"]
-    if not isinstance(run_section, dict):
-        raise TypeError(f"Scenario '{scenario}' section 'run' must be a mapping")
-
-    data_section = cfg["data"]
-    if not isinstance(data_section, dict):
-        raise TypeError(f"Scenario '{scenario}' section 'data' must be a mapping")
-    price_csv = data_section.get("price_csv")
-    if not isinstance(price_csv, str) or not price_csv:
-        raise ValueError(f"Scenario '{scenario}' must define data.price_csv as a string path")
-
-    analysis_section = cfg["analysis"]
-    if not isinstance(analysis_section, dict):
-        raise TypeError(f"Scenario '{scenario}' section 'analysis' must be a mapping")
-
-    method = analysis_section.get("method")
-    if not isinstance(method, str) or not method:
-        raise ValueError(f"Scenario '{scenario}' must define analysis.method as a string")
-    lookback = analysis_section.get("lookback")
-    if not isinstance(lookback, int) or lookback <= 0:
-        raise ValueError(
-            f"Scenario '{scenario}' must define analysis.lookback as a positive integer"
-        )
-
-    metrics_cfg = cfg.get("metrics")
-    if metrics_cfg is not None and not isinstance(metrics_cfg, dict):
-        raise TypeError(f"Scenario '{scenario}' section 'metrics' must be a mapping when provided")
 def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
-    # Flatten config into the dict expected by LeadLagConfig.from_dict
-    a = cfg["analysis"]
-    merged = dict(a)
-    # carry method-specific block under the same key name
-    if a.get("method") and a.get(a["method"]):
-        merged[a["method"]] = a[a["method"]]
+    """Flatten a scenario configuration into a LeadLag config."""
+
+    analysis_cfg = cfg["analysis"]
+    merged: Dict[str, Any] = dict(analysis_cfg)
+    method = analysis_cfg.get("method")
+    if method and analysis_cfg.get(method):
+        merged[method] = analysis_cfg[method]
     return LeadLagConfig.from_dict(merged)
+
+
+def _build_analyzer(cfg: Dict[str, Any]) -> LeadLagAnalyzer:
+    return LeadLagAnalyzer(_config_to_leadlag(cfg))
+
+
+def _run_analysis(analyzer: LeadLagAnalyzer, prices, cfg: Dict[str, Any]):  # pragma: no cover - thin wrapper
+    return analyzer.analyze(prices, return_rolling=True)
+
+
+def _format_label(label: Any) -> str:
+    try:
+        value = label.date()
+    except Exception:  # pragma: no cover - fallback for non-date indices
+        value = label
+    return str(value)
+
+
+def _sample_matrix_artifact(context: PipelineContext) -> None:
+    """Persist a couple of rolling matrices for manual inspection."""
+
+    rolling = context.rolling
+    try:
+        length = len(rolling)
+    except Exception:  # pragma: no cover - guardrail
+        return
+
+    if length <= 0:
+        return
+
+    try:
+        index = rolling.index
+    except Exception:  # pragma: no cover - guardrail
+        return
+
+    try:
+        first = index[0]
+        last = index[-1]
+    except Exception:  # pragma: no cover - guardrail
+        return
+
+    out_dir = context.preparation.out_dir
+    for label in (first, last):
+        try:
+            matrix = rolling[label]
+            to_csv = getattr(matrix, "to_csv", None)
+            if callable(to_csv):
+                to_csv(out_dir / f"matrix_{_format_label(label)}.csv")
+        except Exception:  # pragma: no cover - best effort
+            continue
+
+
+def _mlflow_hook(context: PipelineContext) -> None:
+    if not MLFLOW_AVAILABLE:  # pragma: no cover - requires optional dependency
+        return
+
+    import os as _os
+
+    enabled = _os.getenv("MLFLOW_ENABLED", "1").lower() in {"1", "true", "yes"}
+    if not enabled:
+        return
+
+    logger = context.preparation.logger
+    run_name = context.preparation.run_name
+    summary = context.summary
+
+    try:  # pragma: no cover - integration path
+        with mlflow.start_run(run_name=run_name, nested=False):
+            for _, row in summary.iterrows():
+                metric_name = row.get("metric", "metric")
+                for col, val in row.items():
+                    if col == "metric":
+                        continue
+                    if isinstance(val, (int, float)) and not (val != val):
+                        mlflow.log_metric(f"{metric_name}_{col}", float(val))
+
+            mlflow.log_artifact(str(context.preparation.out_dir / "config_merged.yaml"))
+            mlflow.log_artifact(str(context.summary_path))
+            if context.metrics_path.exists():
+                mlflow.log_artifact(str(context.metrics_path))
+
+            for plot_name in ("fig_signal_strength.png", "fig_stability.png"):
+                plot_path = context.preparation.out_dir / plot_name
+                if plot_path.exists():
+                    mlflow.log_artifact(str(plot_path))
+    except Exception:
+        logger.warning("MLflow logging failed; continuing without MLflow.")
+
+
+def _plotting_hook(context: PipelineContext) -> None:
+    cfg = context.cfg
+    metrics_cfg = cfg.get("metrics", {}) if isinstance(cfg.get("metrics"), dict) else {}
+
+    try:
+        headless = bool(metrics_cfg.get("headless", False))
+    except Exception:  # pragma: no cover - guardrail
+        headless = False
+
+    if headless:
+        return
+
+    plots_cfg = metrics_cfg.get("plots")
+    if not plots_cfg:
+        return
+
+    logger = context.preparation.logger
+    metrics_df = context.metrics
+    out_dir = context.preparation.out_dir
+
+    def _is_requested(name: str) -> bool:
+        if isinstance(plots_cfg, dict):
+            return bool(plots_cfg.get(name))
+        try:
+            return name in plots_cfg
+        except Exception:  # pragma: no cover - guardrail
+            return False
+
+    if _is_requested("signal_strength"):
+        try:
+            plot_signal_strength(metrics_df, out_dir / "fig_signal_strength.png")
+        except Exception:
+            logger.warning("Plot generation failed: signal_strength")
+
+    if _is_requested("stability"):
+        try:
+            plot_stability(metrics_df, out_dir / "fig_stability.png")
+        except Exception:
+            logger.warning("Plot generation failed: stability")
+
+
+def _create_pipeline() -> ScenarioPipeline:
+    hooks = ScenarioPipelineHooks(
+        mlflow=_mlflow_hook if MLFLOW_AVAILABLE else None,
+        plotting=_plotting_hook,
+    )
+    return ScenarioPipeline(
+        analyzer_factory=_build_analyzer,
+        analysis_runner=_run_analysis,
+        metrics_computer=compute_metrics_timeseries,
+        metrics_summarizer=summarize_metrics,
+        artifact_generators=[_sample_matrix_artifact],
+        hooks=hooks,
+    )
 
 
 def run_scenario(
@@ -106,90 +204,24 @@ def run_scenario(
     if overrides and raw_cfg is not None:
         cfg = deep_update(cfg, overrides)
 
-    _validate_scenario_schema(cfg, scenario=cfg["run"].get("run_name", Path(config_path).stem))
+    scenario_name = cfg["run"].get("run_name", Path(config_path).stem)
+    _validate_scenario_schema(cfg, scenario=scenario_name)
 
-    run_name = cfg["run"].get("run_name", "auto")
     preparation = prepare_run_environment(
         cfg,
         cfg_path=cfg_path,
         module="scenario",
         logger_name="run_scenario",
         out_root=out_root,
-        run_name=run_name,
+        run_name=scenario_name,
         profile_label="load_data",
     )
-    out_dir = preparation.out_dir
-    logger = preparation.logger
-    logger.info("Starting scenario run: %s", preparation.run_name)
-    prices = preparation.prices
 
-    # build analyzer
-    ll_cfg = _config_to_leadlag(cfg)
-    analyzer = LeadLagAnalyzer(ll_cfg)
+    pipeline = _create_pipeline()
+    result = pipeline.run(cfg, preparation)
 
-    # compute rolling matrices
-    with profile_to(out_dir, label="analyze"):
-        rolling = analyzer.analyze(prices, return_rolling=True)
-    # compute metrics
-    with profile_to(out_dir, label="metrics"):
-        metrics_df = compute_metrics_timeseries(rolling)
-    metrics_df.to_csv(out_dir / "metrics_timeseries.csv", index=True)
-    summary = summarize_metrics(metrics_df)
-    summary.to_csv(out_dir / "summary.csv", index=False)
-
-    # Log summary metrics to MLflow if available and enabled via env
-    import os as _os  # local import to avoid polluting namespace
-
-    mlflow_enabled_env = _os.getenv("MLFLOW_ENABLED", "1").lower() in ("1", "true", "yes")
-    if MLFLOW_AVAILABLE and mlflow_enabled_env:
-        try:  # pragma: no cover - integration path
-            with mlflow.start_run(run_name=run_name, nested=False):
-                for _, row in summary.iterrows():
-                    metric_name = row.get("metric", "metric")
-                    for col, val in row.items():
-                        if col == "metric":
-                            continue
-                        if isinstance(val, (int, float)) and not (val != val):  # NaN check
-                            mlflow.log_metric(f"{metric_name}_{col}", float(val))
-                # log artifacts
-                mlflow.log_artifact(str(out_dir / "config_merged.yaml"))
-                mlflow.log_artifact(str(out_dir / "summary.csv"))
-                if (out_dir / "metrics_timeseries.csv").exists():
-                    mlflow.log_artifact(str(out_dir / "metrics_timeseries.csv"))
-                for plot in ["fig_signal_strength.png", "fig_stability.png"]:
-                    p = out_dir / plot
-                    if p.exists():
-                        mlflow.log_artifact(str(p))
-        except Exception:
-            logger.warning("MLflow logging failed; continuing without MLflow.")
-
-    # plots
-    headless = False
-    try:
-        headless = bool(cfg.get("metrics", {}).get("headless", False))
-    except Exception:
-        headless = False
-    if (not headless) and "metrics" in cfg and "plots" in cfg["metrics"]:
-        if "signal_strength" in cfg["metrics"]["plots"]:
-            try:
-                plot_signal_strength(metrics_df, out_dir / "fig_signal_strength.png")
-            except Exception:
-                logger.warning("Plot generation failed: signal_strength")
-        if "stability" in cfg["metrics"]["plots"]:
-            try:
-                plot_stability(metrics_df, out_dir / "fig_stability.png")
-            except Exception:
-                logger.warning("Plot generation failed: stability")
-
-    # save a small sample matrix for inspection
-    if len(rolling) > 0:
-        first_date = rolling.index[0]
-        last_date = rolling.index[-1]
-        rolling[first_date].to_csv(out_dir / f"matrix_{first_date.date()}.csv")
-        rolling[last_date].to_csv(out_dir / f"matrix_{last_date.date()}.csv")
-
-    logger.info("Scenario run completed: %s", out_dir)
-    return out_dir
+    preparation.logger.info("Scenario run completed", extra={"out_dir": str(result.out_dir)})
+    return result.out_dir
 
 
 def main():
@@ -197,9 +229,12 @@ def main():
     ap.add_argument("--config", type=str, required=True, help="Path to scenario YAML")
     ap.add_argument("--out", type=str, default=None, help="Output root directory")
     args = ap.parse_args()
-    out_dir = run_scenario(args.config, args.out)
-    print(f"Saved results to: {out_dir}")
+    run_scenario(args.config, args.out)
 
 
-if __name__ == "__main__":
-    main()
+__all__ = [
+    "run_scenario",
+    "_merge_extends",
+    "_validate_scenario_schema",
+]
+

@@ -16,10 +16,8 @@ from leadlag.evaluation.metrics import (
     summarize_metrics,
 )
 from leadlag.models.LeadLag_main import LeadLagAnalyzer
-from leadlag.training.run_scenario import (
-    _config_to_leadlag,
-    _merge_extends,
-)
+from leadlag.training.run_scenario import _config_to_leadlag
+from leadlag.training.scenario_config import _merge_extends
 from leadlag.training.run_support import prepare_run_environment
 from leadlag.utils.config import deep_update
 

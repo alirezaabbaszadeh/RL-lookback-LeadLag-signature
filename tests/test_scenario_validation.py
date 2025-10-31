@@ -7,7 +7,7 @@ try:  # pragma: no cover - environment guard
 except Exception as exc:  # pragma: no cover
     pytest.skip(f"pandas import failed: {exc}", allow_module_level=True)
 
-from leadlag.training.run_scenario import _validate_scenario_schema
+from leadlag.training.scenario_config import _validate_scenario_schema
 
 
 def test_validate_scenario_schema_rejects_missing_sections():
