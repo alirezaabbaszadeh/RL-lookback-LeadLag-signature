@@ -118,8 +118,7 @@ def cli_env(tmp_path, monkeypatch):
     dummy_logger = DummyLogger()
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(main, "setup_logging", lambda *args, **kwargs: None)
-    monkeypatch.setattr(main, "get_logger", lambda *args, **kwargs: dummy_logger)
+    monkeypatch.setattr(main, "configure_driver_logger", lambda *args, **kwargs: dummy_logger)
 
     return tmp_path, config_dir, dummy_logger
 

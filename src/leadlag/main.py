@@ -6,9 +6,13 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from leadlag.driver import service as driver_service
+from leadlag.driver.logging import (
+    configure_driver_logger,
+    render_dry_run_summary,
+    render_status_summary,
+)
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
-from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
 
 
@@ -96,22 +100,6 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     return args
 
 
-
-
-def _format_status_text(
-    runs: Sequence[driver_service.RunStatusEntry], results_root: Path
-) -> str:
-    if not runs:
-        return f"No runs found under {results_root}"
-    lines = []
-    for entry in runs:
-        status = entry.status or "unknown"
-        run_dir = entry.run_dir
-        scenario = entry.scenario or "<unknown>"
-        lines.append(f"{status:>10}  {scenario}  {run_dir}")
-    return "\n".join(lines)
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     command = "leadlag"
@@ -150,20 +138,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.status:
         runs = driver_service.collect_status(results_root)
-        status_text = _format_status_text(runs, results_root)
-        runs_payload = [entry.to_payload() for entry in runs]
-        errors = None
-        success = True
-        if not runs:
-            errors = [{"code": "no_runs", "message": "No runs found."}]
-            success = False
+        status_render = render_status_summary(results_root, runs)
         emit_formatted_output(
             args,
-            data={"results_root": str(results_root), "runs": runs_payload},
-            text=status_text,
+            data=status_render.data,
+            text=status_render.text,
             message="Run status summary.",
-            errors=errors,
-            success=success,
+            errors=status_render.errors,
+            success=status_render.success,
             pretty=True,
             command=command,
         )
@@ -225,9 +207,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     results_root.mkdir(parents=True, exist_ok=True)
 
-    log_path = Path(args.log_path).resolve() if args.log_path else results_root / "main.log"
-    setup_logging(log_path, level=args.log_level.upper(), context={"module": "driver"})
-    logger = get_logger("leadlag.main", context={"results_root": results_root})
+    log_path = Path(args.log_path).resolve() if args.log_path else None
+    logger = configure_driver_logger(
+        results_root,
+        log_level=args.log_level,
+        log_path=log_path,
+    )
 
     logger.info(
         "Discovered %s scenario(s); %s selected after filtering.",
@@ -252,7 +237,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     if execution.dry_run:
-        dry_text = ["Selected scenarios:"] + [f"  - {name}" for name in selected_names]
         summary_payload = driver_service.DriverSummary(
             selected=selected_names,
             results_root=str(results_root),
@@ -261,17 +245,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             dry_run=True,
             dry_run_entries=execution.dry_run_entries,
         )
+        dry_render = render_dry_run_summary(summary_payload)
         emit_formatted_output(
             args,
-            data={
-                **summary_payload_base,
-                **{
-                    key: value
-                    for key, value in summary_payload.to_payload().items()
-                    if key not in summary_payload_base
-                },
-            },
-            text="\n".join(dry_text),
+            data=dry_render.data,
+            text=dry_render.text,
             message="Dry-run completed.",
             pretty=True,
             command=command,
