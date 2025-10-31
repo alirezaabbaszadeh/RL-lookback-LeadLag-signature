@@ -71,6 +71,27 @@ class ScenarioManager:
         self._cache = scenarios
         return self._cache
 
+    def ensure_or_response(
+        self,
+        *,
+        command: str | None,
+        results_root: Path,
+    ) -> tuple[Sequence[Path] | None, CommandResponse | None]:
+        try:
+            return self.ensure(), None
+        except NoScenariosAvailable:
+            return None, CommandResponse(
+                exit_code=1,
+                code="no_scenarios_available",
+                message=(
+                    "No scenarios found in packaged scenarios "
+                    "(leadlag.configs.scenarios)"
+                ),
+                details={"results_root": str(results_root)},
+                command=command,
+                results_root=results_root,
+            )
+
 
 class ScenarioSelectionService:
     """Resolve requested scenarios and handle invalid selections."""
@@ -292,18 +313,12 @@ class ListCommand:
         self._scenarios = scenarios
 
     def __call__(self, context: CommandContext) -> CommandResponse:
-        try:
-            discovered = self._scenarios.ensure()
-        except NoScenariosAvailable:
-            return CommandResponse(
-                exit_code=1,
-                code="no_scenarios_available",
-                message=(
-                    "No scenarios found in packaged scenarios "
-                    "(leadlag.configs.scenarios)"
-                ),
-                details={"results_root": str(context.results_root)},
-            )
+        discovered, failure = self._scenarios.ensure_or_response(
+            command=context.command,
+            results_root=context.results_root,
+        )
+        if failure is not None:
+            return failure
 
         scenario_names = [path.stem for path in discovered]
         return CommandResponse(
@@ -331,18 +346,13 @@ class ExecuteCommand:
         self._execution_responder = execution_responder
 
     def __call__(self, context: CommandContext) -> CommandResponse:
-        try:
-            discovered = list(self._scenarios.ensure())
-        except NoScenariosAvailable:
-            return CommandResponse(
-                exit_code=1,
-                code="no_scenarios_available",
-                message=(
-                    "No scenarios found in packaged scenarios "
-                    "(leadlag.configs.scenarios)"
-                ),
-                details={"results_root": str(context.results_root)},
-            )
+        discovered, failure = self._scenarios.ensure_or_response(
+            command=context.command,
+            results_root=context.results_root,
+        )
+        if failure is not None:
+            return failure
+        discovered = list(discovered)
 
         setup = self._driver.prepare_execution(context.args)
         results_root = Path(setup.results_root).resolve()
