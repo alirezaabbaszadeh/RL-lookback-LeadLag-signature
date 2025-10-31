@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from leadlag.evaluation.aggregate import aggregate
-from leadlag.training.run_scenario import run_scenario
 from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
 
 from .dto import (
@@ -15,6 +14,11 @@ from .dto import (
     ScenarioSelection,
 )
 from .execution_setup import ExecutionOptions
+from .runners import (
+    RunnerNotAvailableError,
+    RunnerNotRegisteredError,
+    get_runner,
+)
 from .selection import has_successful_run
 
 
@@ -43,32 +47,8 @@ def _pick_runner(preference: str, config: dict[str, object]) -> str:
 
 
 def _execute_runner(runner: str, scenario_path: Path, results_root: Path) -> Path:
-    if runner == "scenario":
-        return run_scenario(str(scenario_path), str(results_root))
-
-    if runner == "dynamic":
-        try:
-            from leadlag.training.run_dynamic_baselines import run_dynamic
-        except ImportError as exc:  # pragma: no cover - optional dependency path
-            missing = getattr(exc, "name", None) or str(exc)
-            raise RuntimeError(
-                "Dynamic baseline runner unavailable. Install optional dependencies for dynamic "
-                f"baselines (missing module: {missing})."
-            ) from exc
-        return run_dynamic(str(scenario_path), str(results_root))
-
-    if runner == "rl":
-        try:
-            from leadlag.training.run_rl import run_rl
-        except ImportError as exc:  # pragma: no cover - optional dependency path
-            missing = getattr(exc, "name", None) or str(exc)
-            raise RuntimeError(
-                "RL runner unavailable. Install the RL extras (pip install -r requirements-rl.txt) "
-                f"(missing module: {missing})."
-            ) from exc
-        return run_rl(str(scenario_path), str(results_root))
-
-    raise ValueError(f"Unknown runner '{runner}'")
+    runner_callable = get_runner(runner)
+    return runner_callable(Path(scenario_path), Path(results_root))
 
 
 class ScenarioExecutor:
@@ -255,6 +235,48 @@ def load_scenario_context(
         )
 
     runner = _pick_runner(options.runner_preference, config)
+    try:
+        get_runner(runner)
+    except RunnerNotAvailableError as exc:
+        logger.warning(
+            "Runner unavailable",
+            context={"scenario": name, "runner": runner, "error": str(exc)},
+        )
+        return (
+            None,
+            ScenarioResult(
+                scenario=name,
+                status="error",
+                runner=runner,
+                error=str(exc),
+            ),
+            {
+                "code": "runner_unavailable",
+                "message": "Runner unavailable",
+                "details": {"scenario": name, "runner": runner, "error": str(exc)},
+            },
+        )
+    except RunnerNotRegisteredError as exc:
+        logger.exception(
+            "Unknown runner selected",
+            context={"scenario": name, "runner": runner},
+        )
+        message = str(exc)
+        return (
+            None,
+            ScenarioResult(
+                scenario=name,
+                status="error",
+                runner=runner,
+                error=message,
+            ),
+            {
+                "code": "runner_unknown",
+                "message": "Runner unavailable",
+                "details": {"scenario": name, "runner": runner, "error": message},
+            },
+        )
+
     return (
         ScenarioExecutionContext(
             scenario=name,
