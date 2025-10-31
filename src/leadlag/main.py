@@ -98,14 +98,16 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 
 
 
-def _format_status_text(runs: list[dict[str, object]], results_root: Path) -> str:
+def _format_status_text(
+    runs: Sequence[driver_service.RunStatusEntry], results_root: Path
+) -> str:
     if not runs:
         return f"No runs found under {results_root}"
     lines = []
     for entry in runs:
-        status = entry.get("status", "unknown")
-        run_dir = entry.get("run_dir", "")
-        scenario = entry.get("scenario", "<unknown>")
+        status = entry.status or "unknown"
+        run_dir = entry.run_dir
+        scenario = entry.scenario or "<unknown>"
         lines.append(f"{status:>10}  {scenario}  {run_dir}")
     return "\n".join(lines)
 
@@ -149,6 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.status:
         runs = driver_service.collect_status(results_root)
         status_text = _format_status_text(runs, results_root)
+        runs_payload = [entry.to_payload() for entry in runs]
         errors = None
         success = True
         if not runs:
@@ -156,7 +159,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             success = False
         emit_formatted_output(
             args,
-            data={"results_root": str(results_root), "runs": runs},
+            data={"results_root": str(results_root), "runs": runs_payload},
             text=status_text,
             message="Run status summary.",
             errors=errors,
@@ -250,14 +253,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if execution.dry_run:
         dry_text = ["Selected scenarios:"] + [f"  - {name}" for name in selected_names]
+        summary_payload = driver_service.DriverSummary(
+            selected=selected_names,
+            results_root=str(results_root),
+            summary=[],
+            aggregate=None,
+            dry_run=True,
+            dry_run_entries=execution.dry_run_entries,
+        )
         emit_formatted_output(
             args,
             data={
                 **summary_payload_base,
-                "summary": [],
-                "aggregate": None,
-                "dry_run": True,
-                "dry_run_entries": execution.dry_run_entries,
+                **{
+                    key: value
+                    for key, value in summary_payload.to_payload().items()
+                    if key not in summary_payload_base
+                },
             },
             text="\n".join(dry_text),
             message="Dry-run completed.",
@@ -272,7 +284,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     exit_code = execution.exit_code
     aborted = execution.aborted
 
-    failures = [row for row in summary if row.get("status") not in {"success", "skipped"}]
+    failures = [row for row in summary if row.status not in {"success", "skipped"}]
     if failures:
         logger.warning(
             "Some scenarios did not complete successfully",
@@ -293,20 +305,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     if summary:
         text_lines.append("Scenario outcomes:")
         for row in summary:
-            details = row.get("output") or row.get("error") or row.get("reason") or ""
+            details = row.output or row.error or row.reason or ""
             if details:
-                text_lines.append(f"  - {row['scenario']}: {row['status']} ({details})")
+                text_lines.append(f"  - {row.scenario}: {row.status} ({details})")
             else:
-                text_lines.append(f"  - {row['scenario']}: {row['status']}")
+                text_lines.append(f"  - {row.scenario}: {row.status}")
     if aggregate_path:
         text_lines.append(f"Aggregate: {aggregate_path}")
 
-    final_data = {
-        **summary_payload_base,
-        "summary": summary,
-        "aggregate": str(aggregate_path) if aggregate_path else None,
-        "dry_run": False,
-    }
+    final_payload = driver_service.DriverSummary(
+        selected=summary_payload_base["selected"],
+        results_root=summary_payload_base["results_root"],
+        summary=summary,
+        aggregate=str(aggregate_path) if aggregate_path else None,
+        dry_run=False,
+    ).to_payload()
+    final_data = {**summary_payload_base, **{k: v for k, v in final_payload.items() if k not in summary_payload_base}}
 
     emit_formatted_output(
         args,

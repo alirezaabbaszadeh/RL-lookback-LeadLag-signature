@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from importlib import resources
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -30,6 +30,103 @@ class _NullLogger:
 
 
 @dataclass(slots=True)
+class ScenarioSelection:
+    """Structured representation of a selected scenario reference."""
+
+    name: str
+    display: str
+    path: str
+
+    def to_payload(self) -> dict[str, str]:
+        """Return a JSON-serialisable payload for the selection."""
+
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ScenarioResult:
+    """Scenario execution outcome captured by the driver."""
+
+    scenario: str
+    status: str
+    runner: str | None
+    output: str | None = None
+    error: str | None = None
+    reason: str | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        """Return a payload matching the historical JSON schema."""
+
+        data = asdict(self)
+        payload: dict[str, object] = {
+            "scenario": data["scenario"],
+            "status": data["status"],
+            "runner": data["runner"],
+        }
+        for optional in ("output", "error", "reason"):
+            value = data[optional]
+            if value is not None:
+                payload[optional] = value
+        return payload
+
+
+@dataclass(slots=True)
+class RunStatusEntry:
+    """Metadata describing the status of a run discovered on disk."""
+
+    run_dir: str
+    status: str
+    scenario: str | None = None
+    path: str | None = None
+    summary_path: str | None = None
+    metadata_path: str | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        """Return a payload mirroring the legacy run status mapping."""
+
+        data = asdict(self)
+        payload: dict[str, object] = {
+            "run_dir": data["run_dir"],
+            "status": data["status"],
+        }
+        if data["scenario"] is not None:
+            payload["scenario"] = data["scenario"]
+        if data["status"] == "aggregate" and data["path"] is not None:
+            payload["path"] = data["path"]
+        if data["summary_path"] is not None:
+            payload["summary_path"] = data["summary_path"]
+        if data["metadata_path"] is not None:
+            payload["metadata_path"] = data["metadata_path"]
+        return payload
+
+
+@dataclass(slots=True)
+class DriverSummary:
+    """Serializable payload summarising the driver execution."""
+
+    selected: list[str]
+    results_root: str
+    summary: list[ScenarioResult]
+    aggregate: str | None
+    dry_run: bool
+    dry_run_entries: list[ScenarioSelection] | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        """Return a payload preserving historical JSON structure."""
+
+        payload: dict[str, object] = {
+            "selected": list(self.selected),
+            "results_root": self.results_root,
+            "summary": [entry.to_payload() for entry in self.summary],
+            "aggregate": self.aggregate,
+            "dry_run": self.dry_run,
+        }
+        if self.dry_run_entries:
+            payload["dry_run_entries"] = [entry.to_payload() for entry in self.dry_run_entries]
+        return payload
+
+
+@dataclass(slots=True)
 class ExecutionOptions:
     """Configuration for executing scenarios."""
 
@@ -44,13 +141,13 @@ class ExecutionOptions:
 class ExecutionResult:
     """Structured result returned from scenario execution."""
 
-    summary: list[dict[str, object]] = field(default_factory=list)
+    summary: list[ScenarioResult] = field(default_factory=list)
     errors: list[dict[str, object]] = field(default_factory=list)
     aggregate: Path | None = None
     exit_code: int = 0
     aborted: bool = False
     dry_run: bool = False
-    dry_run_entries: list[dict[str, str]] = field(default_factory=list)
+    dry_run_entries: list[ScenarioSelection] = field(default_factory=list)
 
 
 def discover_scenarios() -> list[Path]:
@@ -148,10 +245,10 @@ def has_successful_run(run_name: str, results_root: Path) -> bool:
     return False
 
 
-def collect_status(results_root: Path) -> list[dict[str, object]]:
+def collect_status(results_root: Path) -> list[RunStatusEntry]:
     """Collect execution status metadata under *results_root*."""
 
-    runs: list[dict[str, object]] = []
+    runs: list[RunStatusEntry] = []
     if not results_root.exists():
         return runs
 
@@ -161,11 +258,11 @@ def collect_status(results_root: Path) -> list[dict[str, object]]:
 
         if child.name == "aggregate":
             runs.append(
-                {"run_dir": str(child), "status": "aggregate", "path": str(child)}
+                RunStatusEntry(run_dir=str(child), status="aggregate", path=str(child))
             )
             continue
 
-        entry: dict[str, object] = {"run_dir": str(child)}
+        entry = RunStatusEntry(run_dir=str(child), status="empty")
         metadata_path = child / "run_metadata.json"
         summary_path = child / "summary.csv"
 
@@ -180,16 +277,14 @@ def collect_status(results_root: Path) -> list[dict[str, object]]:
             except Exception:
                 scenario_name = None
         if scenario_name:
-            entry["scenario"] = scenario_name
+            entry.scenario = scenario_name
 
         if summary_path.exists():
-            entry["status"] = "success"
-            entry["summary_path"] = str(summary_path)
+            entry.status = "success"
+            entry.summary_path = str(summary_path)
         elif metadata_path.exists():
-            entry["status"] = "incomplete"
-            entry["metadata_path"] = str(metadata_path)
-        else:
-            entry["status"] = "empty"
+            entry.status = "incomplete"
+            entry.metadata_path = str(metadata_path)
 
         runs.append(entry)
 
@@ -249,7 +344,7 @@ def execute_scenarios(
     results_root = options.results_root
 
     if options.dry_run:
-        dry_entries: list[dict[str, str]] = []
+        dry_entries: list[ScenarioSelection] = []
         for sc in selected:
             sc_path = Path(sc)
             try:
@@ -258,13 +353,17 @@ def execute_scenarios(
                 display = sc_path
             logger.info(f"[dry-run] {display}")
             dry_entries.append(
-                {"name": sc_path.stem, "display": str(display), "path": str(sc_path)}
+                ScenarioSelection(
+                    name=sc_path.stem,
+                    display=str(display),
+                    path=str(sc_path),
+                )
             )
         return ExecutionResult(dry_run=True, dry_run_entries=dry_entries)
 
     results_root.mkdir(parents=True, exist_ok=True)
 
-    summary: list[dict[str, object]] = []
+    summary: list[ScenarioResult] = []
     errors_list: list[dict[str, object]] = []
     aggregate_path: Path | None = None
     exit_code = 0
@@ -278,12 +377,12 @@ def execute_scenarios(
                 context={"scenario": name},
             )
             summary.append(
-                {
-                    "scenario": name,
-                    "status": "skipped",
-                    "runner": None,
-                    "reason": "existing_results",
-                }
+                ScenarioResult(
+                    scenario=name,
+                    status="skipped",
+                    runner=None,
+                    reason="existing_results",
+                )
             )
             continue
         try:
@@ -292,12 +391,12 @@ def execute_scenarios(
         except Exception as exc:
             logger.exception("Failed to load scenario config", context={"scenario": name})
             summary.append(
-                {
-                    "scenario": name,
-                    "status": "load_failed",
-                    "runner": None,
-                    "error": str(exc),
-                }
+                ScenarioResult(
+                    scenario=name,
+                    status="load_failed",
+                    runner=None,
+                    error=str(exc),
+                )
             )
             errors_list.append(
                 {
@@ -317,23 +416,23 @@ def execute_scenarios(
         try:
             out_dir = _execute_runner(runner, sc, results_root)
             summary.append(
-                {
-                    "scenario": name,
-                    "status": "success",
-                    "output": str(out_dir),
-                    "runner": runner,
-                }
+                ScenarioResult(
+                    scenario=name,
+                    status="success",
+                    runner=runner,
+                    output=str(out_dir),
+                )
             )
             logger.info("Scenario completed", context={"scenario": name, "output": out_dir})
         except Exception as exc:  # pragma: no cover - defensive logging path
             logger.exception("Scenario execution failed", context={"scenario": name})
             summary.append(
-                {
-                    "scenario": name,
-                    "status": "error",
-                    "runner": runner,
-                    "error": str(exc),
-                }
+                ScenarioResult(
+                    scenario=name,
+                    status="error",
+                    runner=runner,
+                    error=str(exc),
+                )
             )
             errors_list.append(
                 {
@@ -348,7 +447,7 @@ def execute_scenarios(
                 break
 
     if not aborted:
-        successes = [row for row in summary if row.get("status") == "success"]
+        successes = [row for row in summary if row.status == "success"]
         if successes:
             try:
                 aggregate_path = aggregate(str(results_root))
@@ -383,6 +482,7 @@ def execute_scenarios(
 
 
 __all__ = [
+    "DriverSummary",
     "ExecutionOptions",
     "ExecutionResult",
     "collect_status",
@@ -391,6 +491,9 @@ __all__ = [
     "filter_scenarios",
     "has_successful_run",
     "matches_filters",
+    "RunStatusEntry",
+    "ScenarioResult",
+    "ScenarioSelection",
     "resolve_scenario_reference",
     "resolve_scenario_references",
 ]
