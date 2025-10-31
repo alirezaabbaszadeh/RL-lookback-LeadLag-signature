@@ -33,6 +33,7 @@ from leadlag.training.run_scenario import (
     _read_prices,
     _set_seed,
 )
+from leadlag.utils.config import deep_update
 from leadlag.utils.resources import resolve_path
 
 
@@ -76,17 +77,6 @@ def _signal_strength(mat: pd.DataFrame) -> float:
     if off.size == 0:
         return np.nan
     return float(np.nanmean(np.abs(off)))
-
-
-def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = _deep_update(base[key], value)
-        else:
-            base[key] = value
-    return base
-
-
 def run_dynamic(
     config_path: str, out_root: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None
 ) -> Path:
@@ -97,12 +87,12 @@ def run_dynamic(
         cfg = raw_cfg
         cfg_path = Path(config_path)
         if overrides:
-            cfg = _deep_update(cfg, overrides)
+            cfg = deep_update(cfg, overrides)
     else:
         cfg_path = Path(config_path)
         cfg = _merge_extends(cfg_path)
         if overrides:
-            cfg = _deep_update(cfg, overrides)
+            cfg = deep_update(cfg, overrides)
 
     # dynamic params
     dyn = cfg.get("dynamic", {})
