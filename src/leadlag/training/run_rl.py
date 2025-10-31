@@ -44,6 +44,7 @@ from leadlag.training.run_scenario import (
     _merge_extends,
     _read_prices,
 )
+from leadlag.utils.config import deep_update
 from leadlag.utils.resources import resolve_path
 
 
@@ -83,17 +84,6 @@ def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
         ema_alpha=rl_cfg.get("ema_alpha"),
     )
     return env
-
-
-def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = _deep_update(base[key], value)
-        else:
-            base[key] = value
-    return base
-
-
 def run_rl(
     cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None
 ) -> Path:
@@ -104,12 +94,12 @@ def run_rl(
         cfg = raw_cfg
         cfg_path = Path(cfg_path)
         if overrides:
-            cfg = _deep_update(cfg, overrides)
+            cfg = deep_update(cfg, overrides)
     else:
         cfg_path = Path(cfg_path)
         cfg = _merge_extends(cfg_path)
         if overrides:
-            cfg = _deep_update(cfg, overrides)
+            cfg = deep_update(cfg, overrides)
     rl_cfg = cfg.get("rl", {})
     policy_cfg = rl_cfg.get("policy", "")
     normalized_policy = str(policy_cfg).lower() if isinstance(policy_cfg, str) else ""

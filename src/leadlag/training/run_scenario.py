@@ -31,6 +31,7 @@ from leadlag.governance.dataset import build_manifest, record_manifest, run_qual
 from leadlag.models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.reporting.profiling import profile_to
+from leadlag.utils.config import deep_update
 from leadlag.utils.resources import resolve_path
 
 
@@ -48,14 +49,6 @@ def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
         base = _load_yaml(base_path)
 
         # shallow merge: base <- cfg
-        def deep_update(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
-            for k, v in b.items():
-                if isinstance(v, dict) and isinstance(a.get(k), dict):
-                    a[k] = deep_update(a[k], v)
-                else:
-                    a[k] = v
-            return a
-
         merged = deep_update(base, {k: v for k, v in cfg.items() if k != "extends"})
         return merged
     return cfg
@@ -96,17 +89,6 @@ def _validate_scenario_schema(cfg: Dict[str, Any], *, scenario: str) -> None:
     metrics_cfg = cfg.get("metrics")
     if metrics_cfg is not None and not isinstance(metrics_cfg, dict):
         raise TypeError(f"Scenario '{scenario}' section 'metrics' must be a mapping when provided")
-
-
-def _deep_update(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
-    for key, value in overrides.items():
-        if isinstance(value, dict) and isinstance(base.get(key), dict):
-            base[key] = _deep_update(base[key], value)
-        else:
-            base[key] = value
-    return base
-
-
 def _detect_git() -> Dict[str, Any]:
     import subprocess
 
@@ -243,10 +225,10 @@ def run_scenario(
         cfg_path = Path(config_path)
         cfg = _merge_extends(cfg_path)
         if overrides:
-            cfg = _deep_update(cfg, overrides)
+            cfg = deep_update(cfg, overrides)
 
     if overrides and raw_cfg is not None:
-        cfg = _deep_update(cfg, overrides)
+        cfg = deep_update(cfg, overrides)
 
     _validate_scenario_schema(cfg, scenario=cfg["run"].get("run_name", Path(config_path).stem))
 
