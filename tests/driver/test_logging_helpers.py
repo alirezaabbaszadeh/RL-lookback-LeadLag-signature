@@ -6,6 +6,7 @@ import pytest
 
 from leadlag.driver import dto
 from leadlag.driver.logging import (
+    build_driver_summary,
     configure_driver_logger,
     render_dry_run_summary,
     render_execution_summary,
@@ -139,13 +140,9 @@ def test_render_dry_run_summary(tmp_path):
             path="/abs/configs/beta.yaml",
         ),
     ]
-    summary = dto.DriverSummary(
-        selected=[entry.name for entry in entries],
-        results_root=str(tmp_path),
-        summary=[],
-        aggregate=None,
-        dry_run=True,
-        dry_run_entries=entries,
+    execution = dto.ExecutionResult(dry_run=True, dry_run_entries=entries)
+    summary = build_driver_summary(
+        [entry.name for entry in entries], tmp_path, execution
     )
 
     render = render_dry_run_summary(summary)
@@ -169,26 +166,27 @@ def test_render_execution_summary_success(tmp_path):
         )
     ]
 
-    render = render_execution_summary(
-        tmp_path,
+    execution = dto.ExecutionResult(
         summary=summary,
-        aggregate=aggregate_path,
-        selected=["alpha"],
         errors=[],
+        aggregate=aggregate_path,
         exit_code=0,
         aborted=False,
+        dry_run=False,
+    )
+
+    render = render_execution_summary(
+        tmp_path,
+        execution=execution,
+        selected=["alpha"],
     )
 
     assert render.success is True
     assert render.message == "LeadLag scenarios completed."
     assert render.artifacts == {"aggregate": str(aggregate_path)}
     assert render.errors is None
-    assert render.data == dto.DriverSummary(
-        selected=["alpha"],
-        results_root=str(tmp_path),
-        summary=summary,
-        aggregate=str(aggregate_path),
-        dry_run=False,
+    assert render.data == build_driver_summary(
+        ["alpha"], tmp_path, execution
     ).to_payload()
     assert render.text.splitlines() == [
         f"Results root: {tmp_path}",
@@ -209,26 +207,27 @@ def test_render_execution_summary_with_errors(tmp_path):
         )
     ]
 
-    render = render_execution_summary(
-        tmp_path,
+    execution = dto.ExecutionResult(
         summary=summary,
-        aggregate=None,
-        selected=["beta"],
         errors=errors,
+        aggregate=None,
         exit_code=2,
         aborted=False,
+        dry_run=False,
+    )
+
+    render = render_execution_summary(
+        tmp_path,
+        execution=execution,
+        selected=["beta"],
     )
 
     assert render.success is False
     assert render.message == "LeadLag scenarios completed with errors."
     assert render.errors == errors
     assert render.artifacts is None
-    assert render.data == dto.DriverSummary(
-        selected=["beta"],
-        results_root=str(tmp_path),
-        summary=summary,
-        aggregate=None,
-        dry_run=False,
+    assert render.data == build_driver_summary(
+        ["beta"], tmp_path, execution
     ).to_payload()
     assert render.text.splitlines() == [
         f"Results root: {tmp_path}",
