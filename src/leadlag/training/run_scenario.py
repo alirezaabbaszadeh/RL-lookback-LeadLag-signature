@@ -19,7 +19,8 @@ from leadlag.evaluation.metrics import (
     plot_stability,
     summarize_metrics,
 )
-from leadlag.models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
+from leadlag.models.LeadLag_main import LeadLagAnalyzer
+from leadlag.models.config import LeadLagConfig
 from leadlag.training.pipeline import (
     PipelineContext,
     ScenarioPipeline,

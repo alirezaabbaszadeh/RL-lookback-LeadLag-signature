@@ -1,298 +1,51 @@
-import importlib.util
-import warnings
-from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from __future__ import annotations
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
+from leadlag.models.config import (
+    LeadLagConfig,
+    LeaderFollowerConfig,
+    coerce_lead_lag_config,
+    coerce_leader_follower_config,
+)
 from leadlag.models.leadlag import WindowProcessor
 from leadlag.models.leadlag.matrix_builder import build_matrices_batch, build_matrix
-from leadlag.models.leadlag.signature_extractor import SignatureConfig, SignatureExtractor
+from leadlag.models.strategies import LeadLagStrategy, LeadLagStrategyFactory
 
-SIGNATURE_AVAILABLE = importlib.util.find_spec("iisignature") is not None
-
-try:
-    import dcor
-
-    DCOR_AVAILABLE = True
-except ImportError:
-    DCOR_AVAILABLE = False
-
-try:
-    from sklearn.feature_selection import mutual_info_classif
-
-    SKLEARN_AVAILABLE = True
-except ImportError:
-    SKLEARN_AVAILABLE = False
-
-try:
+try:  # pragma: no cover - optional dependency
     from tqdm import tqdm
 
     TQDM_AVAILABLE = True
-except ImportError:  # pragma: no cover
+except ImportError:  # pragma: no cover - fallback when tqdm missing
     TQDM_AVAILABLE = False
 
     def tqdm(iterable, **kwargs):  # type: ignore
         return iterable
 
 
-P_TQDM_AVAILABLE = importlib.util.find_spec("p_tqdm") is not None
-
-try:
-    from numba import njit
-
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
-
-if NUMBA_AVAILABLE:
-
-    @njit(cache=True)
-    def _pearson_corr_numba(x: np.ndarray, y: np.ndarray) -> float:
-        n = x.shape[0]
-        if n == 0:
-            return np.nan
-
-        mean_x = 0.0
-        mean_y = 0.0
-        for i in range(n):
-            mean_x += x[i]
-            mean_y += y[i]
-        mean_x /= n
-        mean_y /= n
-
-        numerator = 0.0
-        denom_x = 0.0
-        denom_y = 0.0
-        for i in range(n):
-            dx = x[i] - mean_x
-            dy = y[i] - mean_y
-            numerator += dx * dy
-            denom_x += dx * dx
-            denom_y += dy * dy
-
-        if denom_x == 0.0 or denom_y == 0.0:
-            return 0.0
-        return numerator / (np.sqrt(denom_x) * np.sqrt(denom_y))
-
-    @njit(cache=True)
-    def _cross_corr_numba(x: np.ndarray, y: np.ndarray, lag: int) -> float:
-        if lag > 0:
-            if lag >= x.shape[0]:
-                return np.nan
-            x_slice = x[:-lag]
-            y_slice = y[lag:]
-        elif lag < 0:
-            lag_abs = -lag
-            if lag_abs >= y.shape[0]:
-                return np.nan
-            x_slice = x[lag_abs:]
-            y_slice = y[:-lag_abs]
-        else:
-            x_slice = x
-            y_slice = y
-
-        if x_slice.shape[0] == 0 or y_slice.shape[0] == 0:
-            return np.nan
-        return _pearson_corr_numba(x_slice, y_slice)
-else:  # pragma: no cover - executed only when numba missing
-
-    def _cross_corr_numba(x: np.ndarray, y: np.ndarray, lag: int) -> float:
-        raise RuntimeError("Numba is not available")
-
-
-@dataclass
-class LeaderFollowerConfig:
-    """Configuration class for Leader-Follower detection methods."""
-
-    method: Literal["percentile"] = "percentile"
-
-    # Percentile method parameters
-    top_percentile: float = 50.0
-    bottom_percentile: float = 50.0
-    agg_func: str = "sum"
-
-    def __post_init__(self):
-        """Validate and set default cluster assignments."""
-
-        # Validate percentile parameters
-        if self.method == "percentile":
-            if not (0 <= self.top_percentile <= 100):
-                raise ValueError("top_percentile must be between 0 and 100")
-            if not (0 <= self.bottom_percentile <= 100):
-                raise ValueError("bottom_percentile must be between 0 and 100")
-
-    @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "LeaderFollowerConfig":
-        """
-        Create LeaderFollowerConfig from dictionary input.
-
-        Args:
-            config_dict: Dictionary with method and method-specific configurations
-
-        Returns:
-            LeaderFollowerConfig: Configured instance
-        """
-        method = config_dict.get("method", "percentile")
-        # Extract method-specific parameters
-        if method == "percentile":
-            return cls(
-                method=method,
-                agg_func=config_dict.get("agg_func", "sum"),
-                top_percentile=config_dict.get("top_percentile", 50.0),
-                bottom_percentile=config_dict.get("bottom_percentile", 50.0),
-            )
-
-        else:
-            raise ValueError(f"Unknown method: {method}")
-
-
-@dataclass
-class LeadLagConfig:
-    """Configuration parameters for lead-lag analysis (DTW explicitly unsupported—use signature)."""
-
-    # Reminder: DTW is intentionally unsupported in this codebase.
-    # Stick to signature or CCF variants.
-    method: Literal["ccf_at_lag", "ccf_auc", "signature", "ccf_at_max_lag"] = "signature"
-    correlation_method: Literal[
-        "pearson", "kendall", "spearman", "distance", "mutual_information", "squared_pearson"
-    ] = "pearson"
-    lookback: Optional[int] = 252
-    update_freq: Optional[int] = 1
-    use_parallel: bool = True
-    num_cpus: int = 7
-    quantiles: int = 4
-    show_progress: bool = True
-    Scaling_Method: str = "mean-centering"
-    sig_method: str = "levy"
-
-    # Method-specific parameters
-    lag: Optional[int] = None
-    max_lag: Optional[int] = None
-
-    @classmethod
-    def from_dict(cls, config_dict: Dict) -> "LeadLagConfig":
-        """Create LeadLagConfig from dictionary input (signature is the recommended default)."""
-        method = config_dict.get("method", "ccf_at_lag")
-        if method == "dtw":
-            raise ValueError(
-                "DTW mode is deprecated for this project. Use 'signature' or other "
-                "supported methods."
-            )
-
-        # Get method-specific config
-        method_config = config_dict.get(method, {})
-
-        # Extract common parameters
-        common_params = {
-            "method": method,
-            "lookback": config_dict.get("lookback", 252),
-            "update_freq": config_dict.get("update_freq", 1),
-            "use_parallel": config_dict.get("use_parallel", True),
-            "num_cpus": config_dict.get("num_cpus", 7),
-            "show_progress": config_dict.get("show_progress", True),
-            "Scaling_Method": config_dict.get("Scaling_Method", "mean-centering"),
-        }
-
-        # Method-specific parameter extraction
-        if method == "ccf_at_lag":
-            common_params["lag"] = method_config.get("lag", 1)
-            common_params["correlation_method"] = method_config.get("correlation_method", "pearson")
-            common_params["quantiles"] = method_config.get("quantiles", 4)
-
-        elif method == "ccf_auc":
-            common_params["max_lag"] = method_config.get("max_lag", 10)
-            common_params["correlation_method"] = method_config.get("correlation_method", "pearson")
-            common_params["quantiles"] = method_config.get("quantiles", 4)
-
-        elif method == "ccf_at_max_lag":
-            common_params["max_lag"] = method_config.get("max_lag", 10)
-            common_params["correlation_method"] = method_config.get("correlation_method", "pearson")
-            common_params["quantiles"] = method_config.get("quantiles", 4)
-
-        elif method == "signature":
-            common_params["correlation_method"] = method_config.get("correlation_method", "pearson")
-            common_params["quantiles"] = method_config.get("quantiles", 4)
-            common_params["sig_method"] = method_config.get("sig_method", "custom")
-
-        return cls(**common_params)
-
-    def __post_init__(self):
-        """Validate configuration parameters (DTW intentionally unsupported)."""
-
-        if self.method in ["ccf_at_lag"] and self.lag is None:
-            raise ValueError("lag parameter is required for ccf_at_lag method")
-
-        if self.method in ["ccf_auc", "ccf_at_max_lag"] and self.max_lag is None:
-            raise ValueError("max_lag parameter is required for ccf_auc and ccf_at_max_lag methods")
-
-        if self.method == "signature" and not SIGNATURE_AVAILABLE:
-            raise ValueError("iisignature package is required for signature method")
-
-        if self.correlation_method == "distance" and not DCOR_AVAILABLE:
-            raise ValueError("dcor package is required for distance correlation method")
-
-        if self.use_parallel and not P_TQDM_AVAILABLE:
-            self.use_parallel = False
-            warnings.warn("Parallel processing disabled due to missing p_tqdm package")
-
-
 class LeadLagAnalyzer:
-    """
-    Professional Lead-Lag Analysis class with optimized numpy vectorization.
+    """Lead-lag analysis orchestrator that delegates heavy lifting to helper utilities."""
 
-    This class provides comprehensive lead-lag relationship analysis between financial instruments
-    using various correlation methods and temporal analysis techniques.
-    """
-
-    def __init__(self, config: Union[LeadLagConfig, Dict], df_universe: pd.Series = None):
-        """
-        Initialize the LeadLagAnalyzer with configuration and universe data.
-
-        Args:
-            config: LeadLagConfig object or dictionary containing all analysis parameters
-            df_universe: Series with DatetimeIndex showing which coins to use on each date
-        """
-        self.config = self._coerce_config(config)
-        self.lead_lag_matrix_rolling = None
+    def __init__(self, config: Union[LeadLagConfig, Dict[str, Any], Any], df_universe: pd.Series | None = None):
+        self.config = coerce_lead_lag_config(config)
+        self.strategy: LeadLagStrategy = LeadLagStrategyFactory(self.config).create()
+        self.lead_lag_matrix_rolling: Optional[pd.Series] = None
         self.df_universe = df_universe
         scaling = getattr(self.config, "Scaling_Method", "mean-centering")
         self.window_processor = WindowProcessor(df_universe=df_universe, scaling_method=scaling)
-        self._signature_extractor: Optional[SignatureExtractor] = None
         self._validate_config()
-        self.selected_window_info = None
+        self.selected_window_info: Optional[Dict[str, Any]] = None
 
-    @staticmethod
-    def _coerce_config(config: Union[LeadLagConfig, Dict, Any]) -> LeadLagConfig:
-        """
-        Normalize incoming configuration into a LeadLagConfig instance.
-
-        Accepts dictionaries, already-instantiated LeadLagConfig objects,
-        and arbitrary dataclass instances carrying compatible fields.
-        """
-        if isinstance(config, LeadLagConfig):
-            return config
-        if isinstance(config, dict):
-            return LeadLagConfig.from_dict(config)
-        if is_dataclass(config):
-            return LeadLagConfig(**asdict(config))
-        raise TypeError("config must be a LeadLagConfig instance or compatible dataclass/dict")
-
-    def _validate_config(self):
-        """Validate the configuration parameters."""
+    # ------------------------------------------------------------------
+    # Validation helpers
+    # ------------------------------------------------------------------
+    def _validate_config(self) -> None:
         if not isinstance(self.config, LeadLagConfig):
             raise TypeError("config must be a LeadLagConfig instance")
 
-    def _validate_data(self, data: pd.DataFrame, allow_partial_nan: bool = True):
-        """
-        Validate input data structure with option to allow partial NaN values.
-
-        Args:
-            data: Input DataFrame to validate
-            allow_partial_nan: Whether to allow some NaN values (useful when universe
-                filtering is applied)
-        """
+    def _validate_data(self, data: pd.DataFrame, allow_partial_nan: bool = True) -> None:
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data must be a pandas DataFrame")
         if not isinstance(data.index, pd.DatetimeIndex):
@@ -304,18 +57,16 @@ class LeadLagAnalyzer:
             if data.isnull().all().any():
                 raise ValueError("Some columns contain only NaN values")
         else:
-            # Check if we have enough non-NaN data for analysis
             non_nan_counts = (~data.isnull()).sum(axis=1)
             if (non_nan_counts < 2).all():
                 raise ValueError(
-                    "Insufficient non-NaN data for analysis (need at least 2 assets per "
-                    "time period)"
+                    "Insufficient non-NaN data for analysis (need at least 2 assets per time period)"
                 )
 
-    def _compute_log_returns(self, price_df: pd.DataFrame):
-        return np.log(price_df).ffill().diff().fillna(0)
-
-    def _get_universe_coins_for_date(self, date: pd.Timestamp) -> list:
+    # ------------------------------------------------------------------
+    # Window processing convenience wrappers
+    # ------------------------------------------------------------------
+    def _get_universe_coins_for_date(self, date: pd.Timestamp) -> List[str]:
         return self.window_processor._get_universe_coins_for_date(date)
 
     def _preprocess_window_data(
@@ -328,23 +79,10 @@ class LeadLagAnalyzer:
     ) -> pd.DataFrame:
         return self.window_processor.get_log_returns(price_df, window_start, window_end)
 
-    def analyze(
-        self, price_df: pd.DataFrame, return_rolling: bool = False
-    ) -> Union[pd.DataFrame, np.ndarray]:
-        """
-        Main analysis method that returns either rolling lead-lag matrices or single matrix.
-        Modified to handle universe data properly by selecting appropriate coins for each window.
-
-        Args:
-            price_df: DataFrame with DatetimeIndex and coin names as columns
-            return_rolling: If True, returns rolling lead-lag matrices over time
-                        If False, returns single lead-lag matrix for entire dataset
-
-        Returns:
-            Union[pd.DataFrame, pd.Series]: Lead-lag matrix or rolling matrices depending
-                on return_rolling
-        """
-        # Basic validation of input data
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def analyze(self, price_df: pd.DataFrame, return_rolling: bool = False) -> Union[pd.DataFrame, pd.Series]:
         if not isinstance(price_df, pd.DataFrame):
             raise TypeError("Input data must be a pandas DataFrame")
         if not isinstance(price_df.index, pd.DatetimeIndex):
@@ -352,21 +90,13 @@ class LeadLagAnalyzer:
 
         if return_rolling:
             return self._compute_rolling_lead_lag_matrix(price_df)
-        else:
-            # For single matrix, pass the full price DataFrame
-            return self._compute_single_lead_lag_matrix(price_df)
+        return self._compute_single_lead_lag_matrix(price_df)
 
     def compute_matrices_batch(
         self,
         price_df: pd.DataFrame,
         windows: Sequence[Tuple[pd.Timestamp, pd.Timestamp]],
     ) -> Dict[Tuple[pd.Timestamp, pd.Timestamp], pd.DataFrame]:
-        """
-        Compute lead-lag matrices for a batch of windows.
-
-        This is primarily used by RL/analysis pipelines that need to evaluate
-        multiple candidate lookback windows in one pass.
-        """
         if not isinstance(price_df, pd.DataFrame):
             raise TypeError("price_df must be a pandas DataFrame")
         if not isinstance(price_df.index, pd.DatetimeIndex):
@@ -378,297 +108,69 @@ class LeadLagAnalyzer:
         for window_start, window_end in windows:
             normalized_windows.append((pd.Timestamp(window_start), pd.Timestamp(window_end)))
 
-        log_returns_batch = self.window_processor.get_log_returns_batch(
-            price_df, normalized_windows
-        )
-
+        log_returns_batch = self.window_processor.get_log_returns_batch(price_df, normalized_windows)
         return build_matrices_batch(log_returns_batch, self._compute_lead_lag_measure_optimized)
 
+    # ------------------------------------------------------------------
+    # Rolling / single window computation
+    # ------------------------------------------------------------------
     def _compute_rolling_lead_lag_matrix(self, price_df: pd.DataFrame) -> pd.Series:
-        """
-        Compute rolling lead-lag matrices over time using optimized numpy operations.
-        Modified to handle universe-filtered data properly by selecting data for each window.
-
-        Args:
-            price_df: Full price DataFrame
-
-        Returns:
-            pd.Series: Series of lead-lag matrices indexed by date
-        """
+        if self.config.lookback is None:
+            raise ValueError("lookback must be specified for rolling computation")
         if self.config.lookback >= len(price_df):
             raise ValueError("lookback period must be less than data length")
 
-        # Store all possible column names for reference
         self.column_names = price_df.columns.tolist()
-
         date_index = price_df.index
         n_data = len(price_df)
+        result_dict: Dict[pd.Timestamp, pd.DataFrame] = {}
 
-        # Initialize result dictionary
-        result_dict = {}
+        update_freq = self.config.update_freq or 1
+        iterator = (
+            tqdm(range(self.config.lookback, n_data, update_freq), desc="Computing rolling lead-lag matrices", unit="window")
+            if self.config.show_progress and TQDM_AVAILABLE
+            else range(self.config.lookback, n_data, update_freq)
+        )
 
-        # Setup progress bar if available and requested
-        update_freq = self.config.update_freq
-        if self.config.show_progress and TQDM_AVAILABLE:
-            time_iterator = tqdm(
-                range(self.config.lookback, n_data, update_freq),
-                desc="Computing rolling lead-lag matrices",
-                unit="window",
-            )
-        else:
-            time_iterator = range(self.config.lookback, n_data, update_freq)
-
-        for i in time_iterator:
+        for i in iterator:
             current_date = date_index[i]
             window_start = date_index[i - self.config.lookback + 1]
-
-            # Get log returns for this specific window with proper universe filtering
-            window_log_returns = self._compute_log_returns_for_window(
-                price_df, window_start, current_date
-            )
-
+            window_log_returns = self._compute_log_returns_for_window(price_df, window_start, current_date)
             if window_log_returns.empty or window_log_returns.shape[1] < 2:
                 continue
-
             matrix_df = build_matrix(window_log_returns, self._compute_lead_lag_measure_optimized)
             result_dict[current_date] = matrix_df
 
-        # Create result series with DatetimeIndex
         result_series = pd.Series(result_dict)
         result_series.index = pd.DatetimeIndex(result_series.index)
-
         return result_series
 
     def _compute_single_lead_lag_matrix(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Compute single lead-lag matrix for the entire dataset.
-
-        Args:
-            data: DataFrame with log returns
-
-        Returns:
-            pd.DataFrame: Lead-lag matrix
-        """
         return build_matrix(data, self._compute_lead_lag_measure_optimized)
 
     def _compute_lead_lag_measure_optimized(self, data_pair: np.ndarray) -> float:
-        """Dispatch to the configured lead-lag measurement routine."""
-        if self.config.method == "ccf_at_lag":
-            return self._ccf_at_lag_optimized(data_pair)
-        elif self.config.method == "ccf_auc":
-            return self._ccf_auc_optimized(data_pair)
-        elif self.config.method == "ccf_at_max_lag":
-            return self._ccf_at_max_lag_optimized(data_pair)
-        elif self.config.method == "signature":
-            return self._signature_method_optimized(data_pair)
-        else:
-            raise NotImplementedError(f"Method {self.config.method} not implemented")
+        return self.strategy.compute(data_pair)
 
-    def _ccf_at_lag_optimized(self, data_pair: np.ndarray) -> float:
-        """Cross-correlation at specific lag using numpy arrays."""
-        x, y = data_pair[:, 0], data_pair[:, 1]
-
-        corr_xy = self._cross_correlation_optimized(x, y, self.config.lag)
-        corr_yx = self._cross_correlation_optimized(y, x, self.config.lag)
-
-        return corr_xy - corr_yx
-
-    def _ccf_auc_optimized(self, data_pair: np.ndarray) -> float:
-        """Cross-correlation area under curve method using numpy arrays."""
-        x, y = data_pair[:, 0], data_pair[:, 1]
-
-        lags = np.arange(1, self.config.max_lag + 1)
-        lags = np.r_[-lags, lags]
-
-        # Vectorized correlation computation
-        correlations = np.array([self._cross_correlation_optimized(x, y, lag) for lag in lags])
-
-        # Split positive and negative lags
-        pos_mask = lags > 0
-        neg_mask = lags < 0
-
-        A = np.abs(correlations[pos_mask]).sum()
-        B = np.abs(correlations[neg_mask]).sum()
-
-        if A + B == 0:
-            return 0.0
-
-        return np.sign(A - B) * max(A, B) / (A + B)
-
-    def _ccf_at_max_lag_optimized(self, data_pair: np.ndarray) -> float:
-        """Cross-correlation at maximum lag method using numpy arrays."""
-        x, y = data_pair[:, 0], data_pair[:, 1]
-
-        lags = np.arange(1, self.config.max_lag + 1)
-        lags = np.r_[-lags, lags]
-
-        # Vectorized correlation computation
-        correlations = np.array([self._cross_correlation_optimized(x, y, lag) for lag in lags])
-
-        # Split positive and negative lags
-        pos_mask = lags > 0
-        neg_mask = lags < 0
-
-        leadingness = np.abs(correlations[pos_mask]).max()
-        laggingness = np.abs(correlations[neg_mask]).max()
-
-        if leadingness > laggingness:
-            return leadingness
-        elif leadingness < laggingness:
-            return -laggingness
-        else:
-            return 0.0
-
-    def _signature_method_optimized(self, data_pair: np.ndarray) -> float:
-        extractor = self._get_signature_extractor()
-        return extractor.compute(data_pair)
-
-    def _get_signature_extractor(self) -> SignatureExtractor:
-        if self._signature_extractor is None:
-            config = SignatureConfig(
-                order=2,
-                scaling_method=getattr(self.config, "Scaling_Method", "mean-centering"),
-                sig_method=getattr(self.config, "sig_method", "custom"),
-            )
-            self._signature_extractor = SignatureExtractor(config)
-        return self._signature_extractor
-
-    def _cross_correlation_optimized(self, x: np.ndarray, y: np.ndarray, lag: int) -> float:
-        """
-        Compute cross-correlation between two numpy arrays at given lag.
-
-        Args:
-            x: First time series (numpy array)
-            y: Second time series (numpy array)
-            lag: Lag to apply to first series
-
-        Returns:
-            float: Cross-correlation value
-        """
-        x = np.asarray(x, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
-
-        # Handle NaN values eagerly to simplify downstream code paths.
-        if np.any(np.isnan(x)) or np.any(np.isnan(y)):
-            valid_mask = ~(np.isnan(x) | np.isnan(y))
-            if not np.any(valid_mask):
-                return np.nan
-            x = x[valid_mask]
-            y = y[valid_mask]
-
-        # Apply lag using numpy operations
-        if lag > 0:
-            if lag >= len(x):
-                return np.nan
-            x_lagged = x[:-lag]
-            y_aligned = y[lag:]
-        elif lag < 0:
-            lag_abs = -lag
-            if lag_abs >= len(y):
-                return np.nan
-            x_lagged = x[lag_abs:]
-            y_aligned = y[:-lag_abs]
-        else:
-            x_lagged = x
-            y_aligned = y
-
-        if len(x_lagged) == 0 or len(y_aligned) == 0:
-            return np.nan
-
-        # Compute correlation based on method
-        if self.config.correlation_method == "pearson":
-            if NUMBA_AVAILABLE:
-                return float(_cross_corr_numba(x_lagged, y_aligned))
-            std_x = np.std(x_lagged)
-            std_y = np.std(y_aligned)
-            if std_x == 0 or std_y == 0:
-                return 0.0
-            return np.corrcoef(x_lagged, y_aligned)[0, 1]
-
-        elif self.config.correlation_method in ["kendall", "spearman"]:
-            # Use pandas for these correlation types
-            combined_df = pd.DataFrame({"x": x_lagged, "y": y_aligned})
-            return combined_df.corr(method=self.config.correlation_method).iloc[0, 1]
-
-        elif self.config.correlation_method == "distance":
-            if not DCOR_AVAILABLE:
-                raise ImportError("dcor package required for distance correlation")
-            return dcor.distance_correlation(x_lagged, y_aligned)
-
-        elif self.config.correlation_method == "mutual_information":
-            return self._mutual_information_correlation_optimized(x_lagged, y_aligned)
-
-        elif self.config.correlation_method == "squared_pearson":
-            std_x = np.nanstd(x_lagged**2)
-            std_y = np.nanstd(y_aligned**2)
-            if std_x == 0 or std_y == 0:
-                return 0.0
-            return np.corrcoef(x_lagged**2, y_aligned**2)[0, 1]
-
-        else:
-            raise NotImplementedError(
-                f"Correlation method {self.config.correlation_method} not implemented"
-            )
-
-    def _mutual_information_correlation_optimized(self, x: np.ndarray, y: np.ndarray) -> float:
-        """Compute mutual information correlation using numpy arrays."""
-        if not SKLEARN_AVAILABLE:
-            raise ImportError("scikit-learn package required for mutual information")
-
-        try:
-            # Discretize using quantiles
-            x_quantiles = pd.qcut(x, q=self.config.quantiles, labels=False, duplicates="drop")
-            y_quantiles = pd.qcut(y, q=self.config.quantiles, labels=False, duplicates="drop")
-
-            # Create mask for valid values
-            valid_mask = ~(np.isnan(x_quantiles) | np.isnan(y_quantiles))
-
-            if not np.any(valid_mask):
-                return np.nan
-
-            x_valid = x_quantiles[valid_mask]
-            y_valid = y_quantiles[valid_mask]
-
-            if len(x_valid) == 0:
-                return np.nan
-
-            # Compute mutual information
-            return mutual_info_classif(
-                x_valid.reshape(-1, 1), y_valid, discrete_features=True, random_state=0
-            )[0]
-
-        except Exception:
-            return np.nan
-
-    def apply_detector(self, config) -> dict:
-        # Handle config input
-        if isinstance(config, dict):
-            config = LeaderFollowerConfig.from_dict(config)
-        elif isinstance(config, LeaderFollowerConfig):
-            config = config
-        else:
-            raise TypeError("method_config must be a dictionary or LeaderFollowerConfig instance")
+    # ------------------------------------------------------------------
+    # Leader/follower detection helpers
+    # ------------------------------------------------------------------
+    def apply_detector(self, config: Union[Dict[str, Any], LeaderFollowerConfig]) -> pd.Series:
+        config = coerce_leader_follower_config(config)
         if self.lead_lag_matrix_rolling is None:
             raise ValueError(
-                "lead_lag_matrix_rolling is None. Please call the "
-                "'leader_follower_detector' method before using this method."
+                "lead_lag_matrix_rolling is None. Please call the 'leader_follower_detector' method first."
             )
-        leaders_followers_dict = {}
-        # Iterate through each date and its corresponding lead-lag matrix
+
+        leaders_followers_dict: Dict[pd.Timestamp, pd.DataFrame] = {}
         for date, lead_lag_matrix in self.lead_lag_matrix_rolling.items():
             if config.method == "percentile":
-                leaders, followers = self._identify_leaders_followers_percentile(
-                    lead_lag_matrix, config
-                )
-            else:
+                leaders, followers = self._identify_leaders_followers_percentile(lead_lag_matrix, config)
+            else:  # pragma: no cover - defensive guard
                 raise ValueError(f"Unknown method: {config.method}")
 
-            temp_df = pd.DataFrame(
-                {"leaders": pd.Series(leaders), "followers": pd.Series(followers)}
-            )
-
-            # Store this DataFrame in the dictionary with the date as the key
+            temp_df = pd.DataFrame({"leaders": pd.Series(leaders), "followers": pd.Series(followers)})
             leaders_followers_dict[date] = temp_df.dropna()
+
         return pd.Series(leaders_followers_dict)
 
     def leader_follower_detector(
@@ -676,45 +178,13 @@ class LeadLagAnalyzer:
         lead_lag_matrix_rolling: pd.Series,
         method_config: Union[Dict[str, Any], LeaderFollowerConfig],
     ) -> pd.Series:
-        """
-        Detect leaders and followers for each date in the rolling lead-lag analysis.
-
-        Args:
-            lead_lag_matrix_rolling: Series of lead-lag matrices from rolling analysis
-            method_config: Dictionary or LeaderFollowerConfig object specifying the method
-                and parameters
-
-        Returns:
-            pd.Series: Series of DataFrames with leaders and followers for each date
-        """
-        # Handle config input
-        if isinstance(method_config, dict):
-            config = LeaderFollowerConfig.from_dict(method_config)
-        elif isinstance(method_config, LeaderFollowerConfig):
-            config = method_config
-        else:
-            raise TypeError("method_config must be a dictionary or LeaderFollowerConfig instance")
-
-        # Create a dictionary to store the DataFrames with dates as keys
-        # leaders_followers_dict = {}
-        self.clustering_rolling = None
+        config = coerce_leader_follower_config(method_config)
         self.lead_lag_matrix_rolling = lead_lag_matrix_rolling
-
         return self.apply_detector(config)
 
     def _identify_leaders_followers_percentile(
         self, lead_lag_matrix: pd.DataFrame, config: LeaderFollowerConfig
     ) -> Tuple[pd.Index, pd.Index]:
-        """
-        Identify leaders and followers using percentile-based method.
-
-        Args:
-            lead_lag_matrix: Lead-lag matrix DataFrame
-            config: Configuration object with percentile parameters
-
-        Returns:
-            Tuple[pd.Index, pd.Index]: Leaders and followers indices
-        """
         return self.identify_quantiles(
             lead_lag_matrix,
             upper_perc=config.top_percentile,
@@ -723,35 +193,24 @@ class LeadLagAnalyzer:
         )
 
     def identify_quantiles(
-        self, lead_lag_matrix: pd.DataFrame, upper_perc: float, lower_perc: float, config
+        self, lead_lag_matrix: pd.DataFrame, upper_perc: float, lower_perc: float, config: LeaderFollowerConfig
     ) -> Tuple[pd.Index, pd.Index]:
-        """
-        Identify leaders and followers based on row sums and percentile thresholds.
-
-        Args:
-            lead_lag_matrix: Lead-lag matrix DataFrame
-            upper_perc: Upper percentile threshold for leaders
-            lower_perc: Lower percentile threshold for followers
-
-        Returns:
-            Tuple[pd.Index, pd.Index]: Leaders and followers indices
-        """
         if config.agg_func == "sum":
             row_sums = lead_lag_matrix.sum(axis=1)
         elif config.agg_func == "mean":
-            # row_sums = np.nanmean(lead_lag_matrix, axis=1)
             row_sums = lead_lag_matrix.mean(axis=1)
-
         else:
             raise ValueError(
                 f"Invalid agg_func: '{config.agg_func}'. Supported values are 'sum' and 'mean'."
             )
-        row_sums = row_sums[row_sums != 0]  # Eliminate tokens with no value (row-sum = 0)
 
+        row_sums = row_sums[row_sums != 0]
         leaders_threshold = np.percentile(row_sums, upper_perc)
         followers_threshold = np.percentile(row_sums, lower_perc)
 
         leaders = row_sums[row_sums > leaders_threshold].index
         followers = row_sums[row_sums < followers_threshold].index
-
         return leaders, followers
+
+
+__all__ = ["LeadLagAnalyzer", "LeadLagConfig", "LeaderFollowerConfig"]

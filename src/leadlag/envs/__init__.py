@@ -1,3 +1,5 @@
 """Environment wrappers and gym interfaces."""
 
-from .leadlag_env import LeadLagConfig, LeadLagEnv  # noqa: F401
+from leadlag.models.config import LeadLagConfig  # noqa: F401
+
+from .leadlag_env import LeadLagEnv  # noqa: F401

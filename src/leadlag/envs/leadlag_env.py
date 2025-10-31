@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from gymnasium import spaces
 
-from leadlag.models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
+from leadlag.models.LeadLag_main import LeadLagAnalyzer
+from leadlag.models.config import LeadLagConfig
 from leadlag.training.rewards import RewardContext, RewardTemplate, load_reward_template
 
 
