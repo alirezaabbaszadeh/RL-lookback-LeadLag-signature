@@ -1,39 +1,59 @@
 # Ablation Scenarios and Usage
 
-This repository provides three ablation-oriented scenarios to support quick
-pipeline checks, realistic runs on modest GPUs, and deeper experiments on
-server-class runners (e.g., Kaggle).
+> **Metadata**
+> - Last updated: 2025-02-15
+> - Maintainer: Experimentation Working Group
+> - Status: Published
+> - Source of truth: `docs/ablation_guide.md`
 
-- `abl_smoke` — fastest pipeline integrity check (no RL), minimal metrics,
-  no plots; intended to surface errors quickly.
-- `abl_lite_gpu` — RL-enabled with light settings for weak GPUs; reduced
-  feature dimensions and timesteps.
-- `abl_server` — RL-enabled, multi-seed, larger timesteps for more stable
-  results on stronger machines.
+Three ablation-focused scenarios provide coverage from smoke checks to server-grade RL studies. They share logging conventions with the broader platform and align with the configuration patterns described in the [Hydra configuration reference](config_reference.md).
 
-## How to run
+- `abl_smoke` — fastest pipeline integrity check (no RL), minimal metrics, no plots; intended to surface errors quickly.
+- `abl_lite_gpu` — RL-enabled with light settings for modest GPUs; reduced feature dimensions and timesteps.
+- `abl_server` — RL-enabled, multi-seed, larger timesteps for more stable results on accelerator-equipped machines.
 
-Single scenario (auto mode, no Hydra required):
+## Running scenarios with the packaged CLI
 
+Single scenario (auto-detects descriptor defaults):
+
+```bash
+leadlag --scenarios abl_smoke --results-root results/ablations
 ```
-python hydra_main.py --scenario abl_smoke --output_root results
-```
 
-Multiple scenarios (ablation sweep):
+Full ablation sweep:
 
-```
-python hydra_main.py --scenarios abl_smoke abl_lite_gpu abl_server --output_root results --multi_seed_enabled
+```bash
+leadlag --scenarios abl_smoke abl_lite_gpu abl_server --results-root results/ablations
 ```
 
 Notes:
-- `abl_smoke` ignores multi-seed to stay fast.
+- `abl_smoke` ignores multi-seed to remain fast.
 - `abl_server` enables multi-seed by default (seeds 101, 202, 303).
-- All three scenarios have corresponding YAMLs under `configs/scenarios/` and
-  presets in `hydra_main.py` so they work with or without Hydra installed.
+- All three scenarios live under `configs/scenario/` and inherit the same aggregation pipeline as baseline runs.
+
+## Hydra overrides
+
+Adjust seeds, runners, or custom parameters with Hydra overrides:
+
+```bash
+python -m leadlag.hydra_main \
+  scenarios='[abl_smoke, abl_lite_gpu, abl_server]' \
+  multi_seed.enabled=true \
+  output_root=results/ablations_multiseed
+```
+
+To experiment with alternative RL hyperparameters, clone the YAML under `configs/scenarios/`, adjust values (for example `rl.total_timesteps`), and reference the new file through an inline descriptor:
+
+```bash
+python -m leadlag.hydra_main \
+  scenarios='[{name: abl_lite_gpu_custom, path: configs/scenarios/abl_lite_gpu_custom.yaml, runner: rl}]' \
+  output_root=results/ablations_custom
+```
+
+Hydra writes merged configs to `<output_root>/<scenario>/config_merged.yaml`, making it easy to diff adjustments against the stock ablation presets.
 
 ## Suggested study grid
 
-- Fixed vs RL: run `fixed_30`, `fixed_90`, `abl_lite_gpu`, `abl_server`.
-- Dynamic baseline: add `dynamic_adaptive` for adaptive lookback.
-- Aggregate and compare with `reporting/compare_scenarios.py`.
-
+- Fixed vs RL: run `fixed_30`, `fixed_90`, `abl_lite_gpu`, and `abl_server`.
+- Dynamic baseline: add `dynamic_adaptive` for adaptive lookback comparisons.
+- Aggregate and compare with `leadlag-compare` or `python -m leadlag.reporting.compare_scenarios` once results are collected.

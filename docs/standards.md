@@ -39,7 +39,7 @@ always be present.
 
 - Lead with a one- or two-sentence summary explaining the purpose of the document.
 - When referencing repository paths or commands, wrap them in backticks (e.g.,
-  ``python hydra_main.py``) as demonstrated in `docs/config_reference.md`.
+  ``python -m leadlag.hydra_main``) as demonstrated in `docs/config_reference.md`.
 - Provide context for legacy or stale artifacts (e.g., call out that `reports/final_report.md` reflects
   2025 experiments and needs refreshing) so readers understand currency.
 - For bilingual content, place the non-English translation immediately after the English phrase in

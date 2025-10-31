@@ -1,8 +1,18 @@
 # Hydra Configuration Reference
 
-```
+> **Metadata**
+> - Last updated: 2025-02-15
+> - Maintainer: Documentation Working Group
+> - Status: Published
+> - Source of truth: `docs/config_reference.md`
+
+This reference outlines how Hydra drives scenario execution for the LeadLag-signature RL project. Use it alongside the [Reproducibility guide](repro.md) when preparing local runs, CI smoke tests, or Kaggle notebooks.
+
+## Directory Overview
+
+```text
 configs/
-├── config.yaml            # base entry point for hydra_main.py
+├── config.yaml            # base entry point for leadlag.hydra_main
 └── scenario/              # reusable scenario descriptors (Hydra/YAML mode)
     ├── fixed_30.yaml
     ├── fixed_90.yaml
@@ -10,54 +20,76 @@ configs/
     └── rl_ppo.yaml
 ```
 
-## config.yaml
+## Core `config.yaml` fields
 
 | Key | Type | Description |
-|-----|------|-------------|
-| `defaults.scenario` | str | Hydra default pointing to a file in `configs/scenario/`. Override via CLI: `python hydra_main.py scenario=fixed_90`. |
-| `output_root` | str | Root directory for run artifacts. |
-| `multi_seed.enabled` | bool | Global flag to execute multi-seed runs. |
-| `multi_seed.seeds` | list[int] | Default seeds when multi-seed is enabled. |
-| `scenarios` | list[str or dict] | Optional list to run multiple scenarios sequentially. Each entry can be a scenario name or an inline dict matching the columns below. |
+| --- | --- | --- |
+| `defaults.scenario` | str | Hydra default pointing to a file in `configs/scenario/`. Override with `python -m leadlag.hydra_main scenario=fixed_90`. |
+| `output_root` | str | Root directory for run artefacts (defaults to `results/`; override with `output_root=/tmp/run`). |
+| `multi_seed.enabled` | bool | Enables multi-seed aggregation when `true`. Scenario descriptors can override this flag. |
+| `multi_seed.seeds` | list[int] | Default seeds used when multi-seed aggregation is enabled. |
+| `scenarios` | list[str \| dict] | Optional sequence of scenarios to run back-to-back. Entries may be scenario names or inline dicts matching the columns below. |
 
-## Scenario descriptor (`configs/scenario/*.yaml`)
+## Scenario descriptors (`configs/scenario/*.yaml`)
 
 | Key | Type | Description |
-|-----|------|-------------|
-| `name` | str | Scenario identifier shown in logs and aggregate outputs. |
-| `path` | str | Path to YAML file describing analysis parameters. |
-| `runner` | str | One of `scenario` (baseline), `dynamic`, `rl`. Determines which execution function is used. |
-| `multi_seed.seeds` | list[int] | Optional seeds specific to this scenario. |
-| `multi_seed.enabled` | bool | Optional override of the multi-seed flag. |
+| --- | --- | --- |
+| `name` | str | Scenario identifier surfaced in logs and aggregate outputs. |
+| `path` | str | Path to the YAML file describing analysis parameters. |
+| `runner` | str | One of `scenario`, `dynamic`, or `rl`, selecting the execution path. |
+| `multi_seed.enabled` | bool | Optional override of the global multi-seed toggle. |
+| `multi_seed.seeds` | list[int] | Optional seed list scoped to this scenario. |
 
-## Built-in presets (available even without Hydra/YAML)
+## Built-in presets
 
-Hydra fallback mode exposes several named presets via the `--scenario` flag:
+Hydra fallback mode exposes several named presets via `scenario=<name>` even without Hydra installed.
 
 | Preset | Purpose | Key settings |
-|--------|---------|--------------|
-| `fast_smoke` | Ultra-fast smoke test | Synthetic data if CSV missing, lookback=10, update_freq=9999 (یک پنجره)، فقط متریک mean_abs_matrix، بدون plot، تک seed. |
-| `fixed_30` | Baseline تحلیل ثابت | lookback=30، می‌تواند multi-seed `[42,52,62]` داشته باشد. |
-| `dynamic_adaptive` | قانون‌محور پویا | تنظیمات min/max/step برای انتخاب داینامیک lookback. |
-| `rl_ppo` | اجرای سبک RL (نیازمند stable-baselines3) | total_timesteps=2000 و سایر هایپرپارامترهای سبک. |
+| --- | --- | --- |
+| `fast_smoke` | Ultra-fast smoke test | Synthetic data when CSV inputs are missing, `lookback=10`, plots disabled, single seed. |
+| `fixed_30` | Research baseline | `lookback=30`, multi-seed `[42, 52, 62]`, generates full reporting artefacts. |
+| `dynamic_adaptive` | Rule-based adaptive baseline | Configures dynamic lookback windows with min/max/step guards. |
+| `rl_ppo` | Lightweight RL | Stable-Baselines3 PPO with `total_timesteps=2000` and reduced network sizes. |
 
-## CLI Examples
+## CLI usage patterns
+
+### Package CLI (`leadlag`)
+
+The packaged `leadlag` command discovers descriptors, applies scenario defaults, and runs aggregations:
 
 ```bash
-# run single scenario (default fixed_30)
-python hydra_main.py
-
-# run ultra-fast smoke test
-python hydra_main.py --scenario fast_smoke --multi_seed_enabled=false
-
-# research-grade baseline with multi-seed aggregation
-python hydra_main.py --scenario research_full
-
-# run RL preset (requires stable-baselines3)
-python hydra_main.py --scenario rl_ppo
-
-# run multiple scenarios sequentially (Hydra/YAML mode)
-python hydra_main.py scenarios='[fixed_30, rl_ppo]' output_root=experiments
+leadlag --list
+leadlag --scenarios fixed_30 rl_ppo --results-root results
+leadlag --dry-run --format json --include rl
 ```
 
-هر اجرا خروجی‌هایی مانند `metrics_timeseries.csv`, `summary.csv`, و در حالت multi-seed فایل‌های `stats.csv`, `significance.csv`, `runs.json` را تولید می‌کند. در preset‌های سبک (fast_smoke) نمودارها غیرفعال شده‌اند تا زمان اجرا حداقلی باشد؛ در preset‌های پژوهشی خروجی کامل برای مقاله فراهم می‌شود.
+Key flags:
+- `--results-root` chooses where merged configs, manifests, and metrics are written (defaults to `LEADLAG_RESULTS_ROOT` or `results`).
+- `--include` / `--exclude` filter scenario filenames by substring.
+- `--max-scenarios` caps the number of scenarios executed after filtering.
+- `--runner {auto,scenario,dynamic,rl}` overrides automatic runner selection.
+- `--status` reports run status for an existing results directory without re-executing scenarios.
+- `--skip-existing` avoids re-running scenarios that already succeeded under the current results root.
+
+### Hydra module entry point
+
+When you need Hydra overrides or inline compositions, call the module entry point directly:
+
+```bash
+python -m leadlag.hydra_main \
+  scenario=fixed_30 \
+  multi_seed.enabled=true \
+  multi_seed.seeds='[11, 22, 33]' \
+  output_root=results/custom
+```
+
+Use inline dictionaries to run ad-hoc scenarios without creating YAML files:
+
+```bash
+python -m leadlag.hydra_main \
+  scenarios='[{name: custom, path: configs/scenarios/fixed_30.yaml, runner: scenario}]'
+```
+
+Hydra writes merged configs to `<output_root>/<scenario>/config_merged.yaml`, enabling diffs between presets and overrides.
+
+For deeper orchestration patterns, refer back to the [Reproducibility guide](repro.md) and the [Ablation guide](ablation_guide.md).

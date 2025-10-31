@@ -34,28 +34,35 @@ End-to-end research environment for analysing lead-lag signatures, experimenting
 ## Quick Start
 
 ```bash
-pip install .            # base dependencies (numpy/pandas/scipy, hydra-core, gymnasium)
+pip install .                # base dependencies (NumPy/Pandas/SciPy, Hydra, Gymnasium)
 # Optional extras
-# pip install .[rl]        # Stable-Baselines3 + torch + sb3-contrib
-# pip install .[signature] # iisignature + dcor + numba
-# pip install .[kaggle]     # kaggle-environments helper
-leadlag --list                      # list packaged scenarios
-leadlag --dry-run --format json      # preview run selection without executing
-# export LEADLAG_RESULTS_ROOT=/tmp/leadlag (or setenv on Windows) to override default output path
+# pip install .[rl]            # Stable-Baselines3 + Torch + sb3-contrib
+# pip install .[signature]     # iisignature + dcor + numba
+# pip install .[kaggle]        # Kaggle-environments helper
+leadlag --list                # enumerate packaged scenarios
+leadlag --dry-run --format json  # preview selection without executing
+# export LEADLAG_RESULTS_ROOT=/tmp/leadlag  # override default output location
 ```
 
 Legacy requirements files remain for offline pinning:
-- `requirements.txt` mirrors the base dependency set
-- `requirements-rl.txt` and `requirements-kaggle.txt` pin optional stacks for constrained environments
+- `requirements.txt` mirrors the base dependency set.
+- `requirements-rl.txt` and `requirements-kaggle.txt` pin optional stacks for constrained environments.
 
 > The published wheel bundles code, configs, and scripts. Large artefacts (datasets, generated reports, Kaggle outputs) stay outside the package to keep installs lightweight.
 
-
-Multi-scenario or multi-seed runs:
+Multi-scenario or multi-seed runs (scenario descriptors encode default seeds):
 
 ```bash
-python hydra_main.py   --scenarios fixed_30 rl_ppo   --multi_seed_enabled   --seeds 42 52 62   --output_root results
+leadlag --scenarios fixed_30 rl_ppo --results-root results
 ```
+
+For Hydra-style overrides—such as changing seeds or enabling experimental toggles—call the module entry point directly:
+
+```bash
+python -m leadlag.hydra_main scenario=fixed_30 multi_seed.seeds='[11, 22, 33]' output_root=results/custom
+```
+
+See the [Reproducibility guide](docs/repro.md) and the [Hydra configuration reference](docs/config_reference.md) for full workflows and override patterns.
 
 ### CLI Entry Points
 
