@@ -8,6 +8,7 @@ from leadlag.driver import service as driver_service
 from leadlag.driver.logging import (
     configure_driver_logger,
     render_dry_run_summary,
+    render_execution_summary,
     render_status_summary,
 )
 
@@ -154,4 +155,83 @@ def test_render_dry_run_summary(tmp_path):
         "Selected scenarios:",
         "  - alpha",
         "  - beta",
+    ]
+
+
+def test_render_execution_summary_success(tmp_path):
+    aggregate_path = tmp_path / "agg.json"
+    summary = [
+        driver_service.ScenarioResult(
+            scenario="alpha",
+            status="success",
+            runner="auto",
+            output="done",
+        )
+    ]
+
+    render = render_execution_summary(
+        tmp_path,
+        summary=summary,
+        aggregate=aggregate_path,
+        selected=["alpha"],
+        errors=[],
+        exit_code=0,
+        aborted=False,
+    )
+
+    assert render.success is True
+    assert render.message == "LeadLag scenarios completed."
+    assert render.artifacts == {"aggregate": str(aggregate_path)}
+    assert render.errors is None
+    assert render.data == driver_service.DriverSummary(
+        selected=["alpha"],
+        results_root=str(tmp_path),
+        summary=summary,
+        aggregate=str(aggregate_path),
+        dry_run=False,
+    ).to_payload()
+    assert render.text.splitlines() == [
+        f"Results root: {tmp_path}",
+        "Scenario outcomes:",
+        "  - alpha: success (done)",
+        f"Aggregate: {aggregate_path}",
+    ]
+
+
+def test_render_execution_summary_with_errors(tmp_path):
+    errors = [{"code": "failed", "message": "boom"}]
+    summary = [
+        driver_service.ScenarioResult(
+            scenario="beta",
+            status="failed",
+            runner="auto",
+            error="boom",
+        )
+    ]
+
+    render = render_execution_summary(
+        tmp_path,
+        summary=summary,
+        aggregate=None,
+        selected=["beta"],
+        errors=errors,
+        exit_code=2,
+        aborted=False,
+    )
+
+    assert render.success is False
+    assert render.message == "LeadLag scenarios completed with errors."
+    assert render.errors == errors
+    assert render.artifacts is None
+    assert render.data == driver_service.DriverSummary(
+        selected=["beta"],
+        results_root=str(tmp_path),
+        summary=summary,
+        aggregate=None,
+        dry_run=False,
+    ).to_payload()
+    assert render.text.splitlines() == [
+        f"Results root: {tmp_path}",
+        "Scenario outcomes:",
+        "  - beta: failed (boom)",
     ]

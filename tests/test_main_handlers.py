@@ -272,5 +272,25 @@ def test_handle_execute_full_run(monkeypatch, tmp_path):
     assert exit_code == 0
     assert captured["message"] == "LeadLag scenarios completed."
     assert captured["success"] is True
+    assert captured["data"] == {
+        "selected": ["alpha"],
+        "results_root": str(tmp_path),
+        "summary": [
+            {
+                "scenario": "alpha",
+                "status": "success",
+                "runner": "auto",
+                "output": "done",
+            }
+        ],
+        "aggregate": str(tmp_path / "agg.json"),
+        "dry_run": False,
+    }
+    assert captured["text"].splitlines() == [
+        f"Results root: {tmp_path}",
+        "Scenario outcomes:",
+        "  - alpha: success (done)",
+        f"Aggregate: {tmp_path / 'agg.json'}",
+    ]
     assert logger.infos
 

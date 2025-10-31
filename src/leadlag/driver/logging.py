@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-from leadlag.driver.service import DriverSummary, RunStatusEntry, ScenarioSelection
+from leadlag.driver.service import (
+    DriverSummary,
+    RunStatusEntry,
+    ScenarioResult,
+    ScenarioSelection,
+)
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 
@@ -25,6 +30,18 @@ class DryRunRender:
 
     text: str
     data: dict[str, object]
+
+
+@dataclass(slots=True)
+class ExecutionRender:
+    """Deterministic payload for rendering full execution results."""
+
+    text: str
+    data: dict[str, object]
+    message: str
+    success: bool
+    errors: list[dict[str, object]] | None
+    artifacts: dict[str, object] | None
 
 
 def configure_driver_logger(
@@ -91,10 +108,63 @@ def render_dry_run_summary(summary: DriverSummary) -> DryRunRender:
     return DryRunRender(text=text, data=summary.to_payload())
 
 
+def render_execution_summary(
+    results_root: Path,
+    *,
+    summary: Sequence[ScenarioResult],
+    aggregate: Path | None,
+    selected: Sequence[str],
+    errors: Sequence[dict[str, object]] | None,
+    exit_code: int,
+    aborted: bool,
+) -> ExecutionRender:
+    """Return deterministic text and payload for a completed execution."""
+
+    text_lines = [f"Results root: {results_root}"]
+    if summary:
+        text_lines.append("Scenario outcomes:")
+        for row in summary:
+            details = row.output or row.error or row.reason or ""
+            if details:
+                text_lines.append(f"  - {row.scenario}: {row.status} ({details})")
+            else:
+                text_lines.append(f"  - {row.scenario}: {row.status}")
+    if aggregate:
+        text_lines.append(f"Aggregate: {aggregate}")
+
+    failures = [row for row in summary if row.status not in {"success", "skipped"}]
+    success = exit_code == 0 and not failures and not aborted
+    message = (
+        "LeadLag scenarios completed."
+        if success
+        else "LeadLag scenarios completed with errors."
+    )
+    artifacts = {"aggregate": str(aggregate)} if aggregate else None
+
+    payload_summary = DriverSummary(
+        selected=list(selected),
+        results_root=str(results_root),
+        summary=list(summary),
+        aggregate=str(aggregate) if aggregate else None,
+        dry_run=False,
+    ).to_payload()
+
+    return ExecutionRender(
+        text="\n".join(text_lines),
+        data=payload_summary,
+        message=message,
+        success=success,
+        errors=list(errors) if errors else None,
+        artifacts=artifacts,
+    )
+
+
 __all__ = [
     "DryRunRender",
+    "ExecutionRender",
     "StatusRender",
     "configure_driver_logger",
+    "render_execution_summary",
     "render_dry_run_summary",
     "render_status_summary",
 ]
