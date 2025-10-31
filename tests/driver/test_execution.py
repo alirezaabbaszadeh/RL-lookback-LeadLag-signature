@@ -6,7 +6,15 @@ from typing import Any
 
 import pytest
 
-from leadlag.driver import dto, execution, execution_setup, runners, selection
+from leadlag.driver import (
+    aggregation as aggregation_module,
+    dto,
+    execution,
+    execution_setup,
+    runners,
+    scenario_runner,
+    selection,
+)
 
 
 class DummyLogger:
@@ -55,7 +63,7 @@ def test_load_scenario_context_failure(tmp_path: Path, scenario_file: Path, monk
     def failing_merge(_path: Path) -> dict[str, Any]:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(execution, "_merge_extends", failing_merge)
+    monkeypatch.setattr(scenario_runner, "_merge_extends", failing_merge)
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(results_root=results_root)
     context, result, error = execution.load_scenario_context(
@@ -77,16 +85,18 @@ def test_load_scenario_context_runner_unavailable(
     results_root = tmp_path / "results"
 
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_merge_extends",
         lambda path: {"run": {"run_name": "alpha"}, "dynamic": {}},
     )
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
 
     def fake_get_runner(_name: str):
         raise runners.RunnerNotAvailableError("dynamic", "missing module")
 
-    monkeypatch.setattr(execution, "get_runner", fake_get_runner)
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_get_runner)
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(results_root=results_root)
@@ -127,9 +137,11 @@ def test_run_scenario_with_context_success(
         assert name == "dynamic"
         return fake_runner
 
-    monkeypatch.setattr(execution, "_merge_extends", fake_merge)
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
+    monkeypatch.setattr(scenario_runner, "_merge_extends", fake_merge)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_runner_factory)
     context, result, error = execution.load_scenario_context(
         scenario_file, options, results_root, DummyLogger()
     )
@@ -160,7 +172,7 @@ def test_run_scenario_with_context_failure(
     def failing_execute(*_args, **_kwargs) -> Path:
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr(execution, "get_runner", lambda name: failing_execute)
+    monkeypatch.setattr(scenario_runner, "get_runner", lambda name: failing_execute)
 
     result, error = execution.run_scenario_with_context(context, DummyLogger())
 
@@ -172,19 +184,20 @@ def test_run_scenario_with_context_failure(
     }
 
 
-def test_record_outcome_updates_collections() -> None:
+def test_outcome_recorder_updates_collections() -> None:
     summary: list[dto.ScenarioResult] = []
     errors: list[dict[str, object]] = []
-    result = dto.ScenarioResult(scenario="alpha", status="success", runner="dynamic")
+    recorder = execution.OutcomeRecorder(summary, errors)
 
-    had_error = execution.record_outcome(summary, errors, result, None)
+    result = dto.ScenarioResult(scenario="alpha", status="success", runner="dynamic")
+    had_error = recorder.record(result, None)
     assert summary == [result]
     assert errors == []
     assert had_error is False
 
     err_result = dto.ScenarioResult(scenario="beta", status="error", runner="dynamic")
     error_entry = {"code": "boom"}
-    had_error = execution.record_outcome(summary, errors, err_result, error_entry)
+    had_error = recorder.record(err_result, error_entry)
     assert had_error is True
     assert errors == [error_entry]
 
@@ -193,12 +206,12 @@ def test_scenario_executor_dry_run_logs_entries(
     scenario_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_merge_extends",
         lambda *_args, **_kwargs: pytest.fail("_merge_extends should not run during dry-run"),
     )
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_execute_runner",
         lambda *_args, **_kwargs: pytest.fail("runner should not run during dry-run"),
     )
@@ -226,8 +239,10 @@ def test_scenario_executor_stop_on_error_aborts(
     def failing_merge(_path: Path) -> dict:
         raise ValueError("bad config")
 
-    monkeypatch.setattr(execution, "_merge_extends", failing_merge)
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(scenario_runner, "_merge_extends", failing_merge)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(
@@ -271,9 +286,11 @@ def test_scenario_executor_aggregation_uses_injected_callable(
 
         return fake_runner
 
-    monkeypatch.setattr(execution, "_merge_extends", fake_merge)
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
+    monkeypatch.setattr(scenario_runner, "_merge_extends", fake_merge)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_runner_factory)
 
     def fake_aggregate(root_str: str) -> Path:
         aggregate_calls.append(root_str)
@@ -306,7 +323,7 @@ def test_trigger_aggregation_success(tmp_path: Path, monkeypatch: pytest.MonkeyP
         aggregate_calls.append(Path(root))
         return Path(root) / "aggregate"
 
-    monkeypatch.setattr(execution, "aggregate", fake_aggregate)
+    monkeypatch.setattr(aggregation_module, "aggregate", fake_aggregate)
 
     aggregate_path, errors, exit_code, aborted = execution.trigger_aggregation(
         summary,
@@ -334,7 +351,7 @@ def test_trigger_aggregation_failure_stop_on_error(
     def failing_aggregate(*_args, **_kwargs) -> Path:
         raise RuntimeError("agg")
 
-    monkeypatch.setattr(execution, "aggregate", failing_aggregate)
+    monkeypatch.setattr(aggregation_module, "aggregate", failing_aggregate)
 
     aggregate_path, errors, exit_code, aborted = execution.trigger_aggregation(
         summary,
@@ -370,16 +387,18 @@ def test_execute_scenarios_success_runs_and_aggregates(
 
         return fake_runner
 
-    monkeypatch.setattr(execution, "_merge_extends", fake_merge)
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
+    monkeypatch.setattr(scenario_runner, "_merge_extends", fake_merge)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_runner_factory)
 
     def fake_aggregate(root_str: str) -> Path:
         root_path = Path(root_str)
         aggregate_calls.append(root_path)
         return root_path / "aggregate"
 
-    monkeypatch.setattr(execution, "aggregate", fake_aggregate)
+    monkeypatch.setattr(aggregation_module, "aggregate", fake_aggregate)
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(results_root=results_root)
@@ -410,9 +429,15 @@ def test_execute_scenarios_failure_stops_when_requested(
     def failing_merge(_path: Path) -> dict:
         raise ValueError("bad config")
 
-    monkeypatch.setattr(execution, "_merge_extends", failing_merge)
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(execution, "aggregate", lambda *_args, **_kwargs: pytest.fail("aggregate"))
+    monkeypatch.setattr(scenario_runner, "_merge_extends", failing_merge)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        aggregation_module,
+        "aggregate",
+        lambda *_args, **_kwargs: pytest.fail("aggregate"),
+    )
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(
@@ -438,12 +463,12 @@ def test_execute_scenarios_dry_run_logs_entries(
     scenario_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_merge_extends",
         lambda *_args, **_kwargs: pytest.fail("_merge_extends should not run during dry-run"),
     )
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_execute_runner",
         lambda *_args, **_kwargs: pytest.fail("runner should not run during dry-run"),
     )
@@ -466,9 +491,13 @@ def test_execute_scenarios_aggregation_failure_recorded(
     results_root = tmp_path / "results"
 
     monkeypatch.setattr(
-        execution, "_merge_extends", lambda *_args, **_kwargs: {"run": {"run_name": "alpha"}}
+        scenario_runner,
+        "_merge_extends",
+        lambda *_args, **_kwargs: {"run": {"run_name": "alpha"}},
     )
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
     def fake_runner_factory(name: str):
         def fake_runner(*_args, **_kwargs) -> Path:
             (results_root / "alpha_run").mkdir(parents=True)
@@ -476,12 +505,12 @@ def test_execute_scenarios_aggregation_failure_recorded(
 
         return fake_runner
 
-    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_runner_factory)
 
     def failing_aggregate(_root: str) -> Path:
         raise RuntimeError("aggregation failed")
 
-    monkeypatch.setattr(execution, "aggregate", failing_aggregate)
+    monkeypatch.setattr(aggregation_module, "aggregate", failing_aggregate)
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(results_root=results_root)
@@ -499,14 +528,16 @@ def test_structured_models_serialize_to_expected_payloads(
     results_root = tmp_path / "results"
 
     monkeypatch.setattr(
-        execution,
+        scenario_runner,
         "_merge_extends",
         lambda *_args, **_kwargs: {
             "run": {"run_name": "alpha"},
             "dynamic": {},
         },
     )
-    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        scenario_runner, "_validate_scenario_schema", lambda *_args, **_kwargs: None
+    )
     def fake_runner_factory(name: str):
         def fake_runner(*_args, **_kwargs) -> Path:
             (results_root / "alpha_run").mkdir(parents=True)
@@ -514,8 +545,10 @@ def test_structured_models_serialize_to_expected_payloads(
 
         return fake_runner
 
-    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
-    monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(scenario_runner, "get_runner", fake_runner_factory)
+    monkeypatch.setattr(
+        aggregation_module, "aggregate", lambda root: Path(root) / "aggregate"
+    )
 
     logger = DummyLogger()
     options = execution_setup.ExecutionOptions(results_root=results_root)

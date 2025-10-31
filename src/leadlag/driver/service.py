@@ -24,6 +24,7 @@ from .execution import (
     run_scenario_with_context,
     trigger_aggregation,
 )
+from .outcome import OutcomeRecorder
 from .execution_setup import ExecutionOptions, ExecutionSetup, prepare_execution
 from .runners import (
     RunnerNotAvailableError,
@@ -44,6 +45,7 @@ __all__ = [
     "ExecutionOptions",
     "ExecutionResult",
     "ExecutionSetup",
+    "OutcomeRecorder",
     "RunStatusEntry",
     "ScenarioExecutionContext",
     "ScenarioResult",
