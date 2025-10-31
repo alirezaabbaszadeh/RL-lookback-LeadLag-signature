@@ -3,9 +3,8 @@ from __future__ import annotations
 import argparse
 import os
 from dataclasses import dataclass
-from logging import Logger
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Iterable, Sequence
 
 from leadlag.driver import service as driver_service
 from leadlag.driver.logging import (
@@ -15,6 +14,7 @@ from leadlag.driver.logging import (
 )
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
+from leadlag.cli import commands as cli_commands
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
 
 
@@ -33,13 +33,6 @@ class CLIResult:
         return cls(exit_code=exit_code, emitter="error", payload=dict(payload))
 
 
-@dataclass(frozen=True)
-class CommandSpec:
-    name: str
-    predicate: Callable[[argparse.Namespace], bool]
-    handler: Callable[["LeadLagCLI"], CLIResult]
-
-
 class LeadLagCLI:
     """Dispatcher coordinating LeadLag CLI interactions."""
 
@@ -47,205 +40,75 @@ class LeadLagCLI:
         self.args = args
         self.command = getattr(args, "_leadlag_command", "leadlag")
         self.results_root = Path(args.results_root).resolve()
-        self.discovered_scenarios: Sequence[Path] | None = None
+        self._scenario_manager = cli_commands.ScenarioManager(
+            driver_service.discover_scenarios
+        )
+        self._registry: Sequence[cli_commands.CommandSpec] | None = None
 
-    def dispatch(self, registry: Sequence[CommandSpec]) -> CLIResult:
+    def build_registry(self) -> Sequence[cli_commands.CommandSpec]:
+        if self._registry is None:
+            dependencies = cli_commands.CommandDependencies(
+                driver_service=driver_service,
+                scenario_manager=self._scenario_manager,
+                merge_extends=_merge_extends,
+                validate_scenario_schema=_validate_scenario_schema,
+                render_status_summary=render_status_summary,
+                render_execution_summary=render_execution_summary,
+                render_dry_run_summary=render_dry_run_summary,
+            )
+            self._registry = cli_commands.build_command_registry(dependencies)
+        return self._registry
+
+    def dispatch(
+        self, registry: Sequence[cli_commands.CommandSpec]
+    ) -> CLIResult:
+        context = cli_commands.CommandContext(
+            args=self.args, results_root=self.results_root, command=self.command
+        )
         for spec in registry:
             if spec.predicate(self.args):
-                return spec.handler(self)
+                response = spec.handler(context)
+                self._update_state(response)
+                return self._from_response(response)
         raise RuntimeError("No matching CLI command found")
 
-    # region Helpers
-    def _success(self, exit_code: int, **payload: object) -> CLIResult:
-        if "command" not in payload:
-            payload["command"] = self.command
-        payload.setdefault("pretty", True)
-        return CLIResult.output(exit_code, **payload)
+    def _update_state(self, response: cli_commands.CommandResponse) -> None:
+        if response.results_root is not None:
+            self.results_root = Path(response.results_root)
+        if response.command is not None:
+            self.command = response.command
 
-    def _ensure_scenarios(self) -> CLIResult | None:
-        if self.discovered_scenarios is not None:
-            return None
-        scenarios = driver_service.discover_scenarios()
-        if not scenarios:
-            return CLIResult.error(
-                1,
-                code="no_scenarios_available",
-                message=(
-                    "No scenarios found in packaged scenarios "
-                    "(leadlag.configs.scenarios)"
-                ),
-                details={"results_root": str(self.results_root)},
-            )
-        self.discovered_scenarios = list(scenarios)
-        return None
+    def _from_response(self, response: cli_commands.CommandResponse) -> CLIResult:
+        payload: dict[str, object] = {}
+        if response.data is not None:
+            payload["data"] = response.data
+        if response.text is not None:
+            payload["text"] = response.text
+        if response.message is not None:
+            payload["message"] = response.message
+        if response.errors is not None:
+            payload["errors"] = response.errors
+        if response.success is not None:
+            payload["success"] = response.success
+        if response.artifacts is not None:
+            payload["artifacts"] = response.artifacts
+        if response.details is not None:
+            payload["details"] = response.details
 
-    # endregion
+        payload["pretty"] = response.pretty
+        payload["command"] = response.command or self.command
 
-    def validate(self) -> CLIResult:
-        try:
-            scenario_path = driver_service.resolve_scenario_reference(self.args.validate)
-            config = _merge_extends(scenario_path)
-            _validate_scenario_schema(config, scenario=scenario_path.stem)
-        except Exception as exc:  # pragma: no cover - exercised in tests
-            return CLIResult.error(
-                1,
-                code="scenario_validation_failed",
-                message=f"Validation failed for '{self.args.validate}'",
-                details={
-                    "scenario": self.args.validate,
-                    "error": str(exc),
-                    "valid": False,
-                },
-            )
+        if response.code is not None:
+            payload["code"] = response.code
 
-        return self._success(
-            0,
-            data={
-                "scenario": scenario_path.stem,
-                "path": str(scenario_path),
-                "valid": True,
-            },
-            text=f"Scenario '{scenario_path.stem}' is valid ({scenario_path})",
-            message="Scenario validation succeeded.",
-        )
-
-    def status(self) -> CLIResult:
-        runs = driver_service.collect_status(self.results_root)
-        status_render = render_status_summary(self.results_root, runs)
-        return self._success(
-            0,
-            data=status_render.data,
-            text=status_render.text,
-            message="Run status summary.",
-            errors=status_render.errors,
-            success=status_render.success,
-        )
-
-    def list(self) -> CLIResult:
-        ensured = self._ensure_scenarios()
-        if ensured is not None:
-            return ensured
-        assert self.discovered_scenarios is not None  # for type-checkers
-        scenario_names = [path.stem for path in self.discovered_scenarios]
-        return self._success(
-            0,
-            data={"scenarios": scenario_names},
-            text="\n".join(scenario_names),
-            message="Available scenarios listed.",
-        )
-
-    def execute(self) -> CLIResult:
-        ensured = self._ensure_scenarios()
-        if ensured is not None:
-            return ensured
-        assert self.discovered_scenarios is not None  # for type-checkers
-
-        setup = driver_service.prepare_execution(self.args)
-        self.results_root = setup.results_root
-        self.command = setup.command
-        logger = setup.logger
-        execution_options = setup.options
-
-        discovered_scenarios = list(self.discovered_scenarios)
-        args = self.args
-
-        if args.scenarios:
-            selected, errors = driver_service.resolve_scenario_references(args.scenarios)
-            if errors:
-                return CLIResult.error(
-                    1,
-                    code="invalid_scenarios",
-                    message="One or more scenarios not found",
-                    details={"errors": errors, "requested": list(args.scenarios)},
-                )
-            selected = [path.resolve() for path in selected]
-        else:
-            selected = driver_service.filter_scenarios(
-                discovered_scenarios, args.include, args.exclude
-            )
-
-        if args.max_scenarios is not None:
-            selected = selected[: max(args.max_scenarios, 0)]
-
-        if not selected:
-            return CLIResult.error(
-                1,
-                code="no_scenarios_matched",
-                message="No scenarios match the provided filters.",
-                details={
-                    "include": args.include,
-                    "exclude": args.exclude,
-                    "results_root": str(self.results_root),
-                },
-            )
-
-        logger.info(
-            "Discovered %s scenario(s); %s selected after filtering.",
-            len(discovered_scenarios),
-            len(selected),
-        )
-
-        selected_names = [sc.stem for sc in selected]
-        execution = driver_service.execute_scenarios(
-            selected,
-            execution_options,
-            logger=logger,
-        )
-
-        if execution.dry_run:
-            summary_payload = driver_service.DriverSummary(
-                selected=selected_names,
-                results_root=str(self.results_root),
-                summary=[],
-                aggregate=None,
-                dry_run=True,
-                dry_run_entries=execution.dry_run_entries,
-            )
-            dry_render = render_dry_run_summary(summary_payload)
-            return self._success(
-                execution.exit_code,
-                data=dry_render.data,
-                text=dry_render.text,
-                message="Dry-run completed.",
-            )
-
-        summary = execution.summary
-        errors_list = execution.errors
-        aggregate_path = execution.aggregate
-        exit_code = execution.exit_code
-        aborted = execution.aborted
-
-        failures = [row for row in summary if row.status not in {"success", "skipped"}]
-        if failures:
-            logger.warning(
-                "Some scenarios did not complete successfully",
-                context={"failures": len(failures)},
-            )
-            if args.stop_on_error and exit_code == 0:
-                exit_code = 1
-
-        execution_render = render_execution_summary(
-            self.results_root,
-            summary=summary,
-            aggregate=aggregate_path,
-            selected=selected_names,
-            errors=errors_list,
-            exit_code=exit_code,
-            aborted=aborted,
-        )
-
-        return self._success(
-            exit_code,
-            data=execution_render.data,
-            text=execution_render.text,
-            message=execution_render.message,
-            artifacts=execution_render.artifacts,
-            errors=execution_render.errors,
-            success=execution_render.success,
+        return CLIResult(
+            exit_code=response.exit_code,
+            emitter=response.emitter,
+            payload=payload,
         )
 
 
-def build_parser_and_registry() -> tuple[argparse.ArgumentParser, Sequence[CommandSpec]]:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run configured LeadLag scenarios and aggregate results.",
     )
@@ -322,14 +185,7 @@ def build_parser_and_registry() -> tuple[argparse.ArgumentParser, Sequence[Comma
         "--log-path",
         help="Optional path for the driver log file (defaults to <results-root>/main.log).",
     )
-
-    registry: tuple[CommandSpec, ...] = (
-        CommandSpec("validate", lambda args: bool(args.validate), LeadLagCLI.validate),
-        CommandSpec("status", lambda args: bool(args.status), LeadLagCLI.status),
-        CommandSpec("list", lambda args: bool(args.list), LeadLagCLI.list),
-        CommandSpec("execute", lambda _args: True, LeadLagCLI.execute),
-    )
-    return parser, registry
+    return parser
 
 
 def parse_args(
@@ -337,7 +193,7 @@ def parse_args(
     *,
     parser: argparse.ArgumentParser | None = None,
 ) -> argparse.Namespace:
-    parser = parser or build_parser_and_registry()[0]
+    parser = parser or build_parser()
     raw_argv = list(argv) if argv is not None else None
     args = parser.parse_args(raw_argv if raw_argv is not None else None)
     finalize_format_args(args, remove_in="0.2.0")
@@ -360,10 +216,11 @@ def _emit_result(args: argparse.Namespace, result: CLIResult) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser, registry = build_parser_and_registry()
+    parser = build_parser()
     raw_argv = list(argv) if argv is not None else None
     args = parse_args(raw_argv, parser=parser)
     cli = LeadLagCLI(args)
+    registry = cli.build_registry()
     result = cli.dispatch(registry)
     _emit_result(args, result)
     return result.exit_code
