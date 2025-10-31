@@ -266,9 +266,12 @@ def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
             "dynamic": {},
         }
 
-    def fake_execute(runner: str, sc_path: Path, results_root: Path) -> Path:
-        runner_calls.append((runner, Path(sc_path), Path(results_root)))
-        return Path(results_root) / f"{Path(sc_path).stem}_output"
+    def fake_runner_factory(name: str):
+        def fake_runner(sc_path: Path, results_root: Path) -> Path:
+            runner_calls.append((name, sc_path, results_root))
+            return results_root / f"{sc_path.stem}_output"
+
+        return fake_runner
 
     def fake_aggregate(root_str: str) -> Path:
         root_path = Path(root_str)
@@ -277,7 +280,7 @@ def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
 
     monkeypatch.setattr(main, "_merge_extends", fake_merge)
     monkeypatch.setattr(execution, "_merge_extends", fake_merge)
-    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
     monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
     results_root = root / "outputs"
@@ -305,15 +308,18 @@ def test_main_json_summary(cli_env, monkeypatch, capsys):
             "analysis": {"method": "signature", "lookback": 30},
         }
 
-    def fake_execute(runner: str, sc_path: Path, results_root: Path) -> Path:
-        return results_root / f"{Path(sc_path).stem}_output"
+    def fake_runner_factory(name: str):
+        def fake_runner(sc_path: Path, results_root: Path) -> Path:
+            return results_root / f"{sc_path.stem}_output"
+
+        return fake_runner
 
     def fake_aggregate(root_str: str) -> Path:
         return Path(root_str) / "aggregate"
 
     monkeypatch.setattr(main, "_merge_extends", fake_merge)
     monkeypatch.setattr(execution, "_merge_extends", fake_merge)
-    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
     monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
     exit_code = main.main(["--json"], build_driver_service=lambda: service)
@@ -341,7 +347,7 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
     scenario_path = config_dir / "failure.yaml"
     _write_basic_scenario(scenario_path, run_name="failure")
 
-    def failing_execute(runner: str, sc_path: Path, results_root: Path) -> Path:
+    def failing_runner(_sc_path: Path, _results_root: Path) -> Path:
         raise RuntimeError("boom")
 
     aggregate_calls: list[Path] = []
@@ -368,7 +374,7 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
             "analysis": {"method": "signature", "lookback": 30},
         },
     )
-    monkeypatch.setattr(execution, "_execute_runner", failing_execute)
+    monkeypatch.setattr(execution, "get_runner", lambda name: failing_runner)
     monkeypatch.setattr(execution, "aggregate", fake_aggregate)
 
     results_root = root / "results"
@@ -387,7 +393,7 @@ def test_main_runner_error_with_stop(cli_env, monkeypatch):
     root, config_dir, _, service = cli_env
     _write_basic_scenario(config_dir / "failure.yaml", run_name="failure")
 
-    def raising_execute(*_args, **_kwargs):
+    def raising_runner(*_args, **_kwargs):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(
@@ -408,7 +414,7 @@ def test_main_runner_error_with_stop(cli_env, monkeypatch):
             "analysis": {"method": "signature", "lookback": 30},
         },
     )
-    monkeypatch.setattr(execution, "_execute_runner", raising_execute)
+    monkeypatch.setattr(execution, "get_runner", lambda name: raising_runner)
     monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
 
     results_root = root / "results"

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from leadlag.driver import dto, execution, execution_setup, selection
+from leadlag.driver import dto, execution, execution_setup, runners, selection
 
 
 class DummyLogger:
@@ -71,6 +71,40 @@ def test_load_scenario_context_failure(tmp_path: Path, scenario_file: Path, monk
     }
 
 
+def test_load_scenario_context_runner_unavailable(
+    tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_root = tmp_path / "results"
+
+    monkeypatch.setattr(
+        execution,
+        "_merge_extends",
+        lambda path: {"run": {"run_name": "alpha"}, "dynamic": {}},
+    )
+    monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+
+    def fake_get_runner(_name: str):
+        raise runners.RunnerNotAvailableError("dynamic", "missing module")
+
+    monkeypatch.setattr(execution, "get_runner", fake_get_runner)
+
+    logger = DummyLogger()
+    options = execution_setup.ExecutionOptions(results_root=results_root)
+    context, result, error = execution.load_scenario_context(
+        scenario_file, options, results_root, logger
+    )
+
+    assert context is None
+    assert result == dto.ScenarioResult(
+        scenario="alpha", status="error", runner="dynamic", error="missing module"
+    )
+    assert error == {
+        "code": "runner_unavailable",
+        "message": "Runner unavailable",
+        "details": {"scenario": "alpha", "runner": "dynamic", "error": "missing module"},
+    }
+
+
 def test_run_scenario_with_context_success(
     tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -81,21 +115,26 @@ def test_run_scenario_with_context_success(
         assert path == scenario_file
         return {"run": {"run_name": "alpha"}, "dynamic": {}}
 
+    run_dir = results_root / "alpha_20240101_000000"
+    run_dir.mkdir(parents=True)
+
+    def fake_runner(sc_path: Path, root: Path) -> Path:
+        assert sc_path == scenario_file
+        assert root == results_root
+        return run_dir
+
+    def fake_runner_factory(name: str):
+        assert name == "dynamic"
+        return fake_runner
+
     monkeypatch.setattr(execution, "_merge_extends", fake_merge)
     monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
     context, result, error = execution.load_scenario_context(
         scenario_file, options, results_root, DummyLogger()
     )
 
     assert context is not None and result is None and error is None
-
-    run_dir = results_root / "alpha_20240101_000000"
-    run_dir.mkdir(parents=True)
-
-    def fake_execute(_runner: str, _sc_path: Path, _root: Path) -> Path:
-        return run_dir
-
-    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
 
     scenario_result, execution_error = execution.run_scenario_with_context(
         context, DummyLogger()
@@ -121,7 +160,7 @@ def test_run_scenario_with_context_failure(
     def failing_execute(*_args, **_kwargs) -> Path:
         raise RuntimeError("kaboom")
 
-    monkeypatch.setattr(execution, "_execute_runner", failing_execute)
+    monkeypatch.setattr(execution, "get_runner", lambda name: failing_execute)
 
     result, error = execution.run_scenario_with_context(context, DummyLogger())
 
@@ -222,17 +261,19 @@ def test_scenario_executor_aggregation_uses_injected_callable(
         assert path == scenario_file
         return {"run": {"run_name": "alpha"}, "analysis": {}, "data": {}, "dynamic": {}}
 
+    def fake_runner_factory(name: str):
+        def fake_runner(sc_path: Path, root: Path) -> Path:
+            runner_calls.append((name, sc_path, root))
+            out_dir = root / "alpha_20240101_000000"
+            out_dir.mkdir(parents=True)
+            (out_dir / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
+            return out_dir
+
+        return fake_runner
+
     monkeypatch.setattr(execution, "_merge_extends", fake_merge)
     monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-
-    def fake_execute(runner: str, sc_path: Path, root: Path) -> Path:
-        runner_calls.append((runner, sc_path, root))
-        out_dir = root / "alpha_20240101_000000"
-        out_dir.mkdir(parents=True)
-        (out_dir / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
-        return out_dir
-
-    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
 
     def fake_aggregate(root_str: str) -> Path:
         aggregate_calls.append(root_str)
@@ -319,17 +360,19 @@ def test_execute_scenarios_success_runs_and_aggregates(
         assert path == scenario_file
         return {"run": {"run_name": "alpha"}, "analysis": {}, "data": {}, "dynamic": {}}
 
+    def fake_runner_factory(name: str):
+        def fake_runner(sc_path: Path, root: Path) -> Path:
+            runner_calls.append((name, sc_path, root))
+            out_dir = root / "alpha_20240101_000000"
+            out_dir.mkdir(parents=True)
+            (out_dir / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
+            return out_dir
+
+        return fake_runner
+
     monkeypatch.setattr(execution, "_merge_extends", fake_merge)
     monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-
-    def fake_execute(runner: str, sc_path: Path, root: Path) -> Path:
-        runner_calls.append((runner, sc_path, root))
-        out_dir = root / "alpha_20240101_000000"
-        out_dir.mkdir(parents=True)
-        (out_dir / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
-        return out_dir
-
-    monkeypatch.setattr(execution, "_execute_runner", fake_execute)
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
 
     def fake_aggregate(root_str: str) -> Path:
         root_path = Path(root_str)
@@ -426,11 +469,14 @@ def test_execute_scenarios_aggregation_failure_recorded(
         execution, "_merge_extends", lambda *_args, **_kwargs: {"run": {"run_name": "alpha"}}
     )
     monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        execution,
-        "_execute_runner",
-        lambda *_args, **_kwargs: (results_root / "alpha_run").mkdir(parents=True) or results_root / "alpha_run",
-    )
+    def fake_runner_factory(name: str):
+        def fake_runner(*_args, **_kwargs) -> Path:
+            (results_root / "alpha_run").mkdir(parents=True)
+            return results_root / "alpha_run"
+
+        return fake_runner
+
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
 
     def failing_aggregate(_root: str) -> Path:
         raise RuntimeError("aggregation failed")
@@ -461,12 +507,14 @@ def test_structured_models_serialize_to_expected_payloads(
         },
     )
     monkeypatch.setattr(execution, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        execution,
-        "_execute_runner",
-        lambda *_args, **_kwargs: (results_root / "alpha_run").mkdir(parents=True)
-        or results_root / "alpha_run",
-    )
+    def fake_runner_factory(name: str):
+        def fake_runner(*_args, **_kwargs) -> Path:
+            (results_root / "alpha_run").mkdir(parents=True)
+            return results_root / "alpha_run"
+
+        return fake_runner
+
+    monkeypatch.setattr(execution, "get_runner", fake_runner_factory)
     monkeypatch.setattr(execution, "aggregate", lambda root: Path(root) / "aggregate")
 
     logger = DummyLogger()

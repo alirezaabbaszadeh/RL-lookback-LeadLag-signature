@@ -25,6 +25,13 @@ from .execution import (
     trigger_aggregation,
 )
 from .execution_setup import ExecutionOptions, ExecutionSetup, prepare_execution
+from .runners import (
+    RunnerNotAvailableError,
+    RunnerNotRegisteredError,
+    clear_runner_cache,
+    get_runner,
+    register_runner,
+)
 from .scenario_registry import (
     discover_scenarios,
     resolve_scenario_reference,
@@ -42,17 +49,22 @@ __all__ = [
     "ScenarioResult",
     "ScenarioSelection",
     "aggregate",
+    "clear_runner_cache",
     "collect_status",
     "discover_scenarios",
     "execute_scenarios",
     "filter_scenarios",
+    "get_runner",
     "has_successful_run",
     "load_scenario_context",
     "matches_filters",
     "prepare_execution",
     "record_outcome",
+    "register_runner",
     "resolve_scenario_reference",
     "resolve_scenario_references",
     "run_scenario_with_context",
+    "RunnerNotAvailableError",
+    "RunnerNotRegisteredError",
     "trigger_aggregation",
 ]
