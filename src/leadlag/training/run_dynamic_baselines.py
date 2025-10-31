@@ -1,18 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import json
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-
-try:
-    import yaml
-except Exception:
-    yaml = None
 
 import itertools
 
@@ -22,19 +15,13 @@ from leadlag.evaluation.metrics import (
     plot_stability,
     summarize_metrics,
 )
-from leadlag.governance.dataset import build_manifest, record_manifest, run_quality_checks
 from leadlag.models.LeadLag_main import LeadLagAnalyzer
-from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.run_scenario import (
     _config_to_leadlag,
-    _detect_git,
-    _env_info,
     _merge_extends,
-    _read_prices,
-    _set_seed,
 )
+from leadlag.training.run_support import prepare_run_environment
 from leadlag.utils.config import deep_update
-from leadlag.utils.resources import resolve_path
 
 
 def _compute_matrix_for_window(
@@ -100,58 +87,22 @@ def run_dynamic(
     L_max = int(dyn.get("max_lookback", 120))
     step = int(dyn.get("step", 5))
 
-    # seeds and output dir
-    _set_seed(int(cfg["run"].get("seed", 42)))
-    ts = time.strftime("%Y%m%d_%H%M%S")
     run_name = cfg["run"].get("run_name", "dynamic_adaptive")
-    out_root = out_root or cfg["run"].get("output_root", "results")
-    out_dir = Path(out_root) / f"{run_name}_{ts}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    logging_context = {
-        "module": "dynamic",
-        "run_name": run_name,
-        "seed": cfg["run"].get("seed"),
-        "scenario": cfg_path.stem,
-    }
-    config_file = resolve_path("leadlag.configs", "logging_config.yaml")
-    try:
-        setup_logging(
-            out_dir / "run.log",
-            level="INFO",
-            config_path=config_file,
-            context=logging_context,
-        )
-    except Exception:
-        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
-    logger = get_logger("run_dynamic", context=logging_context)
-    logger.info("Starting dynamic baseline run", context={"output_dir": str(out_dir)})
-
-    # write merged config snapshot
-    if yaml is not None:
-        (out_dir / "config_merged.yaml").write_text(
-            yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding="utf-8"
-        )
-    else:
-        (out_dir / "config_merged.yaml").write_text(str(cfg), encoding="utf-8")
-
-    prices, resolved_price_path = _read_prices(cfg)
-    manifest = build_manifest(
-        prices,
-        source_path=resolved_price_path,
-        extras={"quality": run_quality_checks(prices)},
+    preparation = prepare_run_environment(
+        cfg,
+        cfg_path=cfg_path,
+        module="dynamic",
+        logger_name="run_dynamic",
+        out_root=out_root,
+        run_name=run_name,
+        extra_logging_context={"scenario": cfg_path.stem},
+        extra_metadata={"scenario": cfg_path.stem},
     )
-    manifest_path = record_manifest(manifest, out_dir)
-    meta = {
-        "config_path": str(cfg_path.resolve()),
-        "created_at": ts,
-        "git": _detect_git(),
-        "env": _env_info(),
-        "data_source_config": cfg.get("data", {}).get("price_csv", ""),
-        "data_manifest": str(manifest_path),
-    }
-    (out_dir / "run_metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    logger.info("Dataset manifest captured", context={"manifest": str(manifest_path)})
+    out_dir = preparation.out_dir
+    logger = preparation.logger
+    logger.info("Starting dynamic baseline run", context={"output_dir": str(out_dir)})
+    logger.info("Dataset manifest captured", context={"manifest": str(preparation.manifest_path)})
+    prices = preparation.prices
 
     # load data and analyzer
     ll_cfg = _config_to_leadlag(cfg)

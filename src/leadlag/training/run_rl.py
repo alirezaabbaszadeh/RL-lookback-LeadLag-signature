@@ -1,18 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import json
-import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-
-try:
-    import yaml
-except Exception:
-    yaml = None
 
 try:
     from stable_baselines3.common.callbacks import EvalCallback
@@ -34,31 +27,13 @@ from leadlag.evaluation.metrics import (
     plot_stability,
     summarize_metrics,
 )
-from leadlag.governance.dataset import build_manifest, record_manifest, run_quality_checks
-from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.training.policy_factory import make_algorithm_spec
 from leadlag.training.run_scenario import (
     _config_to_leadlag,
-    _detect_git,
-    _env_info,
     _merge_extends,
-    _read_prices,
 )
+from leadlag.training.run_support import prepare_run_environment
 from leadlag.utils.config import deep_update
-from leadlag.utils.resources import resolve_path
-
-
-def _ensure_dir(path: Path):
-    path.mkdir(parents=True, exist_ok=True)
-
-
-def _save_config(cfg: Dict[str, Any], out_dir: Path):
-    if yaml is not None:
-        with open(out_dir / "config_merged.yaml", "w", encoding="utf-8") as f:
-            yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
-    else:
-        with open(out_dir / "config_merged.yaml", "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
 
 
 def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
@@ -106,54 +81,25 @@ def run_rl(
     use_random_policy = normalized_policy == "random" or bool(rl_cfg.get("random_policy", False))
     if not SB3_AVAILABLE and not use_random_policy:
         raise ImportError("stable-baselines3 is required for RL policies other than 'random'.")
-    seed = int(cfg["run"].get("seed", 42))
-    set_random_seed(seed)
-
-    # prepare output
-    ts = time.strftime("%Y%m%d_%H%M%S")
     run_name = cfg["run"].get("run_name", "rl_ppo")
     out_root = out_root or cfg["run"].get("output_root", "results")
-    out_dir = Path(out_root) / f"{run_name}_{ts}"
-    _ensure_dir(out_dir)
-
-    logging_context = {
-        "module": "rl",
-        "run_name": run_name,
-        "seed": seed,
-        "scenario": cfg_path.stem,
-    }
-    config_file = resolve_path("leadlag.configs", "logging_config.yaml")
-    try:
-        setup_logging(
-            out_dir / "run.log",
-            level="INFO",
-            config_path=config_file,
-            context=logging_context,
-        )
-    except Exception:
-        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
-    logger = get_logger("run_rl", context=logging_context)
-    logger.info("Starting RL run", context={"use_random_policy": use_random_policy})
-
-    _save_config(cfg, out_dir)
-    metadata = {
-        "config_path": str(cfg_path.resolve()),
-        "created_at": ts,
-        "git": _detect_git(),
-        "env": _env_info(),
-    }
-
-    prices, resolved_price_path = _read_prices(cfg)
-    manifest = build_manifest(
-        prices,
-        source_path=resolved_price_path,
-        extras={"quality": run_quality_checks(prices)},
+    preparation = prepare_run_environment(
+        cfg,
+        cfg_path=cfg_path,
+        module="rl",
+        logger_name="run_rl",
+        out_root=out_root,
+        run_name=run_name,
+        extra_logging_context={"scenario": cfg_path.stem},
+        extra_metadata={"scenario": cfg_path.stem, "use_random_policy": use_random_policy},
     )
-    manifest_path = record_manifest(manifest, out_dir)
-    metadata["data_source_config"] = cfg.get("data", {}).get("price_csv", "")
-    metadata["data_manifest"] = str(manifest_path)
-    (out_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    out_dir = preparation.out_dir
+    logger = preparation.logger
+    logger.info("Starting RL run", context={"use_random_policy": use_random_policy})
+    logger.info("Dataset manifest captured", context={"manifest": str(preparation.manifest_path)})
+    set_random_seed(preparation.seed)
 
+    prices = preparation.prices
     env = _instantiate_env(prices, cfg)
 
     step_count = 0
@@ -196,7 +142,7 @@ def run_rl(
             "gamma": float(rl_cfg.get("gamma", 0.99)),
             "ent_coef": float(rl_cfg.get("ent_coef", 0.0)),
             "verbose": 1 if rl_cfg.get("verbose", False) else 0,
-            "seed": seed,
+            "seed": preparation.seed,
         }
         # Allow device override ("auto", "cuda", or "cpu") if provided in config
         device = rl_cfg.get("device")
