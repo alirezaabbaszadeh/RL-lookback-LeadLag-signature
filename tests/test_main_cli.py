@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
-
-import sys
-import types
 
 scipy_stub = types.ModuleType("scipy")
 stats_stub = types.ModuleType("scipy.stats")

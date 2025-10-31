@@ -572,7 +572,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     emit_formatted_output(
         args,
-        data={**base_data, "aggregates": aggregate_names, "generated_files": generated_files, "dry_run": False},
+        data={
+            **base_data,
+            "aggregates": aggregate_names,
+            "generated_files": generated_files,
+            "dry_run": False,
+        },
         text="\n".join(text_lines),
         message=message,
         artifacts=generated_files,

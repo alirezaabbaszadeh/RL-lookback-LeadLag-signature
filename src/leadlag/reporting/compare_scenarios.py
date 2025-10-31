@@ -33,7 +33,11 @@ def load_stats(paths: List[Path]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-def plot_metric_bars(df: pd.DataFrame, out_dir: Path, metric: str = "mean_abs_matrix") -> Optional[Path]:
+def plot_metric_bars(
+    df: pd.DataFrame,
+    out_dir: Path,
+    metric: str = "mean_abs_matrix",
+) -> Optional[Path]:
     if not MPL or df.empty:
         return None
     out_dir.mkdir(parents=True, exist_ok=True)

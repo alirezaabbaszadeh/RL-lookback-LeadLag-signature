@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-
 import importlib.util
 import subprocess
 import sys
@@ -17,7 +16,6 @@ if __package__ in {None, ""}:
 from leadlag import hydra_main  # type: ignore
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
-
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,7 +54,11 @@ def run_command(cmd: Sequence[str], logger) -> None:
     subprocess.run(cmd, check=True)
 
 
-def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> Tuple[bool, Optional[str]]:
+def ensure_dependencies(
+    info: ScenarioInfo,
+    skip_missing: bool,
+    logger,
+) -> Tuple[bool, Optional[str]]:
     if info.requires_signature and importlib.util.find_spec("iisignature") is None:
         message = (
             f"Scenario '{info.name}' requires the 'iisignature' package. "
@@ -89,7 +91,8 @@ def ensure_dependencies(info: ScenarioInfo, skip_missing: bool, logger) -> Tuple
     message = (
         f"Scenario '{info.name}' requires optional dependencies: {', '.join(missing)}. "
         "Install via:\n"
-        "  pip install stable-baselines3 torch --extra-index-url https://download.pytorch.org/whl/cu118\n"
+        "  pip install stable-baselines3 torch --extra-index-url "
+        "https://download.pytorch.org/whl/cu118\n"
         "  pip install sb3-contrib   # for PPO-LSTM"
     )
     if skip_missing:
@@ -232,7 +235,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         info = load_scenario(name)
         ok, reason = ensure_dependencies(info, args.skip_missing_deps, logger)
         if not ok:
-            skipped.append({"scenario": name, "reason": reason or "optional dependencies unavailable"})
+            skipped.append(
+                {
+                    "scenario": name,
+                    "reason": reason or "optional dependencies unavailable",
+                }
+            )
             continue
         logger.info("Scenario ready", context={"scenario": name, "runner": info.runner})
         if args.dry_run:

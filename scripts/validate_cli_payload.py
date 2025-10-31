@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 REQUIRED_KEYS = {"success", "command", "args", "format"}
 OPTIONAL_KEYS = {"data", "message", "errors", "artifacts"}
 
