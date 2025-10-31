@@ -17,7 +17,8 @@ from leadlag.driver.logging import (
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.cli import commands as cli_commands
-from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
+from leadlag.training.run_scenario import run_scenario
+from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
 
 
 driver_service = SimpleNamespace(
@@ -44,6 +45,7 @@ driver_service = SimpleNamespace(
     _validate_scenario_schema=_validate_scenario_schema,
     resolve_scenario_reference=scenario_registry.resolve_scenario_reference,
     resolve_scenario_references=scenario_registry.resolve_scenario_references,
+    run_scenario=run_scenario,
     run_scenario_with_context=execution.run_scenario_with_context,
     trigger_aggregation=execution.trigger_aggregation,
 )

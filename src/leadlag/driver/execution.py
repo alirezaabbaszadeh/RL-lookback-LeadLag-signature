@@ -5,11 +5,8 @@ from pathlib import Path
 from typing import Sequence
 
 from leadlag.evaluation.aggregate import aggregate
-from leadlag.training.run_scenario import (
-    _merge_extends,
-    _validate_scenario_schema,
-    run_scenario,
-)
+from leadlag.training.run_scenario import run_scenario
+from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
 
 from .dto import (
     ExecutionResult,
