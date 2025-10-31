@@ -4,51 +4,18 @@ import argparse
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
-from types import SimpleNamespace
-
-from leadlag.driver import dto, execution, execution_setup, scenario_registry, selection
 from leadlag.driver.logging import (
     render_dry_run_summary,
     render_execution_summary,
     render_status_summary,
 )
-from leadlag.cli.errors import emit_error
+from leadlag.cli.errors import ERROR_UNKNOWN, emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.cli import commands as cli_commands
-from leadlag.training.run_scenario import run_scenario
+from leadlag.cli.dependencies import DriverService, build_driver_service
 from leadlag.training.scenario_config import _merge_extends, _validate_scenario_schema
-
-
-driver_service = SimpleNamespace(
-    DriverSummary=dto.DriverSummary,
-    ExecutionOptions=execution_setup.ExecutionOptions,
-    ExecutionResult=dto.ExecutionResult,
-    ExecutionSetup=execution_setup.ExecutionSetup,
-    RunStatusEntry=dto.RunStatusEntry,
-    ScenarioExecutionContext=dto.ScenarioExecutionContext,
-    ScenarioResult=dto.ScenarioResult,
-    ScenarioSelection=dto.ScenarioSelection,
-    aggregate=execution.aggregate,
-    collect_status=selection.collect_status,
-    discover_scenarios=scenario_registry.discover_scenarios,
-    execute_scenarios=execution.execute_scenarios,
-    filter_scenarios=selection.filter_scenarios,
-    has_successful_run=selection.has_successful_run,
-    load_scenario_context=execution.load_scenario_context,
-    matches_filters=selection.matches_filters,
-    prepare_execution=execution_setup.prepare_execution,
-    record_outcome=execution.record_outcome,
-    _execute_runner=execution._execute_runner,
-    _merge_extends=_merge_extends,
-    _validate_scenario_schema=_validate_scenario_schema,
-    resolve_scenario_reference=scenario_registry.resolve_scenario_reference,
-    resolve_scenario_references=scenario_registry.resolve_scenario_references,
-    run_scenario=run_scenario,
-    run_scenario_with_context=execution.run_scenario_with_context,
-    trigger_aggregation=execution.trigger_aggregation,
-)
 
 
 @dataclass(frozen=True)
@@ -69,19 +36,31 @@ class CLIResult:
 class LeadLagCLI:
     """Dispatcher coordinating LeadLag CLI interactions."""
 
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        *,
+        build_driver_service: Callable[[], DriverService] = build_driver_service,
+    ) -> None:
         self.args = args
         self.command = getattr(args, "_leadlag_command", "leadlag")
         self.results_root = Path(args.results_root).resolve()
+        self._driver_service = build_driver_service()
         self._scenario_manager = cli_commands.ScenarioManager(
-            driver_service.discover_scenarios
+            self._driver_service.discover_scenarios
         )
         self._registry: Sequence[cli_commands.CommandSpec] | None = None
+
+    @property
+    def driver_service(self) -> DriverService:
+        """Expose the driver collaborators used by this CLI instance."""
+
+        return self._driver_service
 
     def build_registry(self) -> Sequence[cli_commands.CommandSpec]:
         if self._registry is None:
             dependencies = cli_commands.CommandDependencies(
-                driver_service=driver_service,
+                driver_service=self._driver_service,
                 scenario_manager=self._scenario_manager,
                 merge_extends=_merge_extends,
                 validate_scenario_schema=_validate_scenario_schema,
@@ -241,18 +220,25 @@ def parse_args(
 
 def _emit_result(args: argparse.Namespace, result: CLIResult) -> None:
     if result.emitter == "error":
-        emit_error(args, **result.payload)
+        code = result.payload.get("code", ERROR_UNKNOWN)
+        message = str(result.payload.get("message", "An unexpected error occurred."))
+        details = result.payload.get("details")
+        emit_error(args, code=code, message=message, details=details)
     elif result.emitter == "output":
         emit_formatted_output(args, **result.payload)
     else:  # pragma: no cover - defensive guard
         raise ValueError(f"Unknown emitter '{result.emitter}'")
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    build_driver_service: Callable[[], DriverService] = build_driver_service,
+) -> int:
     parser = build_parser()
     raw_argv = list(argv) if argv is not None else None
     args = parse_args(raw_argv, parser=parser)
-    cli = LeadLagCLI(args)
+    cli = LeadLagCLI(args, build_driver_service=build_driver_service)
     registry = cli.build_registry()
     result = cli.dispatch(registry)
     _emit_result(args, result)
