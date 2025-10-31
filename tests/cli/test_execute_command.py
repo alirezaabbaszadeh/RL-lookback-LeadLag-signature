@@ -15,6 +15,7 @@ from leadlag.cli.commands import (
     ScenarioManager,
 )
 from leadlag.cli.responders import DryRunResponder, ExecutionResponder
+from leadlag.cli.selection import SelectionResult, SelectionStatus
 
 
 class DummyLogger:
@@ -30,9 +31,8 @@ class DummyLogger:
 
 
 class StubSelector:
-    def __init__(self, selected, failure=None):
-        self._selected = selected
-        self._failure = failure
+    def __init__(self, result: SelectionResult):
+        self._result = result
         self.calls: list[dict[str, object]] = []
 
     def resolve(self, args, discovered, *, command, results_root):
@@ -44,7 +44,7 @@ class StubSelector:
                 "results_root": results_root,
             }
         )
-        return self._selected, self._failure
+        return self._result
 
 
 class StubDryResponder:
@@ -131,7 +131,9 @@ def test_execute_command_dry_run_uses_builder(tmp_path):
     args = _base_args(tmp_path, dry_run=True)
     scenarios = [tmp_path / "alpha.yaml", tmp_path / "beta.yaml"]
     scenario_manager = ScenarioManager(lambda: scenarios)
-    selector = StubSelector([scenarios[0]])
+    selector = StubSelector(
+        SelectionResult(paths=[scenarios[0]], errors=(), status=SelectionStatus.OK)
+    )
     dry_builder = StubDryResponder()
     exec_builder = StubExecutionResponder()
     execution = SimpleNamespace(
@@ -193,7 +195,9 @@ def test_execute_command_success_uses_execution_responder(tmp_path):
     args = _base_args(tmp_path)
     scenarios = [tmp_path / "alpha.yaml"]
     scenario_manager = ScenarioManager(lambda: scenarios)
-    selector = StubSelector([scenarios[0]])
+    selector = StubSelector(
+        SelectionResult(paths=[scenarios[0]], errors=(), status=SelectionStatus.OK)
+    )
     dry_builder = StubDryResponder()
     exec_builder = StubExecutionResponder()
     execution = SimpleNamespace(
@@ -247,12 +251,17 @@ def test_execute_command_success_uses_execution_responder(tmp_path):
     assert dry_builder.calls == []
 
 
-def test_execute_command_returns_selection_failure(tmp_path):
-    args = _base_args(tmp_path)
+def test_execute_command_returns_invalid_selection_failure(tmp_path):
+    args = _base_args(tmp_path, scenarios=["missing"])
     scenarios = [tmp_path / "alpha.yaml"]
     scenario_manager = ScenarioManager(lambda: scenarios)
-    failure = CommandResponse(exit_code=1, code="nope", message="failure")
-    selector = StubSelector(None, failure=failure)
+    selector = StubSelector(
+        SelectionResult(
+            paths=(),
+            errors=("missing scenario",),
+            status=SelectionStatus.INVALID,
+        )
+    )
     dry_builder = StubDryResponder()
     exec_builder = StubExecutionResponder()
 
@@ -285,7 +294,67 @@ def test_execute_command_returns_selection_failure(tmp_path):
 
     response = command(_context(args))
 
-    assert response is failure
+    assert response.exit_code == 1
+    assert response.code == "invalid_scenarios"
+    assert response.details == {
+        "errors": ["missing scenario"],
+        "requested": ["missing"],
+        "results_root": str((tmp_path / "prepared").resolve()),
+    }
+    assert response.command == "leadlag"
+    assert response.results_root == (tmp_path / "prepared").resolve()
+    assert exec_builder.calls == []
+    assert dry_builder.calls == []
+
+
+def test_execute_command_returns_no_match_failure(tmp_path):
+    args = _base_args(tmp_path, include=["foo"], exclude=["bar"])
+    scenarios = [tmp_path / "alpha.yaml"]
+    scenario_manager = ScenarioManager(lambda: scenarios)
+    selector = StubSelector(
+        SelectionResult(paths=(), errors=(), status=SelectionStatus.NO_MATCHES)
+    )
+    dry_builder = StubDryResponder()
+    exec_builder = StubExecutionResponder()
+
+    driver_service = SimpleNamespace(
+        prepare_execution=lambda _args: SimpleNamespace(
+            results_root=tmp_path / "prepared",
+            command="leadlag",
+            logger=DummyLogger(),
+            options=SimpleNamespace(),
+        ),
+        execute_scenarios=lambda *args, **kwargs: SimpleNamespace(),
+    )
+
+    discovery = ScenarioDiscovery(scenario_manager)
+    setup = ExecutionSetup(
+        driver_service=driver_service,
+        scenario_selector=selector,
+    )
+    responder = ExecutionResponseHandler(
+        dry_run_responder=dry_builder,
+        execution_responder=exec_builder,
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
+    )
+
+    response = command(_context(args))
+
+    assert response.exit_code == 1
+    assert response.code == "no_scenarios_matched"
+    assert response.details == {
+        "include": ["foo"],
+        "exclude": ["bar"],
+        "results_root": str((tmp_path / "prepared").resolve()),
+    }
+    assert response.command == "leadlag"
+    assert response.results_root == (tmp_path / "prepared").resolve()
     assert exec_builder.calls == []
     assert dry_builder.calls == []
 
@@ -293,7 +362,9 @@ def test_execute_command_returns_selection_failure(tmp_path):
 def test_execute_command_returns_shared_response_when_no_scenarios(tmp_path):
     args = _base_args(tmp_path)
     scenario_manager = ScenarioManager(lambda: [])
-    selector = StubSelector([])
+    selector = StubSelector(
+        SelectionResult(paths=[], errors=(), status=SelectionStatus.OK)
+    )
     dry_builder = StubDryResponder()
     exec_builder = StubExecutionResponder()
 
