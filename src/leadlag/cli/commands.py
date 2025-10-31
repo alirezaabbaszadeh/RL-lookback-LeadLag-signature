@@ -7,6 +7,7 @@ from typing import Callable, Iterable, Protocol, Sequence
 
 from leadlag.cli import responses
 from leadlag.cli.dependencies import DriverService
+from leadlag.cli.responders import ExecutionResponder, DryRunResponder
 
 
 class NoScenariosAvailable(RuntimeError):
@@ -164,69 +165,137 @@ class ScenarioSelectionService:
         return resolved, None
 
 
-class DryRunResponseBuilder:
-    """Construct response payloads for dry-run executions."""
+@dataclass(frozen=True)
+class ExecutionPlan:
+    """Resolved execution inputs produced by :class:`ExecutionSetup`."""
+
+    command: str
+    results_root: Path
+    logger: object
+    options: object
+    selected: Sequence[Path]
+    selected_names: Sequence[str]
+
+
+class ScenarioDiscovery:
+    """Discover packaged scenarios and surface shared failure responses."""
+
+    def __init__(self, manager: ScenarioManager) -> None:
+        self._manager = manager
+
+    def __call__(
+        self, *, command: str | None, results_root: Path
+    ) -> tuple[list[Path] | None, CommandResponse | None]:
+        discovered, failure = self._manager.ensure_or_response(
+            command=command,
+            results_root=results_root,
+        )
+        if failure is not None:
+            return None, failure
+        return [Path(path) for path in discovered], None
+
+
+class ExecutionSetup:
+    """Prepare execution and resolve scenario selections."""
 
     def __init__(
         self,
         *,
-        build_driver_summary: Callable[[Sequence[str], Path, object], object],
-        render_dry_run_summary: Callable[[object], object],
+        driver_service: DriverService,
+        scenario_selector: ScenarioSelectionService,
     ) -> None:
-        self._build_driver_summary = build_driver_summary
-        self._render_dry_run_summary = render_dry_run_summary
+        self._driver = driver_service
+        self._scenario_selector = scenario_selector
 
     def __call__(
         self,
-        execution: object,
-        *,
-        selected: Sequence[str],
-        command: str,
-        results_root: Path,
-    ) -> dict[str, object]:
-        summary_payload = self._build_driver_summary(selected, results_root, execution)
-        dry_render = self._render_dry_run_summary(summary_payload)
-        return {
-            "exit_code": execution.exit_code,
-            "message": "Dry-run completed.",
-            "text": getattr(dry_render, "text", None),
-            "data": getattr(dry_render, "data", None),
-            "command": command,
-            "results_root": results_root,
-        }
+        args: argparse.Namespace,
+        discovered: Sequence[Path],
+    ) -> tuple[ExecutionPlan | None, CommandResponse | None]:
+        setup = self._driver.prepare_execution(args)
+        results_root = Path(setup.results_root).resolve()
+        command_string = setup.command
+        logger = setup.logger
+        execution_options = setup.options
 
-
-class ExecutionResponseBuilder:
-    """Construct response payloads for executed scenarios."""
-
-    def __init__(self, *, render_execution_summary: Callable[..., object]) -> None:
-        self._render_execution_summary = render_execution_summary
-
-    def __call__(
-        self,
-        execution: object,
-        *,
-        selected: Sequence[str],
-        command: str,
-        results_root: Path,
-        exit_code: int,
-    ) -> dict[str, object]:
-        execution_render = self._render_execution_summary(
-            results_root,
-            execution=execution,
-            selected=list(selected),
+        selected, failure = self._scenario_selector.resolve(
+            args,
+            discovered,
+            command=command_string,
+            results_root=results_root,
         )
-        return {
-            "exit_code": exit_code,
-            "message": getattr(execution_render, "message", None),
-            "text": getattr(execution_render, "text", None),
-            "data": getattr(execution_render, "data", None),
-            "artifacts": getattr(execution_render, "artifacts", None),
-            "errors": getattr(execution_render, "errors", None),
-            "success": getattr(execution_render, "success", None),
-            "command": command,
-            "results_root": results_root,
-        }
+        if failure is not None:
+            return None, failure
+
+        logger.info(
+            "Discovered %s scenario(s); %s selected after filtering.",
+            len(discovered),
+            len(selected),
+        )
+
+        selected = [Path(path) for path in selected]
+        plan = ExecutionPlan(
+            command=command_string,
+            results_root=results_root,
+            logger=logger,
+            options=execution_options,
+            selected=selected,
+            selected_names=[path.stem for path in selected],
+        )
+        return plan, None
+
+
+class ExecutionResponseHandler:
+    """Construct :class:`CommandResponse` objects for execution results."""
+
+    def __init__(
+        self,
+        *,
+        dry_run_responder: DryRunResponder,
+        execution_responder: ExecutionResponder,
+    ) -> None:
+        self._dry_run_responder = dry_run_responder
+        self._execution_responder = execution_responder
+
+    def __call__(
+        self,
+        execution: object,
+        *,
+        plan: ExecutionPlan,
+        args: argparse.Namespace,
+    ) -> CommandResponse:
+        if getattr(execution, "dry_run", False):
+            payload = self._dry_run_responder(
+                execution,
+                selected=plan.selected_names,
+                command=plan.command,
+                results_root=plan.results_root,
+            )
+            return CommandResponse(**payload)
+
+        exit_code = getattr(execution, "exit_code", 0)
+        summary = getattr(execution, "summary", [])
+        failures = [
+            row
+            for row in summary
+            if getattr(row, "status", None) not in {"success", "skipped"}
+        ]
+        if failures:
+            plan.logger.warning(
+                "Some scenarios did not complete successfully",
+                context={"failures": len(failures)},
+            )
+            if getattr(args, "stop_on_error", False) and exit_code == 0:
+                exit_code = 1
+
+        payload = self._execution_responder(
+            execution,
+            selected=plan.selected_names,
+            command=plan.command,
+            results_root=plan.results_root,
+            exit_code=exit_code,
+        )
+        return CommandResponse(**payload)
 
 
 class ValidateCommand:
@@ -320,85 +389,38 @@ class ExecuteCommand:
         self,
         *,
         driver_service,
-        scenarios: ScenarioManager,
-        scenario_selector: ScenarioSelectionService,
-        dry_run_responder: Callable[..., dict[str, object]],
-        execution_responder: Callable[..., dict[str, object]],
+        discovery: ScenarioDiscovery,
+        execution_setup: ExecutionSetup,
+        responder: ExecutionResponseHandler,
     ) -> None:
         self._driver = driver_service
-        self._scenarios = scenarios
-        self._scenario_selector = scenario_selector
-        self._dry_run_responder = dry_run_responder
-        self._execution_responder = execution_responder
+        self._discover = discovery
+        self._execution_setup = execution_setup
+        self._responder = responder
 
     def __call__(self, context: CommandContext) -> CommandResponse:
-        discovered, failure = self._scenarios.ensure_or_response(
+        discovered, failure = self._discover(
             command=context.command,
             results_root=context.results_root,
         )
         if failure is not None:
             return failure
-        discovered = list(discovered)
 
-        setup = self._driver.prepare_execution(context.args)
-        results_root = Path(setup.results_root).resolve()
-        command_string = setup.command
-        logger = setup.logger
-        execution_options = setup.options
+        plan, failure = self._execution_setup(context.args, discovered)
+        if failure is not None or plan is None:
+            return failure  # type: ignore[return-value]
 
-        args = context.args
-
-        selected, failure = self._scenario_selector.resolve(
-            args,
-            discovered,
-            command=command_string,
-            results_root=results_root,
-        )
-        if failure is not None:
-            return failure
-
-        logger.info(
-            "Discovered %s scenario(s); %s selected after filtering.",
-            len(discovered),
-            len(selected),
-        )
-
-        selected_names = [sc.stem for sc in selected]
         execution = self._driver.execute_scenarios(
-            selected,
-            execution_options,
-            logger=logger,
+            plan.selected,
+            plan.options,
+            logger=plan.logger,
         )
 
-        if execution.dry_run:
-            payload = self._dry_run_responder(
-                execution,
-                selected=selected_names,
-                command=command_string,
-                results_root=results_root,
-            )
-            return CommandResponse(**payload)
-
-        summary = execution.summary
-        exit_code = execution.exit_code
-
-        failures = [row for row in summary if row.status not in {"success", "skipped"}]
-        if failures:
-            logger.warning(
-                "Some scenarios did not complete successfully",
-                context={"failures": len(failures)},
-            )
-            if args.stop_on_error and exit_code == 0:
-                exit_code = 1
-
-        payload = self._execution_responder(
+        return self._responder(
             execution,
-            selected=selected_names,
-            command=command_string,
-            results_root=results_root,
-            exit_code=exit_code,
+            plan=plan,
+            args=context.args,
         )
-        return CommandResponse(**payload)
 
 
 @dataclass(frozen=True)
@@ -409,8 +431,8 @@ class CommandDependencies:
     validate_scenario_schema: Callable[[dict, str], None]
     render_status_summary: Callable[[Path, Iterable[object]], object]
     scenario_selector: ScenarioSelectionService
-    dry_run_response_builder: Callable[..., dict[str, object]]
-    execution_response_builder: Callable[..., dict[str, object]]
+    dry_run_response_builder: DryRunResponder
+    execution_response_builder: ExecutionResponder
 
 
 def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSpec, ...]:
@@ -424,12 +446,20 @@ def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSp
         render_status_summary=dependencies.render_status_summary,
     )
     list_command = ListCommand(scenarios=dependencies.scenario_manager)
-    execute = ExecuteCommand(
+    discovery = ScenarioDiscovery(manager=dependencies.scenario_manager)
+    setup = ExecutionSetup(
         driver_service=dependencies.driver_service,
-        scenarios=dependencies.scenario_manager,
         scenario_selector=dependencies.scenario_selector,
+    )
+    responder = ExecutionResponseHandler(
         dry_run_responder=dependencies.dry_run_response_builder,
         execution_responder=dependencies.execution_response_builder,
+    )
+    execute = ExecuteCommand(
+        driver_service=dependencies.driver_service,
+        discovery=discovery,
+        execution_setup=setup,
+        responder=responder,
     )
 
     return (
