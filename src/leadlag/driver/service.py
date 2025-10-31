@@ -2,19 +2,25 @@
 from __future__ import annotations
 
 import json
-from argparse import Namespace
 from dataclasses import asdict, dataclass, field
-from importlib import resources
-from logging import Logger
 from pathlib import Path
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, Sequence
 from leadlag.evaluation.aggregate import aggregate
 from leadlag.training.run_scenario import (
     _merge_extends,
     _validate_scenario_schema,
     run_scenario,
 )
-from leadlag.utils.resources import resolve_path
+from .execution_setup import (
+    ExecutionOptions as ExecutionOptions,
+    ExecutionSetup as ExecutionSetup,
+    prepare_execution as prepare_execution,
+)
+from .scenario_registry import (
+    discover_scenarios as discover_scenarios,
+    resolve_scenario_reference as resolve_scenario_reference,
+    resolve_scenario_references as resolve_scenario_references,
+)
 
 
 class _NullLogger:
@@ -128,17 +134,6 @@ class DriverSummary:
 
 
 @dataclass(slots=True)
-class ExecutionOptions:
-    """Configuration for executing scenarios."""
-
-    results_root: Path
-    runner_preference: str = "auto"
-    skip_existing: bool = False
-    stop_on_error: bool = False
-    dry_run: bool = False
-
-
-@dataclass(slots=True)
 class ExecutionResult:
     """Structured result returned from scenario execution."""
 
@@ -149,36 +144,6 @@ class ExecutionResult:
     aborted: bool = False
     dry_run: bool = False
     dry_run_entries: list[ScenarioSelection] = field(default_factory=list)
-
-
-def discover_scenarios() -> list[Path]:
-    """Return all discoverable scenario configuration files."""
-
-    scenarios: list[Path] = []
-    local_dir = Path("configs") / "scenarios"
-    if local_dir.exists():
-        local_scenarios = sorted(local_dir.glob("*.yaml"))
-        if local_scenarios:
-            return [p.resolve() for p in local_scenarios]
-
-    try:
-        base = resources.files("leadlag.configs").joinpath("scenarios")
-        for entry in base.iterdir():
-            if entry.name.endswith(".yaml"):
-                resolved = resolve_path("leadlag.configs", f"scenarios/{entry.name}")
-                if resolved:
-                    scenarios.append(resolved)
-    except (ModuleNotFoundError, AttributeError):
-        pass
-
-    if not scenarios:
-        fallback_dir = resolve_path("leadlag.configs", "scenarios")
-        if fallback_dir and fallback_dir.is_dir():
-            scenarios.extend(sorted(fallback_dir.glob("*.yaml")))
-
-    return sorted({path.resolve() for path in scenarios})
-
-
 def matches_filters(name: str, include: Iterable[str] | None, exclude: Iterable[str] | None) -> bool:
     """Return ``True`` when *name* matches the include/exclude filters."""
 
@@ -199,65 +164,6 @@ def filter_scenarios(
     """Filter scenarios by name using include/exclude tokens."""
 
     return [sc for sc in scenarios if matches_filters(sc.stem, include, exclude)]
-
-
-def resolve_scenario_reference(entry: str) -> Path:
-    """Resolve a user-supplied scenario reference to a concrete path."""
-
-    candidate = Path(entry)
-    if candidate.exists():
-        return candidate.resolve()
-
-    name = candidate.name
-    resource = name if name.endswith(".yaml") else f"{name}.yaml"
-    resolved = resolve_path("leadlag.configs", f"scenarios/{resource}")
-    if resolved is not None and resolved.exists():
-        return resolved
-
-    raise FileNotFoundError(
-        f"Scenario '{entry}' not found in packaged resources or filesystem paths."
-    )
-
-
-def resolve_scenario_references(entries: Sequence[str]) -> tuple[list[Path], list[str]]:
-    """Resolve multiple scenario references, returning successes and failures."""
-
-    resolved: list[Path] = []
-    errors: list[str] = []
-    for entry in entries:
-        try:
-            resolved.append(resolve_scenario_reference(entry))
-        except FileNotFoundError as exc:
-            errors.append(str(exc))
-    return resolved, errors
-
-
-def prepare_execution(args: Namespace) -> Tuple[Path, Logger, ExecutionOptions, str]:
-    """Prepare execution resources for the CLI entrypoint."""
-
-    from leadlag.driver.logging import configure_driver_logger
-
-    results_root = Path(args.results_root).expanduser().resolve()
-    results_root.mkdir(parents=True, exist_ok=True)
-
-    log_path = Path(args.log_path).expanduser().resolve() if args.log_path else None
-    logger = configure_driver_logger(
-        results_root,
-        log_level=args.log_level,
-        log_path=log_path,
-    )
-
-    execution_options = ExecutionOptions(
-        results_root=results_root,
-        runner_preference=getattr(args, "runner", "auto"),
-        skip_existing=getattr(args, "skip_existing", False),
-        stop_on_error=getattr(args, "stop_on_error", False),
-        dry_run=getattr(args, "dry_run", False),
-    )
-
-    command_string = getattr(args, "_leadlag_command", "leadlag")
-
-    return results_root, logger, execution_options, command_string
 
 
 def has_successful_run(run_name: str, results_root: Path) -> bool:
@@ -513,6 +419,7 @@ def execute_scenarios(
 __all__ = [
     "DriverSummary",
     "ExecutionOptions",
+    "ExecutionSetup",
     "ExecutionResult",
     "collect_status",
     "discover_scenarios",
@@ -525,4 +432,5 @@ __all__ = [
     "ScenarioSelection",
     "resolve_scenario_reference",
     "resolve_scenario_references",
+    "prepare_execution",
 ]

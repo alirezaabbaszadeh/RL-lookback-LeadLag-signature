@@ -166,7 +166,12 @@ def test_execute_dry_run(monkeypatch, tmp_path):
             stop_on_error=_args.stop_on_error,
             dry_run=_args.dry_run,
         )
-        return prepared_root, DummyLogger(), options, "leadlag --dry-run"
+        return cli_main.driver_service.ExecutionSetup(
+            results_root=prepared_root,
+            logger=DummyLogger(),
+            options=options,
+            command="leadlag --dry-run",
+        )
 
     monkeypatch.setattr(cli_main.driver_service, "prepare_execution", _prepare)
 
@@ -225,7 +230,12 @@ def test_execute_full_run(monkeypatch, tmp_path):
             stop_on_error=_args.stop_on_error,
             dry_run=_args.dry_run,
         )
-        return prepared_root, DummyLogger(), options, "leadlag"
+        return cli_main.driver_service.ExecutionSetup(
+            results_root=prepared_root,
+            logger=DummyLogger(),
+            options=options,
+            command="leadlag",
+        )
 
     monkeypatch.setattr(cli_main.driver_service, "prepare_execution", _prepare)
 
