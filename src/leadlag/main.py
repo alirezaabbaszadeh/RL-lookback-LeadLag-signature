@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from leadlag.driver import service as driver_service
-from leadlag.driver.logging import render_dry_run_summary, render_status_summary
+from leadlag.driver.logging import (
+    render_dry_run_summary,
+    render_execution_summary,
+    render_status_summary,
+)
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
@@ -265,43 +269,24 @@ def _handle_execute(
         if args.stop_on_error and exit_code == 0:
             exit_code = 1
 
-    artifacts = {"aggregate": str(aggregate_path)} if aggregate_path else None
-    success = exit_code == 0 and not failures and not aborted
-    message = (
-        "LeadLag scenarios completed."
-        if success
-        else "LeadLag scenarios completed with errors."
-    )
-
-    text_lines = [f"Results root: {results_root}"]
-    if summary:
-        text_lines.append("Scenario outcomes:")
-        for row in summary:
-            details = row.output or row.error or row.reason or ""
-            if details:
-                text_lines.append(f"  - {row.scenario}: {row.status} ({details})")
-            else:
-                text_lines.append(f"  - {row.scenario}: {row.status}")
-    if aggregate_path:
-        text_lines.append(f"Aggregate: {aggregate_path}")
-
-    final_payload = driver_service.DriverSummary(
-        selected=summary_payload_base["selected"],
-        results_root=summary_payload_base["results_root"],
+    execution_render = render_execution_summary(
+        results_root,
         summary=summary,
-        aggregate=str(aggregate_path) if aggregate_path else None,
-        dry_run=False,
-    ).to_payload()
-    final_data = {**summary_payload_base, **{k: v for k, v in final_payload.items() if k not in summary_payload_base}}
+        aggregate=aggregate_path,
+        selected=summary_payload_base["selected"],
+        errors=errors_list,
+        exit_code=exit_code,
+        aborted=aborted,
+    )
 
     emit_formatted_output(
         args,
-        data=final_data,
-        text="\n".join(text_lines),
-        message=message,
-        artifacts=artifacts,
-        errors=errors_list or None,
-        success=success,
+        data=execution_render.data,
+        text=execution_render.text,
+        message=execution_render.message,
+        artifacts=execution_render.artifacts,
+        errors=execution_render.errors,
+        success=execution_render.success,
         pretty=True,
         command=context.command,
     )
