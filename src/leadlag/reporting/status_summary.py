@@ -98,8 +98,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--roadmap",
         type=Path,
-        default=Path("docs/future_roadmap.pseudo"),
-        help="Path to roadmap pseudo-document.",
+        default=Path("archive/2025-10-19-roadmap/docs/future_roadmap.pseudo"),
+        help="Path to archived roadmap pseudo-document.",
     )
     add_format_flags(parser, default="text")
     parser.add_argument(

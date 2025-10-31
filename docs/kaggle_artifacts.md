@@ -27,7 +27,8 @@
   - `[robustness] runs/robustness` خروجی پروب نشت (`leakage_*`) و Walk-Forward (`wf_*`)، هر کدام با ساختار مشابه baseline.
   - `[evaluation] runs/evaluation/finance_kpis.csv` به‌علاوه‌ی `plots/` با نمودارهای KPI.
   - `[comparison] runs/aggregate_comparison/aggregate_comparison.csv` و نمودارهای میله‌ای متریک‌ها.
-  - `[reports] runs/reports/final_report.md`, `appendix.md`, `final_report.pdf` مستند نهایی.
+  - `[reports] runs/reports/final_report.md`, `appendix.md`, `final_report.pdf` مستند نهایی (نسخهٔ
+    2025 در `archive/2025-10-17-research-report/reports/` نگهداری می‌شود).
   - `[audit-report] runs/audit/scan_report.json`, `scan_report.md` خروجی اعتبارسنجی آرتیفکت‌ها.
 - `[logs] multi_stage_artifacts/full_suite/logs/run_summary_<timestamp>.json` خلاصهٔ کلی اجرای پایپ‌لاین (دستور، آرگومان‌ها، طول زمان، موفقیت).
 

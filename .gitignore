@@ -23,7 +23,10 @@ Thumbs.db
 results/
 dist/
 meta_rl/
-reports/
+reports/*
+!reports/README.md
+!archive/**/reports/
+!archive/**/reports/**
 *.log
 
 # Kaggle / smoke outputs

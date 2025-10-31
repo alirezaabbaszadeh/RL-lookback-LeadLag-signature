@@ -40,7 +40,9 @@ Ensure generated artifacts (`results/`, `dist/`) are excluded from commits.
 
 ## 5. Documentation
 - Update `README.md`, `CHANGELOG.md`, or relevant docs (`docs/`) when introducing new features.
-- Describe new scenarios or datasets in the roadmap (`docs/future_roadmap.pseudo`) if they affect planning.
+- Coordinate roadmap updates (see
+  `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` for the last
+  snapshot) if new scenarios or datasets affect planning.
 
 ## 6. Submitting Changes
 1. Create a feature branch: `git checkout -b feat/<short-description>`.
