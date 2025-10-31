@@ -8,6 +8,7 @@ from typing import Callable, Iterable, Protocol, Sequence
 from leadlag.cli import responses
 from leadlag.cli.dependencies import DriverService
 from leadlag.cli.responders import ExecutionResponder, DryRunResponder
+from leadlag.cli.selection import SelectionResult, SelectionStatus
 
 
 class NoScenariosAvailable(RuntimeError):
@@ -94,36 +95,6 @@ class ScenarioSelectionService:
     def __init__(self, *, driver_service: DriverService) -> None:
         self._driver = driver_service
 
-    def _failure_invalid_request(
-        self,
-        *,
-        errors: Sequence[str],
-        requested: Sequence[str] | None,
-        command: str,
-        results_root: Path,
-    ) -> CommandResponse:
-        return responses.invalid_scenarios(
-            errors=errors,
-            requested=requested,
-            command=command,
-            results_root=results_root,
-        )
-
-    def _failure_no_matches(
-        self,
-        *,
-        include: Sequence[str] | None,
-        exclude: Sequence[str] | None,
-        command: str,
-        results_root: Path,
-    ) -> CommandResponse:
-        return responses.no_matches(
-            include=include,
-            exclude=exclude,
-            command=command,
-            results_root=results_root,
-        )
-
     def resolve(
         self,
         args: argparse.Namespace,
@@ -131,38 +102,42 @@ class ScenarioSelectionService:
         *,
         command: str,
         results_root: Path,
-    ) -> tuple[list[Path] | None, CommandResponse | None]:
+    ) -> SelectionResult:
+        # ``command`` and ``results_root`` are accepted for future selection
+        # strategies that may need contextual information. They are not
+        # required for the current implementations.
+        _ = (command, results_root)
         if args.scenarios:
             selected, errors = self._driver.resolve_scenario_references(args.scenarios)
             if errors:
-                return None, self._failure_invalid_request(
-                    errors=errors,
-                    requested=args.scenarios,
-                    command=command,
-                    results_root=results_root,
+                return SelectionResult(
+                    paths=(),
+                    errors=list(errors),
+                    status=SelectionStatus.INVALID,
                 )
-            resolved = [path.resolve() for path in selected]
+            resolved = [Path(path) for path in selected]
+            resolved = [path.resolve() for path in resolved]
         else:
-            resolved = list(
-                self._driver.filter_scenarios(
+            resolved = [
+                Path(path)
+                for path in self._driver.filter_scenarios(
                     discovered,
                     args.include,
                     args.exclude,
                 )
-            )
+            ]
 
         if args.max_scenarios is not None:
             resolved = resolved[: max(args.max_scenarios, 0)]
 
         if not resolved:
-            return None, self._failure_no_matches(
-                include=args.include,
-                exclude=args.exclude,
-                command=command,
-                results_root=results_root,
+            return SelectionResult(
+                paths=(),
+                errors=(),
+                status=SelectionStatus.NO_MATCHES,
             )
 
-        return resolved, None
+        return SelectionResult(paths=tuple(resolved), errors=(), status=SelectionStatus.OK)
 
 
 @dataclass(frozen=True)
@@ -218,22 +193,36 @@ class ExecutionSetup:
         logger = setup.logger
         execution_options = setup.options
 
-        selected, failure = self._scenario_selector.resolve(
+        selection = self._scenario_selector.resolve(
             args,
             discovered,
             command=command_string,
             results_root=results_root,
         )
-        if failure is not None:
+        if selection.status is SelectionStatus.INVALID:
+            failure = responses.invalid_scenarios(
+                errors=selection.errors,
+                requested=args.scenarios,
+                command=command_string,
+                results_root=results_root,
+            )
+            return None, failure
+        if selection.status is SelectionStatus.NO_MATCHES:
+            failure = responses.no_matches(
+                include=args.include,
+                exclude=args.exclude,
+                command=command_string,
+                results_root=results_root,
+            )
             return None, failure
 
         logger.info(
             "Discovered %s scenario(s); %s selected after filtering.",
             len(discovered),
-            len(selected),
+            len(selection.paths),
         )
 
-        selected = [Path(path) for path in selected]
+        selected = [Path(path) for path in selection.paths]
         plan = ExecutionPlan(
             command=command_string,
             results_root=results_root,
