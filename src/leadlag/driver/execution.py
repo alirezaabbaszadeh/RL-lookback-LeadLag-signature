@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 from leadlag.evaluation.aggregate import aggregate
 from leadlag.training.run_scenario import run_scenario
@@ -71,6 +71,132 @@ def _execute_runner(runner: str, scenario_path: Path, results_root: Path) -> Pat
     raise ValueError(f"Unknown runner '{runner}'")
 
 
+class ScenarioExecutor:
+    """Coordinator responsible for executing scenarios under a given configuration."""
+
+    def __init__(
+        self,
+        options: ExecutionOptions,
+        *,
+        logger=None,
+        aggregator: Callable[[str | Path], Path | None] | None = None,
+    ) -> None:
+        self.options = options
+        self.logger = logger or _NullLogger()
+        self.results_root = options.results_root
+        self._aggregator = aggregator or aggregate
+
+        self.summary: list[ScenarioResult] = []
+        self.errors: list[dict[str, object]] = []
+        self.exit_code = 0
+        self.aborted = False
+        self.aggregate_path: Path | None = None
+
+    def run(self, selected_paths: Sequence[Path]) -> ExecutionResult:
+        """Execute the provided *selected_paths* and report consolidated results."""
+
+        if self.options.dry_run:
+            return self._handle_dry_run(selected_paths)
+
+        self.results_root.mkdir(parents=True, exist_ok=True)
+
+        self._run_selected_scenarios(selected_paths)
+        self._apply_aggregation()
+
+        return ExecutionResult(
+            summary=self.summary,
+            errors=self.errors,
+            aggregate=self.aggregate_path,
+            exit_code=self.exit_code,
+            aborted=self.aborted,
+            dry_run=False,
+        )
+
+    def _handle_dry_run(self, selected: Sequence[Path]) -> ExecutionResult:
+        """Return a dry-run execution result with logging."""
+
+        dry_entries: list[ScenarioSelection] = []
+        for sc in selected:
+            sc_path = Path(sc)
+            try:
+                display = sc_path.relative_to(Path.cwd())
+            except ValueError:
+                display = sc_path
+            self.logger.info(f"[dry-run] {display}")
+            dry_entries.append(
+                ScenarioSelection(
+                    name=sc_path.stem,
+                    display=str(display),
+                    path=str(sc_path),
+                )
+            )
+        return ExecutionResult(dry_run=True, dry_run_entries=dry_entries)
+
+    def _run_selected_scenarios(self, selected: Sequence[Path]) -> None:
+        """Execute each selected scenario and collect outcomes."""
+
+        for sc in selected:
+            context, result, error = load_scenario_context(
+                sc, self.options, self.results_root, self.logger
+            )
+            if result is not None:
+                error_occurred = self._record_outcome(result, error)
+                if error_occurred and self.options.stop_on_error:
+                    self.exit_code = 1
+                    self.aborted = True
+                    break
+                continue
+
+            if context is None:  # pragma: no cover - safety net
+                continue
+
+            run_result, run_error = run_scenario_with_context(context, self.logger)
+            error_occurred = self._record_outcome(run_result, run_error)
+            if error_occurred and self.options.stop_on_error:
+                self.exit_code = 1
+                self.aborted = True
+                break
+
+    def _apply_aggregation(self) -> None:
+        """Run aggregation with the collected state and update executor state."""
+
+        if self.aborted:
+            return
+
+        (
+            aggregate_path,
+            aggregate_errors,
+            aggregate_exit,
+            aggregate_aborted,
+        ) = trigger_aggregation(
+            self.summary,
+            self.options,
+            self.results_root,
+            self.logger,
+            aggregator=self._aggregator,
+        )
+
+        self.aggregate_path = aggregate_path
+        if aggregate_errors:
+            self.errors.extend(aggregate_errors)
+
+        self.exit_code = max(self.exit_code, aggregate_exit)
+        self.aborted = self.aborted or aggregate_aborted
+
+    def _record_outcome(
+        self,
+        result: ScenarioResult,
+        error: dict[str, object] | None,
+    ) -> bool:
+        """Record a scenario outcome and return ``True`` when an error occurred."""
+
+        self.summary.append(result)
+        if error is not None:
+            self.errors.append(error)
+            return True
+        return False
+
+
 def execute_scenarios(
     selected: Sequence[Path],
     options: ExecutionOptions,
@@ -79,129 +205,8 @@ def execute_scenarios(
 ) -> ExecutionResult:
     """Execute *selected* scenarios with the provided options."""
 
-    if logger is None:
-        logger = _NullLogger()
-    results_root = options.results_root
-
-    if options.dry_run:
-        return _handle_dry_run(selected, logger)
-
-    results_root.mkdir(parents=True, exist_ok=True)
-
-    (
-        summary,
-        errors_list,
-        exit_code,
-        aborted,
-    ) = _run_selected_scenarios(selected, options, results_root, logger)
-
-    aggregate_path, errors_list, exit_code, aborted = _apply_aggregation(
-        summary,
-        errors_list,
-        exit_code,
-        aborted,
-        options,
-        results_root,
-        logger,
-    )
-
-    return ExecutionResult(
-        summary=summary,
-        errors=errors_list,
-        aggregate=aggregate_path,
-        exit_code=exit_code,
-        aborted=aborted,
-        dry_run=False,
-    )
-
-
-def _handle_dry_run(
-    selected: Sequence[Path],
-    logger,
-) -> ExecutionResult:
-    """Return a dry-run execution result with logging."""
-
-    dry_entries: list[ScenarioSelection] = []
-    for sc in selected:
-        sc_path = Path(sc)
-        try:
-            display = sc_path.relative_to(Path.cwd())
-        except ValueError:
-            display = sc_path
-        logger.info(f"[dry-run] {display}")
-        dry_entries.append(
-            ScenarioSelection(
-                name=sc_path.stem,
-                display=str(display),
-                path=str(sc_path),
-            )
-        )
-    return ExecutionResult(dry_run=True, dry_run_entries=dry_entries)
-
-
-def _run_selected_scenarios(
-    selected: Sequence[Path],
-    options: ExecutionOptions,
-    results_root: Path,
-    logger,
-) -> tuple[list[ScenarioResult], list[dict[str, object]], int, bool]:
-    """Execute each selected scenario and collect outcomes."""
-
-    summary: list[ScenarioResult] = []
-    errors_list: list[dict[str, object]] = []
-    exit_code = 0
-    aborted = False
-
-    for sc in selected:
-        context, result, error = load_scenario_context(sc, options, results_root, logger)
-        if result is not None:
-            error_occurred = record_outcome(summary, errors_list, result, error)
-            if error_occurred and options.stop_on_error:
-                exit_code = 1
-                aborted = True
-                break
-            continue
-
-        if context is None:  # pragma: no cover - safety net
-            continue
-
-        run_result, run_error = run_scenario_with_context(context, logger)
-        error_occurred = record_outcome(summary, errors_list, run_result, run_error)
-        if error_occurred and options.stop_on_error:
-            exit_code = 1
-            aborted = True
-            break
-
-    return summary, errors_list, exit_code, aborted
-
-
-def _apply_aggregation(
-    summary: Sequence[ScenarioResult],
-    errors: list[dict[str, object]],
-    exit_code: int,
-    aborted: bool,
-    options: ExecutionOptions,
-    results_root: Path,
-    logger,
-) -> tuple[Path | None, list[dict[str, object]], int, bool]:
-    """Run aggregation with the collected state and return updates."""
-
-    if aborted:
-        return None, errors, exit_code, aborted
-
-    (
-        aggregate_path,
-        aggregate_errors,
-        aggregate_exit,
-        aggregate_aborted,
-    ) = trigger_aggregation(summary, options, results_root, logger)
-
-    if aggregate_errors:
-        errors.extend(aggregate_errors)
-
-    exit_code = max(exit_code, aggregate_exit)
-    aborted = aborted or aggregate_aborted
-    return aggregate_path, errors, exit_code, aborted
+    executor = ScenarioExecutor(options, logger=logger)
+    return executor.run(selected)
 
 
 def load_scenario_context(
@@ -311,13 +316,12 @@ def record_outcome(
     result: ScenarioResult,
     error: dict[str, object] | None,
 ) -> bool:
-    """Record a scenario outcome and return ``True`` when an error occurred."""
+    """Backwards compatible shim that delegates to :class:`ScenarioExecutor`."""
 
-    summary.append(result)
-    if error is not None:
-        errors.append(error)
-        return True
-    return False
+    executor = ScenarioExecutor(ExecutionOptions(results_root=Path(".")))
+    executor.summary = summary
+    executor.errors = errors
+    return executor._record_outcome(result, error)
 
 
 def trigger_aggregation(
@@ -325,6 +329,8 @@ def trigger_aggregation(
     options: ExecutionOptions,
     results_root: Path,
     logger,
+    *,
+    aggregator: Callable[[str | Path], Path | None] | None = None,
 ) -> tuple[Path | None, list[dict[str, object]], int, bool]:
     """Run aggregation when appropriate and report any errors."""
 
@@ -333,7 +339,8 @@ def trigger_aggregation(
         return None, [], 0, False
 
     try:
-        aggregate_path = aggregate(str(results_root))
+        aggregator_fn = aggregator or aggregate
+        aggregate_path = aggregator_fn(str(results_root))
         logger.info(
             "Aggregated comparison complete", context={"aggregate": aggregate_path}
         )
@@ -355,6 +362,7 @@ def trigger_aggregation(
 
 __all__ = [
     "ExecutionResult",
+    "ScenarioExecutor",
     "execute_scenarios",
     "load_scenario_context",
     "record_outcome",
