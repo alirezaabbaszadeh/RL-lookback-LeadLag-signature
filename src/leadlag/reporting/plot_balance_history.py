@@ -11,12 +11,8 @@ import pandas as pd
 
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 
-try:
-    import yaml  # type: ignore
-except Exception:  # pragma: no cover
-    yaml = None
-
 from leadlag.reporting.logging_utils import get_logger, setup_logging
+from leadlag.utils.yaml import load_yaml
 
 CANDIDATE_RETURN_COLUMNS = [
     "portfolio_return",
@@ -37,17 +33,6 @@ class RunInfo:
     seed_label: str
     label: str
     equity: pd.Series
-
-
-def _load_yaml(path: Path) -> Dict:
-    if yaml is None:
-        return {}
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-
-
 def _derive_returns(df: pd.DataFrame) -> tuple[Optional[pd.Series], Optional[str]]:
     for col in CANDIDATE_RETURN_COLUMNS:
         if col in df.columns:
@@ -87,7 +72,7 @@ def _scenario_from_metadata(run_dir: Path) -> str:
 
 
 def _extract_config_info(run_dir: Path, scenario: str) -> tuple[str, str, str, str]:
-    cfg = _load_yaml(run_dir / "config_merged.yaml")
+    cfg = load_yaml(run_dir / "config_merged.yaml", required=False, default={})
     analysis = cfg.get("analysis", {}) if isinstance(cfg, dict) else {}
     runner = cfg.get("runner", "scenario") if isinstance(cfg, dict) else "scenario"
     lookback = analysis.get("lookback") if isinstance(analysis, dict) else None
