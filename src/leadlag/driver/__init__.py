@@ -10,6 +10,7 @@ from .logging import (
 from .service import (
     DriverSummary,
     ExecutionOptions,
+    ExecutionSetup,
     ExecutionResult,
     RunStatusEntry,
     ScenarioResult,
@@ -28,6 +29,7 @@ __all__ = [
     "DryRunRender",
     "DriverSummary",
     "ExecutionOptions",
+    "ExecutionSetup",
     "ExecutionResult",
     "StatusRender",
     "RunStatusEntry",

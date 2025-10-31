@@ -140,11 +140,11 @@ class LeadLagCLI:
             return ensured
         assert self.discovered_scenarios is not None  # for type-checkers
 
-        prepared_root, logger, execution_options, command_string = (
-            driver_service.prepare_execution(self.args)
-        )
-        self.results_root = prepared_root
-        self.command = command_string
+        setup = driver_service.prepare_execution(self.args)
+        self.results_root = setup.results_root
+        self.command = setup.command
+        logger = setup.logger
+        execution_options = setup.options
 
         discovered_scenarios = list(self.discovered_scenarios)
         args = self.args

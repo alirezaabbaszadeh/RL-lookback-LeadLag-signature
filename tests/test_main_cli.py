@@ -130,7 +130,12 @@ def cli_env(tmp_path, monkeypatch):
             dry_run=args.dry_run,
         )
         command = getattr(args, "_leadlag_command", "leadlag")
-        return results_root, dummy_logger, options, command
+        return driver_service.ExecutionSetup(
+            results_root=results_root,
+            logger=dummy_logger,
+            options=options,
+            command=command,
+        )
 
     monkeypatch.setattr(driver_service, "prepare_execution", fake_prepare_execution)
 
