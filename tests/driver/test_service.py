@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -27,6 +28,183 @@ def scenario_file(tmp_path: Path) -> Path:
     path = tmp_path / "alpha.yaml"
     path.write_text("run:\n  run_name: alpha\n", encoding="utf-8")
     return path
+
+
+def test_load_scenario_context_skips_existing(tmp_path: Path, scenario_file: Path) -> None:
+    results_root = tmp_path / "results"
+    previous = results_root / "alpha_20240101_000000"
+    previous.mkdir(parents=True)
+    (previous / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
+
+    logger = DummyLogger()
+    options = service.ExecutionOptions(results_root=results_root, skip_existing=True)
+    context, result, error = service.load_scenario_context(
+        scenario_file, options, results_root, logger
+    )
+
+    assert context is None
+    assert error is None
+    assert result == service.ScenarioResult(
+        scenario="alpha", status="skipped", runner=None, reason="existing_results"
+    )
+
+
+def test_load_scenario_context_failure(tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    results_root = tmp_path / "results"
+
+    def failing_merge(_path: Path) -> dict[str, Any]:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(service, "_merge_extends", failing_merge)
+    logger = DummyLogger()
+    options = service.ExecutionOptions(results_root=results_root)
+    context, result, error = service.load_scenario_context(
+        scenario_file, options, results_root, logger
+    )
+
+    assert context is None
+    assert result is not None and result.status == "load_failed"
+    assert error == {
+        "code": "scenario_load_failed",
+        "message": "Scenario load failed",
+        "details": {"scenario": "alpha", "error": "boom"},
+    }
+
+
+def test_run_scenario_with_context_success(
+    tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_root = tmp_path / "results"
+    options = service.ExecutionOptions(results_root=results_root)
+
+    def fake_merge(path: Path) -> dict[str, Any]:
+        assert path == scenario_file
+        return {"run": {"run_name": "alpha"}, "dynamic": {}}
+
+    monkeypatch.setattr(service, "_merge_extends", fake_merge)
+    monkeypatch.setattr(service, "_validate_scenario_schema", lambda *_args, **_kwargs: None)
+    context, result, error = service.load_scenario_context(
+        scenario_file, options, results_root, DummyLogger()
+    )
+
+    assert context is not None and result is None and error is None
+
+    run_dir = results_root / "alpha_20240101_000000"
+    run_dir.mkdir(parents=True)
+
+    def fake_execute(_runner: str, _sc_path: Path, _root: Path) -> Path:
+        return run_dir
+
+    monkeypatch.setattr(service, "_execute_runner", fake_execute)
+
+    scenario_result, execution_error = service.run_scenario_with_context(
+        context, DummyLogger()
+    )
+
+    assert execution_error is None
+    assert scenario_result.status == "success"
+    assert scenario_result.output == str(run_dir)
+
+
+def test_run_scenario_with_context_failure(
+    tmp_path: Path, scenario_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_root = tmp_path / "results"
+    context = service.ScenarioExecutionContext(
+        scenario="alpha",
+        path=scenario_file,
+        results_root=results_root,
+        config={"run": {"run_name": "alpha"}},
+        runner="dynamic",
+    )
+
+    def failing_execute(*_args, **_kwargs) -> Path:
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(service, "_execute_runner", failing_execute)
+
+    result, error = service.run_scenario_with_context(context, DummyLogger())
+
+    assert result.status == "error"
+    assert error == {
+        "code": "scenario_execution_failed",
+        "message": "Scenario execution failed",
+        "details": {"scenario": "alpha", "error": "kaboom"},
+    }
+
+
+def test_record_outcome_updates_collections() -> None:
+    summary: list[service.ScenarioResult] = []
+    errors: list[dict[str, object]] = []
+    result = service.ScenarioResult(scenario="alpha", status="success", runner="dynamic")
+
+    had_error = service.record_outcome(summary, errors, result, None)
+    assert summary == [result]
+    assert errors == []
+    assert had_error is False
+
+    err_result = service.ScenarioResult(scenario="beta", status="error", runner="dynamic")
+    error_entry = {"code": "boom"}
+    had_error = service.record_outcome(summary, errors, err_result, error_entry)
+    assert had_error is True
+    assert errors == [error_entry]
+
+
+def test_trigger_aggregation_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    summary = [
+        service.ScenarioResult(scenario="alpha", status="success", runner="dynamic"),
+        service.ScenarioResult(scenario="beta", status="skipped", runner=None),
+    ]
+
+    aggregate_calls: list[Path] = []
+
+    def fake_aggregate(root: str) -> Path:
+        aggregate_calls.append(Path(root))
+        return Path(root) / "aggregate"
+
+    monkeypatch.setattr(service, "aggregate", fake_aggregate)
+
+    aggregate_path, errors, exit_code, aborted = service.trigger_aggregation(
+        summary,
+        service.ExecutionOptions(results_root=results_root),
+        results_root,
+        DummyLogger(),
+    )
+
+    assert aggregate_path == results_root / "aggregate"
+    assert errors == []
+    assert exit_code == 0
+    assert aborted is False
+    assert aggregate_calls == [results_root]
+
+
+def test_trigger_aggregation_failure_stop_on_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    summary = [
+        service.ScenarioResult(scenario="alpha", status="success", runner="dynamic"),
+    ]
+
+    def failing_aggregate(*_args, **_kwargs) -> Path:
+        raise RuntimeError("agg")
+
+    monkeypatch.setattr(service, "aggregate", failing_aggregate)
+
+    aggregate_path, errors, exit_code, aborted = service.trigger_aggregation(
+        summary,
+        service.ExecutionOptions(results_root=results_root, stop_on_error=True),
+        results_root,
+        DummyLogger(),
+    )
+
+    assert aggregate_path is None
+    assert errors and errors[0]["code"] == "aggregation_failed"
+    assert exit_code == 1
+    assert aborted is True
 
 
 def test_execute_scenarios_success_runs_and_aggregates(
