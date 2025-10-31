@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence
 
+from leadlag.cli import responses
 from leadlag.cli.dependencies import DriverService
 
 
@@ -80,14 +81,7 @@ class ScenarioManager:
         try:
             return self.ensure(), None
         except NoScenariosAvailable:
-            return None, CommandResponse(
-                exit_code=1,
-                code="no_scenarios_available",
-                message=(
-                    "No scenarios found in packaged scenarios "
-                    "(leadlag.configs.scenarios)"
-                ),
-                details={"results_root": str(results_root)},
+            return None, responses.no_scenarios_available(
                 command=command,
                 results_root=results_root,
             )
@@ -107,11 +101,9 @@ class ScenarioSelectionService:
         command: str,
         results_root: Path,
     ) -> CommandResponse:
-        return CommandResponse(
-            exit_code=1,
-            code="invalid_scenarios",
-            message="One or more scenarios not found",
-            details={"errors": list(errors), "requested": list(requested or [])},
+        return responses.invalid_scenarios(
+            errors=errors,
+            requested=requested,
             command=command,
             results_root=results_root,
         )
@@ -124,15 +116,9 @@ class ScenarioSelectionService:
         command: str,
         results_root: Path,
     ) -> CommandResponse:
-        return CommandResponse(
-            exit_code=1,
-            code="no_scenarios_matched",
-            message="No scenarios match the provided filters.",
-            details={
-                "include": include,
-                "exclude": exclude,
-                "results_root": str(results_root),
-            },
+        return responses.no_matches(
+            include=include,
+            exclude=exclude,
             command=command,
             results_root=results_root,
         )
