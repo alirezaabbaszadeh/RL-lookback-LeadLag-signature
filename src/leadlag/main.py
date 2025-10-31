@@ -313,7 +313,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     command = getattr(args, "_leadlag_command", "leadlag")
 
-    results_root = Path(args.results_root).resolve()
+    results_root = Path(args.results_root).expanduser().resolve()
     context = _CLIContext(command=command, results_root=results_root)
 
     if args.validate:
