@@ -256,3 +256,39 @@ def test_execute_command_returns_selection_failure(tmp_path):
     assert response is failure
     assert exec_builder.calls == []
     assert dry_builder.calls == []
+
+
+def test_execute_command_returns_shared_response_when_no_scenarios(tmp_path):
+    args = _base_args(tmp_path)
+    scenario_manager = ScenarioManager(lambda: [])
+    selector = StubSelector([])
+    dry_builder = StubDryResponder()
+    exec_builder = StubExecutionResponder()
+
+    def _prepare_execution(_args):
+        raise AssertionError("prepare_execution should not be called when no scenarios")
+
+    driver_service = SimpleNamespace(
+        prepare_execution=_prepare_execution,
+        execute_scenarios=lambda *args, **kwargs: SimpleNamespace(),
+    )
+
+    command = ExecuteCommand(
+        driver_service=driver_service,
+        scenarios=scenario_manager,
+        scenario_selector=selector,
+        dry_run_responder=dry_builder,
+        execution_responder=exec_builder,
+    )
+
+    response = command(_context(args))
+
+    assert response.exit_code == 1
+    assert response.code == "no_scenarios_available"
+    assert response.message.startswith("No scenarios found")
+    assert response.details == {"results_root": str(tmp_path)}
+    assert response.command == "leadlag"
+    assert response.results_root == Path(args.results_root)
+    assert selector.calls == []
+    assert dry_builder.calls == []
+    assert exec_builder.calls == []
