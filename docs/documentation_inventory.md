@@ -19,6 +19,8 @@ The table below summarizes the current documentation assets, their owners (where
 | `docs/future_roadmap.pseudo` | `roadmap_bot` (per metadata) | Formal roadmap with quality gates, module owners, initiatives, and status tracker. | Current. States latest review date and owners. |
 | `docs/kaggle_artifacts.md` | — | Inventory of files produced by `kaggle/run_all.py`, annotated by artifact type. | Current. Matches deployment outputs. |
 | `docs/metrics_dictionary.md` | — | Metric definitions spanning time-series, run summaries, and aggregates, plus observability hooks. | Current. Useful for analytics consumers. |
+| `docs/standards.md` | Documentation Working Group | Shared style guide covering headings, metadata, terminology, and review workflow. | Draft. Circulated for feedback via `docs/standards_feedback_request.md`. |
+| `docs/standards_feedback_request.md` | Documentation Working Group | Shared issue doc used to collect stakeholder feedback on documentation standards. | Open. Comment window closes 2025-11-07. |
 | `docs/repro.md` | — | Reproducibility guide covering Conda/Docker setup, scenario execution, outputs, MLflow, and troubleshooting. | Current. Complements README quickstart. |
 | `reporting/` | — | Legacy CLI wrappers that delegate to `leadlag.reporting.*` modules with deprecation warnings. | Redundant; wrappers marked deprecated pending removal. |
 | `reports/final_report.md` | — | Generated research report summarising 2025 experiments and statistics. | Stale—timestamped 2025 and references archived Windows runs. |
