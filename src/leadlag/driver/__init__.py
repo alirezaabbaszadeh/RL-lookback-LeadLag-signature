@@ -19,6 +19,7 @@ from .service import (
     execute_scenarios,
     filter_scenarios,
     matches_filters,
+    prepare_execution,
     resolve_scenario_reference,
     resolve_scenario_references,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "render_dry_run_summary",
     "render_status_summary",
     "matches_filters",
+    "prepare_execution",
     "resolve_scenario_reference",
     "resolve_scenario_references",
 ]

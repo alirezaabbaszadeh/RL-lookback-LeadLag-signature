@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import json
+from argparse import Namespace
 from dataclasses import asdict, dataclass, field
 from importlib import resources
+from logging import Logger
 from pathlib import Path
-from typing import Iterable, Sequence
-
+from typing import Iterable, Sequence, Tuple
 from leadlag.evaluation.aggregate import aggregate
 from leadlag.training.run_scenario import (
     _merge_extends,
@@ -229,6 +230,34 @@ def resolve_scenario_references(entries: Sequence[str]) -> tuple[list[Path], lis
         except FileNotFoundError as exc:
             errors.append(str(exc))
     return resolved, errors
+
+
+def prepare_execution(args: Namespace) -> Tuple[Path, Logger, ExecutionOptions, str]:
+    """Prepare execution resources for the CLI entrypoint."""
+
+    from leadlag.driver.logging import configure_driver_logger
+
+    results_root = Path(args.results_root).expanduser().resolve()
+    results_root.mkdir(parents=True, exist_ok=True)
+
+    log_path = Path(args.log_path).expanduser().resolve() if args.log_path else None
+    logger = configure_driver_logger(
+        results_root,
+        log_level=args.log_level,
+        log_path=log_path,
+    )
+
+    execution_options = ExecutionOptions(
+        results_root=results_root,
+        runner_preference=getattr(args, "runner", "auto"),
+        skip_existing=getattr(args, "skip_existing", False),
+        stop_on_error=getattr(args, "stop_on_error", False),
+        dry_run=getattr(args, "dry_run", False),
+    )
+
+    command_string = getattr(args, "_leadlag_command", "leadlag")
+
+    return results_root, logger, execution_options, command_string
 
 
 def has_successful_run(run_name: str, results_root: Path) -> bool:
