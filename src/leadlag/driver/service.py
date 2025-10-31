@@ -144,6 +144,19 @@ class ExecutionResult:
     aborted: bool = False
     dry_run: bool = False
     dry_run_entries: list[ScenarioSelection] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ScenarioExecutionContext:
+    """Context describing a scenario prior to execution."""
+
+    scenario: str
+    path: Path
+    results_root: Path
+    config: dict[str, object]
+    runner: str
+
+
 def matches_filters(name: str, include: Iterable[str] | None, exclude: Iterable[str] | None) -> bool:
     """Return ``True`` when *name* matches the include/exclude filters."""
 
@@ -305,107 +318,39 @@ def execute_scenarios(
     aborted = False
 
     for sc in selected:
-        name = sc.stem
-        if options.skip_existing and has_successful_run(name, results_root):
-            logger.info(
-                "Skipping scenario with existing successful run",
-                context={"scenario": name},
-            )
-            summary.append(
-                ScenarioResult(
-                    scenario=name,
-                    status="skipped",
-                    runner=None,
-                    reason="existing_results",
-                )
-            )
-            continue
-        try:
-            config = _merge_extends(sc)
-            _validate_scenario_schema(config, scenario=name)
-        except Exception as exc:
-            logger.exception("Failed to load scenario config", context={"scenario": name})
-            summary.append(
-                ScenarioResult(
-                    scenario=name,
-                    status="load_failed",
-                    runner=None,
-                    error=str(exc),
-                )
-            )
-            errors_list.append(
-                {
-                    "code": "scenario_load_failed",
-                    "message": "Scenario load failed",
-                    "details": {"scenario": name, "error": str(exc)},
-                }
-            )
-            if options.stop_on_error:
+        context, result, error = load_scenario_context(sc, options, results_root, logger)
+        if result is not None:
+            error_occurred = record_outcome(summary, errors_list, result, error)
+            if error_occurred and options.stop_on_error:
                 exit_code = 1
                 aborted = True
                 break
             continue
 
-        runner = _pick_runner(options.runner_preference, config)
-        logger.info("Running scenario", context={"scenario": name, "runner": runner})
-        try:
-            out_dir = _execute_runner(runner, sc, results_root)
-            summary.append(
-                ScenarioResult(
-                    scenario=name,
-                    status="success",
-                    runner=runner,
-                    output=str(out_dir),
-                )
-            )
-            logger.info("Scenario completed", context={"scenario": name, "output": out_dir})
-        except Exception as exc:  # pragma: no cover - defensive logging path
-            logger.exception("Scenario execution failed", context={"scenario": name})
-            summary.append(
-                ScenarioResult(
-                    scenario=name,
-                    status="error",
-                    runner=runner,
-                    error=str(exc),
-                )
-            )
-            errors_list.append(
-                {
-                    "code": "scenario_execution_failed",
-                    "message": "Scenario execution failed",
-                    "details": {"scenario": name, "error": str(exc)},
-                }
-            )
-            if options.stop_on_error:
-                exit_code = 1
-                aborted = True
-                break
+        if context is None:  # pragma: no cover - safety net
+            continue
+
+        run_result, run_error = run_scenario_with_context(context, logger)
+        error_occurred = record_outcome(summary, errors_list, run_result, run_error)
+        if error_occurred and options.stop_on_error:
+            exit_code = 1
+            aborted = True
+            break
 
     if not aborted:
-        successes = [row for row in summary if row.status == "success"]
-        if successes:
-            try:
-                aggregate_path = aggregate(str(results_root))
-                logger.info(
-                    "Aggregated comparison complete", context={"aggregate": aggregate_path}
-                )
-            except Exception as exc:  # pragma: no cover
-                logger.exception(
-                    "Aggregation failed", context={"results_root": results_root}
-                )
-                errors_list.append(
-                    {
-                        "code": "aggregation_failed",
-                        "message": "Aggregation failed",
-                        "details": {
-                            "results_root": str(results_root),
-                            "error": str(exc),
-                        },
-                    }
-                )
-                if options.stop_on_error:
-                    exit_code = 1
-                    aborted = True
+        (
+            agg_path,
+            agg_errors,
+            agg_exit_code,
+            agg_aborted,
+        ) = trigger_aggregation(summary, options, results_root, logger)
+        errors_list.extend(agg_errors)
+        if agg_path is not None:
+            aggregate_path = agg_path
+        if agg_exit_code:
+            exit_code = exit_code or agg_exit_code
+        if agg_aborted:
+            aborted = True
 
     return ExecutionResult(
         summary=summary,
@@ -416,21 +361,181 @@ def execute_scenarios(
     )
 
 
+def load_scenario_context(
+    scenario_path: Path,
+    options: ExecutionOptions,
+    results_root: Path,
+    logger,
+) -> tuple[ScenarioExecutionContext | None, ScenarioResult | None, dict[str, object] | None]:
+    """Load a scenario configuration and return its execution context.
+
+    Returns a tuple of ``(context, result, error)``. When ``context`` is
+    ``None`` the caller should rely on ``result`` and ``error`` to determine
+    whether the scenario was skipped or failed to load.
+    """
+
+    name = scenario_path.stem
+
+    if options.skip_existing and has_successful_run(name, results_root):
+        logger.info(
+            "Skipping scenario with existing successful run",
+            context={"scenario": name},
+        )
+        return (
+            None,
+            ScenarioResult(
+                scenario=name,
+                status="skipped",
+                runner=None,
+                reason="existing_results",
+            ),
+            None,
+        )
+
+    try:
+        config = _merge_extends(scenario_path)
+        _validate_scenario_schema(config, scenario=name)
+    except Exception as exc:
+        logger.exception("Failed to load scenario config", context={"scenario": name})
+        return (
+            None,
+            ScenarioResult(
+                scenario=name,
+                status="load_failed",
+                runner=None,
+                error=str(exc),
+            ),
+            {
+                "code": "scenario_load_failed",
+                "message": "Scenario load failed",
+                "details": {"scenario": name, "error": str(exc)},
+            },
+        )
+
+    runner = _pick_runner(options.runner_preference, config)
+    return (
+        ScenarioExecutionContext(
+            scenario=name,
+            path=scenario_path,
+            results_root=results_root,
+            config=config,
+            runner=runner,
+        ),
+        None,
+        None,
+    )
+
+
+def run_scenario_with_context(
+    context: ScenarioExecutionContext,
+    logger,
+) -> tuple[ScenarioResult, dict[str, object] | None]:
+    """Execute the provided context and capture the outcome."""
+
+    logger.info(
+        "Running scenario",
+        context={"scenario": context.scenario, "runner": context.runner},
+    )
+    try:
+        out_dir = _execute_runner(context.runner, context.path, context.results_root)
+        logger.info(
+            "Scenario completed",
+            context={"scenario": context.scenario, "output": out_dir},
+        )
+        return (
+            ScenarioResult(
+                scenario=context.scenario,
+                status="success",
+                runner=context.runner,
+                output=str(out_dir),
+            ),
+            None,
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging path
+        logger.exception("Scenario execution failed", context={"scenario": context.scenario})
+        return (
+            ScenarioResult(
+                scenario=context.scenario,
+                status="error",
+                runner=context.runner,
+                error=str(exc),
+            ),
+            {
+                "code": "scenario_execution_failed",
+                "message": "Scenario execution failed",
+                "details": {"scenario": context.scenario, "error": str(exc)},
+            },
+        )
+
+
+def record_outcome(
+    summary: list[ScenarioResult],
+    errors: list[dict[str, object]],
+    result: ScenarioResult,
+    error: dict[str, object] | None,
+) -> bool:
+    """Record a scenario outcome and return ``True`` when an error occurred."""
+
+    summary.append(result)
+    if error is not None:
+        errors.append(error)
+        return True
+    return False
+
+
+def trigger_aggregation(
+    summary: Sequence[ScenarioResult],
+    options: ExecutionOptions,
+    results_root: Path,
+    logger,
+) -> tuple[Path | None, list[dict[str, object]], int, bool]:
+    """Run aggregation when appropriate and report any errors."""
+
+    successes = [row for row in summary if row.status == "success"]
+    if not successes:
+        return None, [], 0, False
+
+    try:
+        aggregate_path = aggregate(str(results_root))
+        logger.info(
+            "Aggregated comparison complete", context={"aggregate": aggregate_path}
+        )
+        return aggregate_path, [], 0, False
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Aggregation failed", context={"results_root": results_root})
+        error_entry = {
+            "code": "aggregation_failed",
+            "message": "Aggregation failed",
+            "details": {
+                "results_root": str(results_root),
+                "error": str(exc),
+            },
+        }
+        exit_code = 1 if options.stop_on_error else 0
+        aborted = options.stop_on_error
+        return None, [error_entry], exit_code, aborted
+
+
 __all__ = [
     "DriverSummary",
     "ExecutionOptions",
     "ExecutionSetup",
     "ExecutionResult",
+    "ScenarioExecutionContext",
     "collect_status",
     "discover_scenarios",
     "execute_scenarios",
     "filter_scenarios",
     "has_successful_run",
+    "load_scenario_context",
     "matches_filters",
+    "record_outcome",
     "RunStatusEntry",
     "ScenarioResult",
     "ScenarioSelection",
+    "run_scenario_with_context",
     "resolve_scenario_reference",
     "resolve_scenario_references",
+    "trigger_aggregation",
     "prepare_execution",
 ]
