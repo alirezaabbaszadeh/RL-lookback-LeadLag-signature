@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from leadlag.driver import service as driver_service
+
 scipy_stub = types.ModuleType("scipy")
 stats_stub = types.ModuleType("scipy.stats")
 
@@ -142,10 +144,10 @@ def _write_basic_scenario(path: Path, *, run_name: str | None = None) -> None:
 
 
 def test_match_filters_basic():
-    assert main._match_filters("alpha", include=["alp"], exclude=None)
-    assert not main._match_filters("beta", include=["alp"], exclude=None)
-    assert not main._match_filters("alpha", include=None, exclude=["alp"])
-    assert main._match_filters("alpha", include=None, exclude=["zzz"])
+    assert driver_service.matches_filters("alpha", include=["alp"], exclude=None)
+    assert not driver_service.matches_filters("beta", include=["alp"], exclude=None)
+    assert not driver_service.matches_filters("alpha", include=None, exclude=["alp"])
+    assert driver_service.matches_filters("alpha", include=None, exclude=["zzz"])
 
 
 def test_discover_scenarios_sorted(cli_env):
@@ -154,7 +156,7 @@ def test_discover_scenarios_sorted(cli_env):
     _write_basic_scenario(config_dir / "a.yaml", run_name="a")
     (config_dir / "ignored.txt").write_text("ignore", encoding="utf-8")
 
-    scenarios = main.discover_scenarios()
+    scenarios = driver_service.discover_scenarios()
     assert [path.name for path in scenarios] == ["a.yaml", "b.yaml"]
 
 
@@ -166,7 +168,7 @@ def test_main_dry_run_filters(cli_env, monkeypatch):
     def fail_aggregate(_root: str) -> Path:  # pragma: no cover - should never run
         raise AssertionError("aggregate must not run during dry-run")
 
-    monkeypatch.setattr(main, "aggregate", fail_aggregate)
+    monkeypatch.setattr(driver_service, "aggregate", fail_aggregate)
 
     exit_code = main.main(["--dry-run", "--include", "alpha"])
     assert exit_code == 0
@@ -245,9 +247,9 @@ def test_main_runs_scenario_and_aggregates(cli_env, monkeypatch):
         aggregate_calls.append(root_path)
         return root_path / "aggregate"
 
-    monkeypatch.setattr(main, "_merge_extends", fake_merge)
-    monkeypatch.setattr(main, "_execute_runner", fake_execute)
-    monkeypatch.setattr(main, "aggregate", fake_aggregate)
+    monkeypatch.setattr(driver_service, "_merge_extends", fake_merge)
+    monkeypatch.setattr(driver_service, "_execute_runner", fake_execute)
+    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
 
     results_root = root / "outputs"
     exit_code = main.main(["--results-root", str(results_root)])
@@ -277,9 +279,9 @@ def test_main_json_summary(cli_env, monkeypatch, capsys):
     def fake_aggregate(root_str: str) -> Path:
         return Path(root_str) / "aggregate"
 
-    monkeypatch.setattr(main, "_merge_extends", fake_merge)
-    monkeypatch.setattr(main, "_execute_runner", fake_execute)
-    monkeypatch.setattr(main, "aggregate", fake_aggregate)
+    monkeypatch.setattr(driver_service, "_merge_extends", fake_merge)
+    monkeypatch.setattr(driver_service, "_execute_runner", fake_execute)
+    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
 
     exit_code = main.main(["--json"])
     captured = capsys.readouterr()
@@ -307,7 +309,7 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
     _write_basic_scenario(scenario_path, run_name="failure")
 
     monkeypatch.setattr(
-        main,
+        driver_service,
         "_merge_extends",
         lambda path: {
             "run": {"run_name": "failure"},
@@ -325,8 +327,8 @@ def test_main_runner_error_without_stop(cli_env, monkeypatch):
         aggregate_calls.append(Path(_root))
         return Path(_root) / "aggregate"
 
-    monkeypatch.setattr(main, "_execute_runner", failing_execute)
-    monkeypatch.setattr(main, "aggregate", fake_aggregate)
+    monkeypatch.setattr(driver_service, "_execute_runner", failing_execute)
+    monkeypatch.setattr(driver_service, "aggregate", fake_aggregate)
 
     results_root = root / "results"
     exit_code = main.main(["--results-root", str(results_root)])
@@ -342,7 +344,7 @@ def test_main_runner_error_with_stop(cli_env, monkeypatch):
     _write_basic_scenario(config_dir / "failure.yaml", run_name="failure")
 
     monkeypatch.setattr(
-        main,
+        driver_service,
         "_merge_extends",
         lambda path: {
             "run": {"run_name": "failure"},
@@ -354,8 +356,10 @@ def test_main_runner_error_with_stop(cli_env, monkeypatch):
     def raising_execute(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(main, "_execute_runner", raising_execute)
-    monkeypatch.setattr(main, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(driver_service, "_execute_runner", raising_execute)
+    monkeypatch.setattr(
+        driver_service, "aggregate", lambda root: Path(root) / "aggregate"
+    )
 
     results_root = root / "results"
     exit_code = main.main(["--results-root", str(results_root), "--stop-on-error"])
@@ -370,8 +374,10 @@ def test_main_merge_failure_respects_stop(cli_env, monkeypatch):
     def failing_merge(_path: Path) -> dict:
         raise ValueError("broken config")
 
-    monkeypatch.setattr(main, "_merge_extends", failing_merge)
-    monkeypatch.setattr(main, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(driver_service, "_merge_extends", failing_merge)
+    monkeypatch.setattr(
+        driver_service, "aggregate", lambda root: Path(root) / "aggregate"
+    )
 
     exit_continue = main.main([])
     assert exit_continue == 0
@@ -387,7 +393,7 @@ def test_main_no_matching_filters(cli_env, monkeypatch):
     _, config_dir, _ = cli_env
     _write_basic_scenario(config_dir / "alpha.yaml", run_name="alpha")
 
-    monkeypatch.setattr(main, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(driver_service, "aggregate", lambda root: Path(root) / "aggregate")
 
     exit_code = main.main(["--include", "missing"])
     assert exit_code == 1
@@ -400,8 +406,10 @@ def test_main_explicit_scenarios(cli_env, monkeypatch, capsys):
     _write_basic_scenario(alpha, run_name="alpha")
     _write_basic_scenario(beta, run_name="beta")
 
-    monkeypatch.setattr(main, "_execute_runner", lambda *args, **kwargs: Path("unused"))
-    monkeypatch.setattr(main, "aggregate", lambda root: Path(root) / "aggregate")
+    monkeypatch.setattr(
+        driver_service, "_execute_runner", lambda *args, **kwargs: Path("unused")
+    )
+    monkeypatch.setattr(driver_service, "aggregate", lambda root: Path(root) / "aggregate")
 
     exit_code = main.main(
         [
@@ -516,7 +524,7 @@ def test_main_skip_existing(cli_env, monkeypatch, capsys):
         executed.append("called")
         raise AssertionError("runner should be skipped")
 
-    monkeypatch.setattr(main, "_execute_runner", fail_execute)
+    monkeypatch.setattr(driver_service, "_execute_runner", fail_execute)
     exit_code = main.main(
         [
             "--results-root",
