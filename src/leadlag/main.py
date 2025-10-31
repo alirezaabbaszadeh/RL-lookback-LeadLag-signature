@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -14,6 +15,13 @@ from leadlag.driver.logging import (
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
+
+
+@dataclass
+class _CLIContext:
+    command: str
+    results_root: Path
+    discovered_scenarios: Sequence[Path] | None = None
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
@@ -100,79 +108,73 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = parse_args(argv)
-    command = "leadlag"
-    if argv:
-        command = "leadlag " + " ".join(argv)
-
-    results_root = Path(args.results_root).resolve()
-
-    if args.validate:
-        try:
-            scenario_path = driver_service.resolve_scenario_reference(args.validate)
-            config = _merge_extends(scenario_path)
-            _validate_scenario_schema(config, scenario=scenario_path.stem)
-        except Exception as exc:
-            emit_error(
-                args,
-                code="scenario_validation_failed",
-                message=f"Validation failed for '{args.validate}'",
-                details={"scenario": args.validate, "error": str(exc), "valid": False},
-            )
-            return 1
-
-        emit_formatted_output(
-            args,
-            data={
-                "scenario": scenario_path.stem,
-                "path": str(scenario_path),
-                "valid": True,
-            },
-            text=f"Scenario '{scenario_path.stem}' is valid ({scenario_path})",
-            message="Scenario validation succeeded.",
-            pretty=True,
-            command=command,
-        )
-        return 0
-
-    if args.status:
-        runs = driver_service.collect_status(results_root)
-        status_render = render_status_summary(results_root, runs)
-        emit_formatted_output(
-            args,
-            data=status_render.data,
-            text=status_render.text,
-            message="Run status summary.",
-            errors=status_render.errors,
-            success=status_render.success,
-            pretty=True,
-            command=command,
-        )
-        return 0
-
-    scenarios = driver_service.discover_scenarios()
-    if not scenarios:
+def _handle_validate(args: argparse.Namespace, context: _CLIContext) -> int:
+    try:
+        scenario_path = driver_service.resolve_scenario_reference(args.validate)
+        config = _merge_extends(scenario_path)
+        _validate_scenario_schema(config, scenario=scenario_path.stem)
+    except Exception as exc:  # pragma: no cover - exercised in tests
         emit_error(
             args,
-            code="no_scenarios_available",
-            message="No scenarios found in packaged scenarios (leadlag.configs.scenarios)",
-            details={"results_root": str(results_root)},
+            code="scenario_validation_failed",
+            message=f"Validation failed for '{args.validate}'",
+            details={"scenario": args.validate, "error": str(exc), "valid": False},
         )
         return 1
-    discovered_scenarios = list(scenarios)
 
-    scenario_names = [path.stem for path in discovered_scenarios]
-    if args.list:
-        emit_formatted_output(
-            args,
-            data={"scenarios": scenario_names},
-            text="\n".join(scenario_names),
-            message="Available scenarios listed.",
-            pretty=True,
-            command=command,
-        )
-        return 0
+    emit_formatted_output(
+        args,
+        data={
+            "scenario": scenario_path.stem,
+            "path": str(scenario_path),
+            "valid": True,
+        },
+        text=f"Scenario '{scenario_path.stem}' is valid ({scenario_path})",
+        message="Scenario validation succeeded.",
+        pretty=True,
+        command=context.command,
+    )
+    return 0
+
+
+def _handle_status(args: argparse.Namespace, context: _CLIContext) -> int:
+    runs = driver_service.collect_status(context.results_root)
+    status_render = render_status_summary(context.results_root, runs)
+    emit_formatted_output(
+        args,
+        data=status_render.data,
+        text=status_render.text,
+        message="Run status summary.",
+        errors=status_render.errors,
+        success=status_render.success,
+        pretty=True,
+        command=context.command,
+    )
+    return 0
+
+
+def _handle_list(args: argparse.Namespace, context: _CLIContext) -> int:
+    if context.discovered_scenarios is None:  # pragma: no cover - guard for misuse
+        raise ValueError("No scenarios available in context")
+
+    scenario_names = [path.stem for path in context.discovered_scenarios]
+    emit_formatted_output(
+        args,
+        data={"scenarios": scenario_names},
+        text="\n".join(scenario_names),
+        message="Available scenarios listed.",
+        pretty=True,
+        command=context.command,
+    )
+    return 0
+
+
+def _handle_execute(args: argparse.Namespace, context: _CLIContext) -> int:
+    if context.discovered_scenarios is None:  # pragma: no cover - guard for misuse
+        raise ValueError("No scenarios available in context")
+
+    results_root = context.results_root
+    discovered_scenarios = list(context.discovered_scenarios)
 
     if args.scenarios:
         selected, errors = driver_service.resolve_scenario_references(args.scenarios)
@@ -252,7 +254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             text=dry_render.text,
             message="Dry-run completed.",
             pretty=True,
-            command=command,
+            command=context.command,
         )
         return execution.exit_code
 
@@ -309,10 +311,43 @@ def main(argv: Sequence[str] | None = None) -> int:
         errors=errors_list or None,
         success=success,
         pretty=True,
-        command=command,
+        command=context.command,
     )
 
     return exit_code
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    command = "leadlag"
+    if argv:
+        command = "leadlag " + " ".join(argv)
+
+    results_root = Path(args.results_root).resolve()
+    context = _CLIContext(command=command, results_root=results_root)
+
+    if args.validate:
+        return _handle_validate(args, context)
+
+    if args.status:
+        return _handle_status(args, context)
+
+    scenarios = driver_service.discover_scenarios()
+    if not scenarios:
+        emit_error(
+            args,
+            code="no_scenarios_available",
+            message="No scenarios found in packaged scenarios (leadlag.configs.scenarios)",
+            details={"results_root": str(results_root)},
+        )
+        return 1
+
+    context.discovered_scenarios = list(scenarios)
+
+    if args.list:
+        return _handle_list(args, context)
+
+    return _handle_execute(args, context)
 
 
 
