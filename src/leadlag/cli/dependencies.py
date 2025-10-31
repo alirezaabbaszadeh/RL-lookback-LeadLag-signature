@@ -22,6 +22,7 @@ class DriverService:
     ScenarioExecutionContext: type[dto.ScenarioExecutionContext]
     ScenarioResult: type[dto.ScenarioResult]
     ScenarioSelection: type[dto.ScenarioSelection]
+    OutcomeRecorder: type[execution.OutcomeRecorder]
     aggregate: Callable[[str | Path], Path | None]
     collect_status: Callable[[Path], Iterable[dto.RunStatusEntry]]
     discover_scenarios: Callable[[], Iterable[Path]]
@@ -31,7 +32,6 @@ class DriverService:
     load_scenario_context: Callable[..., dto.ScenarioExecutionContext]
     matches_filters: Callable[[str, Sequence[str] | None, Sequence[str] | None], bool]
     prepare_execution: Callable[[object], execution_setup.ExecutionSetup]
-    record_outcome: Callable[..., None]
     resolve_scenario_reference: Callable[[str], Path]
     resolve_scenario_references: Callable[[Sequence[str]], tuple[Sequence[Path], Sequence[str]]]
     run_scenario: Callable[..., dto.ScenarioResult]
@@ -52,6 +52,7 @@ def build_driver_service() -> DriverService:
         ScenarioExecutionContext=dto.ScenarioExecutionContext,
         ScenarioResult=dto.ScenarioResult,
         ScenarioSelection=dto.ScenarioSelection,
+        OutcomeRecorder=execution.OutcomeRecorder,
         aggregate=execution.aggregate,
         collect_status=selection.collect_status,
         discover_scenarios=scenario_registry.discover_scenarios,
@@ -61,7 +62,6 @@ def build_driver_service() -> DriverService:
         load_scenario_context=execution.load_scenario_context,
         matches_filters=selection.matches_filters,
         prepare_execution=execution_setup.prepare_execution,
-        record_outcome=execution.record_outcome,
         resolve_scenario_reference=scenario_registry.resolve_scenario_reference,
         resolve_scenario_references=scenario_registry.resolve_scenario_references,
         run_scenario=run_scenario,
