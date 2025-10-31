@@ -5,12 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-from leadlag.driver.service import (
-    DriverSummary,
-    RunStatusEntry,
-    ScenarioResult,
-    ScenarioSelection,
-)
+from .dto import DriverSummary, RunStatusEntry, ScenarioResult, ScenarioSelection
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 

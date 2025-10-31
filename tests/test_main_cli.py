@@ -7,8 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from leadlag.driver import service as driver_service
-
 scipy_stub = types.ModuleType("scipy")
 stats_stub = types.ModuleType("scipy.stats")
 
@@ -91,6 +89,9 @@ try:  # pragma: no cover - dependency guard for optional pandas wheels
     from leadlag import main
 except ValueError as exc:
     pytest.skip(f"Dependency import failed: {exc}", allow_module_level=True)
+
+
+driver_service = main.driver_service
 
 
 class DummyLogger:

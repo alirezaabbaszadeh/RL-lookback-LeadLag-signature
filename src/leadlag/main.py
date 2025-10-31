@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from leadlag.driver import service as driver_service
+from types import SimpleNamespace
+
+from leadlag.driver import dto, execution, execution_setup, scenario_registry, selection
 from leadlag.driver.logging import (
     render_dry_run_summary,
     render_execution_summary,
@@ -16,6 +18,35 @@ from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.cli import commands as cli_commands
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
+
+
+driver_service = SimpleNamespace(
+    DriverSummary=dto.DriverSummary,
+    ExecutionOptions=execution_setup.ExecutionOptions,
+    ExecutionResult=dto.ExecutionResult,
+    ExecutionSetup=execution_setup.ExecutionSetup,
+    RunStatusEntry=dto.RunStatusEntry,
+    ScenarioExecutionContext=dto.ScenarioExecutionContext,
+    ScenarioResult=dto.ScenarioResult,
+    ScenarioSelection=dto.ScenarioSelection,
+    aggregate=execution.aggregate,
+    collect_status=selection.collect_status,
+    discover_scenarios=scenario_registry.discover_scenarios,
+    execute_scenarios=execution.execute_scenarios,
+    filter_scenarios=selection.filter_scenarios,
+    has_successful_run=selection.has_successful_run,
+    load_scenario_context=execution.load_scenario_context,
+    matches_filters=selection.matches_filters,
+    prepare_execution=execution_setup.prepare_execution,
+    record_outcome=execution.record_outcome,
+    _execute_runner=execution._execute_runner,
+    _merge_extends=_merge_extends,
+    _validate_scenario_schema=_validate_scenario_schema,
+    resolve_scenario_reference=scenario_registry.resolve_scenario_reference,
+    resolve_scenario_references=scenario_registry.resolve_scenario_references,
+    run_scenario_with_context=execution.run_scenario_with_context,
+    trigger_aggregation=execution.trigger_aggregation,
+)
 
 
 @dataclass(frozen=True)

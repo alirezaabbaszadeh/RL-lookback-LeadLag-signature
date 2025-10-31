@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from leadlag.driver import service as driver_service
+from leadlag.driver import dto
 from leadlag.driver.logging import (
     configure_driver_logger,
     render_dry_run_summary,
@@ -102,13 +102,13 @@ def test_render_status_summary_no_runs(tmp_path):
 
 def test_render_status_summary_with_runs(tmp_path):
     runs = [
-        driver_service.RunStatusEntry(
+        dto.RunStatusEntry(
             run_dir="results/run_a",
             status="success",
             scenario="alpha",
             summary_path="results/run_a/summary.csv",
         ),
-        driver_service.RunStatusEntry(
+        dto.RunStatusEntry(
             run_dir="results/aggregate",
             status="aggregate",
             path="results/aggregate",
@@ -128,18 +128,18 @@ def test_render_status_summary_with_runs(tmp_path):
 
 def test_render_dry_run_summary(tmp_path):
     entries = [
-        driver_service.ScenarioSelection(
+        dto.ScenarioSelection(
             name="alpha",
             display="configs/alpha.yaml",
             path="/abs/configs/alpha.yaml",
         ),
-        driver_service.ScenarioSelection(
+        dto.ScenarioSelection(
             name="beta",
             display="beta.yaml",
             path="/abs/configs/beta.yaml",
         ),
     ]
-    summary = driver_service.DriverSummary(
+    summary = dto.DriverSummary(
         selected=[entry.name for entry in entries],
         results_root=str(tmp_path),
         summary=[],
@@ -161,7 +161,7 @@ def test_render_dry_run_summary(tmp_path):
 def test_render_execution_summary_success(tmp_path):
     aggregate_path = tmp_path / "agg.json"
     summary = [
-        driver_service.ScenarioResult(
+        dto.ScenarioResult(
             scenario="alpha",
             status="success",
             runner="auto",
@@ -183,7 +183,7 @@ def test_render_execution_summary_success(tmp_path):
     assert render.message == "LeadLag scenarios completed."
     assert render.artifacts == {"aggregate": str(aggregate_path)}
     assert render.errors is None
-    assert render.data == driver_service.DriverSummary(
+    assert render.data == dto.DriverSummary(
         selected=["alpha"],
         results_root=str(tmp_path),
         summary=summary,
@@ -201,7 +201,7 @@ def test_render_execution_summary_success(tmp_path):
 def test_render_execution_summary_with_errors(tmp_path):
     errors = [{"code": "failed", "message": "boom"}]
     summary = [
-        driver_service.ScenarioResult(
+        dto.ScenarioResult(
             scenario="beta",
             status="failed",
             runner="auto",
@@ -223,7 +223,7 @@ def test_render_execution_summary_with_errors(tmp_path):
     assert render.message == "LeadLag scenarios completed with errors."
     assert render.errors == errors
     assert render.artifacts is None
-    assert render.data == driver_service.DriverSummary(
+    assert render.data == dto.DriverSummary(
         selected=["beta"],
         results_root=str(tmp_path),
         summary=summary,
