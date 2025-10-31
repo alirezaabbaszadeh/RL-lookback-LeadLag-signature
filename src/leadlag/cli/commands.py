@@ -170,11 +170,13 @@ class ExecuteCommand:
         *,
         driver_service,
         scenarios: ScenarioManager,
+        build_driver_summary: Callable[[Sequence[str], Path, object], object],
         render_dry_run_summary: Callable[[object], object],
         render_execution_summary: Callable[..., object],
     ) -> None:
         self._driver = driver_service
         self._scenarios = scenarios
+        self._build_driver_summary = build_driver_summary
         self._render_dry_run_summary = render_dry_run_summary
         self._render_execution_summary = render_execution_summary
 
@@ -264,14 +266,7 @@ class ExecuteCommand:
         command: str,
         results_root: Path,
     ) -> CommandResponse:
-        summary_payload = self._driver.DriverSummary(
-            selected=list(selected),
-            results_root=str(results_root),
-            summary=[],
-            aggregate=None,
-            dry_run=True,
-            dry_run_entries=execution.dry_run_entries,
-        )
+        summary_payload = self._build_driver_summary(selected, results_root, execution)
         dry_render = self._render_dry_run_summary(summary_payload)
         return CommandResponse(
             exit_code=execution.exit_code,
@@ -293,12 +288,8 @@ class ExecuteCommand:
     ) -> CommandResponse:
         execution_render = self._render_execution_summary(
             results_root,
-            summary=execution.summary,
-            aggregate=execution.aggregate,
+            execution=execution,
             selected=list(selected),
-            errors=execution.errors,
-            exit_code=exit_code,
-            aborted=execution.aborted,
         )
         return CommandResponse(
             exit_code=exit_code,
@@ -391,6 +382,7 @@ class CommandDependencies:
     scenario_manager: ScenarioManager
     merge_extends: Callable[[Path], dict]
     validate_scenario_schema: Callable[[dict, str], None]
+    build_driver_summary: Callable[[Sequence[str], Path, object], object]
     render_status_summary: Callable[[Path, Iterable[object]], object]
     render_execution_summary: Callable[..., object]
     render_dry_run_summary: Callable[[object], object]
@@ -410,6 +402,7 @@ def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSp
     execute = ExecuteCommand(
         driver_service=dependencies.driver_service,
         scenarios=dependencies.scenario_manager,
+        build_driver_summary=dependencies.build_driver_summary,
         render_dry_run_summary=dependencies.render_dry_run_summary,
         render_execution_summary=dependencies.render_execution_summary,
     )

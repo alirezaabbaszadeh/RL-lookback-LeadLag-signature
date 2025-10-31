@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-from .dto import DriverSummary, RunStatusEntry, ScenarioResult, ScenarioSelection
+from .dto import DriverSummary, ExecutionResult, RunStatusEntry, ScenarioSelection
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 
@@ -87,6 +87,26 @@ def render_status_summary(
     return StatusRender(text=text, data=data, success=success, errors=errors)
 
 
+def build_driver_summary(
+    selected: Sequence[str],
+    results_root: Path | str,
+    execution: ExecutionResult,
+) -> DriverSummary:
+    """Create a :class:`DriverSummary` describing a driver outcome."""
+
+    aggregate = str(execution.aggregate) if execution.aggregate else None
+    dry_run_entries = list(execution.dry_run_entries) or None
+
+    return DriverSummary(
+        selected=list(selected),
+        results_root=str(results_root),
+        summary=list(execution.summary),
+        aggregate=aggregate,
+        dry_run=execution.dry_run,
+        dry_run_entries=dry_run_entries,
+    )
+
+
 def render_dry_run_summary(summary: DriverSummary) -> DryRunRender:
     """Return deterministic text and payload for dry-run mode."""
 
@@ -106,14 +126,16 @@ def render_dry_run_summary(summary: DriverSummary) -> DryRunRender:
 def render_execution_summary(
     results_root: Path,
     *,
-    summary: Sequence[ScenarioResult],
-    aggregate: Path | None,
+    execution: ExecutionResult,
     selected: Sequence[str],
-    errors: Sequence[dict[str, object]] | None,
-    exit_code: int,
-    aborted: bool,
 ) -> ExecutionRender:
     """Return deterministic text and payload for a completed execution."""
+
+    summary = execution.summary
+    aggregate = execution.aggregate
+    errors = execution.errors
+    exit_code = execution.exit_code
+    aborted = execution.aborted
 
     text_lines = [f"Results root: {results_root}"]
     if summary:
@@ -136,13 +158,7 @@ def render_execution_summary(
     )
     artifacts = {"aggregate": str(aggregate)} if aggregate else None
 
-    payload_summary = DriverSummary(
-        selected=list(selected),
-        results_root=str(results_root),
-        summary=list(summary),
-        aggregate=str(aggregate) if aggregate else None,
-        dry_run=False,
-    ).to_payload()
+    payload_summary = build_driver_summary(selected, results_root, execution).to_payload()
 
     return ExecutionRender(
         text="\n".join(text_lines),
@@ -155,6 +171,7 @@ def render_execution_summary(
 
 
 __all__ = [
+    "build_driver_summary",
     "DryRunRender",
     "ExecutionRender",
     "StatusRender",

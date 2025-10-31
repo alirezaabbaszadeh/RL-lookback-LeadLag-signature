@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 from leadlag.driver.logging import (
+    build_driver_summary,
     render_dry_run_summary,
     render_execution_summary,
     render_status_summary,
@@ -64,6 +65,7 @@ class LeadLagCLI:
                 scenario_manager=self._scenario_manager,
                 merge_extends=_merge_extends,
                 validate_scenario_schema=_validate_scenario_schema,
+                build_driver_summary=build_driver_summary,
                 render_status_summary=render_status_summary,
                 render_execution_summary=render_execution_summary,
                 render_dry_run_summary=render_dry_run_summary,

@@ -7,6 +7,11 @@ from pathlib import Path
 from leadlag import main as cli_main
 from leadlag.cli import commands as cli_commands
 from leadlag.cli.dependencies import build_driver_service
+from leadlag.driver.logging import (
+    build_driver_summary,
+    render_dry_run_summary,
+    render_execution_summary,
+)
 
 
 class DummyLogger:
@@ -44,6 +49,9 @@ def _base_args(tmp_path: Path, **overrides) -> Namespace:
     args = Namespace(**base)
     setattr(args, "_leadlag_command", "leadlag")
     return args
+
+
+SUMMARY_ENVELOPE_KEYS = {"selected", "results_root", "summary", "aggregate", "dry_run"}
 
 
 def test_cli_dispatch_converts_response(tmp_path):
@@ -188,29 +196,37 @@ def test_execute_dry_run(tmp_path):
             command="leadlag --dry-run",
         )
 
-    class DummyExecution:
-        dry_run = True
-        dry_run_entries = ["alpha"]
-        summary = []
-        errors: list[dict] = []
-        aggregate = None
-        exit_code = 0
-        aborted = False
+    dry_run_entries = [
+        service.ScenarioSelection(
+            name="alpha",
+            display=str(scenarios[0].name),
+            path=str(scenarios[0]),
+        ),
+        service.ScenarioSelection(
+            name="beta",
+            display=str(scenarios[1].name),
+            path=str(scenarios[1]),
+        ),
+    ]
+    execution_result = service.ExecutionResult(
+        dry_run=True,
+        dry_run_entries=dry_run_entries,
+        exit_code=0,
+    )
 
     service = replace(
         service,
         filter_scenarios=lambda discovered, include, exclude: list(discovered),
         prepare_execution=_prepare,
-        execute_scenarios=lambda selected, options, logger=None: DummyExecution(),
+        execute_scenarios=lambda selected, options, logger=None: execution_result,
     )
 
     command = cli_commands.ExecuteCommand(
         driver_service=service,
         scenarios=scenario_manager,
-        render_dry_run_summary=lambda payload: Namespace(
-            data={"selected": payload.selected}, text="dry"
-        ),
-        render_execution_summary=cli_main.render_execution_summary,
+        build_driver_summary=build_driver_summary,
+        render_dry_run_summary=render_dry_run_summary,
+        render_execution_summary=render_execution_summary,
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -221,8 +237,15 @@ def test_execute_dry_run(tmp_path):
 
     assert result.exit_code == 0
     assert result.emitter == "output"
+    resolved_root = (tmp_path / "results").resolve()
+    expected_summary = build_driver_summary(
+        ["alpha", "beta"], resolved_root, execution_result
+    ).to_payload()
+
     assert result.message == "Dry-run completed."
-    assert result.data == {"selected": ["alpha", "beta"]}
+    assert result.data == expected_summary
+    assert SUMMARY_ENVELOPE_KEYS <= result.data.keys()
+    assert result.data["dry_run"] is True
     assert result.command == "leadlag --dry-run"
     assert result.results_root == (tmp_path / "results").resolve()
 
@@ -250,56 +273,36 @@ def test_execute_full_run(tmp_path):
             command="leadlag",
         )
 
-    class DummyExecution:
-        dry_run = False
-        dry_run_entries: list = []
-        summary = [
+    execution_result = service.ExecutionResult(
+        dry_run=False,
+        dry_run_entries=[],
+        summary=[
             service.ScenarioResult(
                 scenario="alpha",
                 status="success",
                 runner="auto",
                 output="done",
             )
-        ]
-        errors: list[dict] = []
-        aggregate = tmp_path / "agg.json"
-        exit_code = 0
-        aborted = False
+        ],
+        errors=[],
+        aggregate=tmp_path / "agg.json",
+        exit_code=0,
+        aborted=False,
+    )
 
     service = replace(
         service,
         filter_scenarios=lambda discovered, include, exclude: [discovered[0]],
         prepare_execution=_prepare,
-        execute_scenarios=lambda selected, options, logger=None: DummyExecution(),
+        execute_scenarios=lambda selected, options, logger=None: execution_result,
     )
-
-    class DummyRender:
-        def __init__(self) -> None:
-            self.data = {
-                "selected": ["alpha"],
-                "results_root": str(tmp_path / "results"),
-                "summary": [
-                    {
-                        "scenario": "alpha",
-                        "status": "success",
-                        "runner": "auto",
-                        "output": "done",
-                    }
-                ],
-                "aggregate": str(tmp_path / "agg.json"),
-                "dry_run": False,
-            }
-            self.text = "ok"
-            self.message = "LeadLag scenarios completed."
-            self.artifacts = None
-            self.errors = None
-            self.success = True
 
     command = cli_commands.ExecuteCommand(
         driver_service=service,
         scenarios=scenario_manager,
-        render_dry_run_summary=cli_main.render_dry_run_summary,
-        render_execution_summary=lambda root, **kwargs: DummyRender(),
+        build_driver_summary=build_driver_summary,
+        render_dry_run_summary=render_dry_run_summary,
+        render_execution_summary=render_execution_summary,
     )
     context = cli_commands.CommandContext(
         args=args,
@@ -310,7 +313,14 @@ def test_execute_full_run(tmp_path):
 
     assert result.exit_code == 0
     assert result.emitter == "output"
+    resolved_root = (tmp_path / "results").resolve()
+    expected_summary = build_driver_summary(
+        ["alpha"], resolved_root, execution_result
+    ).to_payload()
+
     assert result.message == "LeadLag scenarios completed."
-    assert result.data["selected"] == ["alpha"]
+    assert result.data == expected_summary
+    assert SUMMARY_ENVELOPE_KEYS <= result.data.keys()
     assert result.success is True
+    assert result.data["dry_run"] is False
     assert result.command == "leadlag"
