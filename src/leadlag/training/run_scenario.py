@@ -1,17 +1,7 @@
 import argparse
-import json
-import time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-import numpy as np
-import pandas as pd
-
-try:
-    import yaml
-except Exception:
-    yaml = None
 
 try:  # optional MLflow
     import mlflow  # type: ignore
@@ -27,13 +17,17 @@ from leadlag.evaluation.metrics import (
     plot_stability,
     summarize_metrics,
 )
-from leadlag.governance.dataset import build_manifest, record_manifest, run_quality_checks
 from leadlag.models.LeadLag_main import LeadLagAnalyzer, LeadLagConfig
-from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.reporting.profiling import profile_to
 from leadlag.utils.config import deep_update
-from leadlag.utils.resources import resolve_path
 from leadlag.utils.yaml import load_yaml
+from leadlag.training.run_support import (
+    prepare_run_environment,
+    read_prices as _read_prices,
+    _detect_git,
+    _env_info,
+    _set_seed,
+)
 
 def _merge_extends(cfg_path: Path) -> Dict[str, Any]:
     cfg = load_yaml(cfg_path)
@@ -82,117 +76,6 @@ def _validate_scenario_schema(cfg: Dict[str, Any], *, scenario: str) -> None:
     metrics_cfg = cfg.get("metrics")
     if metrics_cfg is not None and not isinstance(metrics_cfg, dict):
         raise TypeError(f"Scenario '{scenario}' section 'metrics' must be a mapping when provided")
-def _detect_git() -> Dict[str, Any]:
-    import subprocess
-
-    meta: Dict[str, Any] = {}
-    try:
-        meta["git_commit"] = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
-            .decode()
-            .strip()
-        )
-        meta["git_branch"] = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain"], stderr=subprocess.DEVNULL
-        ).decode()
-        meta["git_dirty"] = len(status.strip()) > 0
-    except Exception:
-        meta["git_commit"] = None
-        meta["git_branch"] = None
-        meta["git_dirty"] = None
-    return meta
-
-
-def _env_info() -> Dict[str, Any]:
-    import platform
-    import sys
-
-    info = {
-        "python_version": sys.version,
-        "platform": platform.platform(),
-    }
-
-    # capture key libs if available
-    def v(pkg):
-        try:
-            mod = __import__(pkg)
-            return getattr(mod, "__version__", "unknown")
-        except Exception:
-            return None
-
-    for pkg in ["numpy", "pandas", "scipy", "sklearn", "tqdm", "iisignature", "dcor"]:
-        info[f"{pkg}_version"] = v(pkg)
-    return info
-
-
-def _set_seed(seed: int):
-    import random
-
-    random.seed(seed)
-    np.random.seed(seed)
-
-
-def _read_prices(cfg: Dict[str, Any]) -> tuple[pd.DataFrame, Optional[Path]]:
-    price_path = Path(cfg["data"].get("price_csv", "raw_data/daily_price.csv"))
-    resolved_path: Optional[Path] = None
-    if not price_path.exists():
-        candidates = list(Path("raw_data").glob("daily_prices_*.csv"))
-        if candidates:
-            price_path = candidates[0]
-    if price_path.exists():
-        resolved_path = price_path
-    else:
-        dates = pd.date_range("2020-01-01", periods=300, freq="D")
-        rng = np.random.default_rng(seed=cfg["run"].get("seed", 42))
-        data = rng.normal(0, 0.01, size=(len(dates), 3)).cumsum(axis=0) + 100
-        df = pd.DataFrame(data, index=dates, columns=["AssetA", "AssetB", "AssetC"])
-        return df, resolved_path
-
-    df = pd.read_csv(price_path)
-    if "date" in df.columns:
-        idx = pd.to_datetime(df["date"])
-        df = df.drop(columns=["date"])
-    elif "Date" in df.columns:
-        idx = pd.to_datetime(df["Date"])
-        df = df.drop(columns=["Date"])
-    else:
-        idx = pd.to_datetime(df.iloc[:, 0])
-        df = df.iloc[:, 1:]
-    df.index = idx
-    df = df.sort_index()
-
-    try:
-        limit_days = cfg.get("data", {}).get("limit_days", None)
-    except Exception:
-        limit_days = None
-    if limit_days is not None:
-        try:
-            n = int(limit_days)
-            if n > 0:
-                df = df.iloc[:n]
-        except Exception:
-            pass
-
-    placebo = False
-    try:
-        placebo = bool(cfg.get("data", {}).get("placebo_shuffle", False))
-    except Exception:
-        placebo = False
-    if placebo and len(df) > 1:
-        rng = np.random.default_rng(seed=cfg.get("run", {}).get("seed", 42))
-        idx_perm = rng.permutation(len(df))
-        df = df.iloc[idx_perm]
-
-    return df, resolved_path
-
-
 def _config_to_leadlag(cfg: Dict[str, Any]) -> LeadLagConfig:
     # Flatten config into the dict expected by LeadLagConfig.from_dict
     a = cfg["analysis"]
@@ -225,62 +108,20 @@ def run_scenario(
 
     _validate_scenario_schema(cfg, scenario=cfg["run"].get("run_name", Path(config_path).stem))
 
-    # seeds and output dir
-    _set_seed(int(cfg["run"].get("seed", 42)))
-    ts = time.strftime("%Y%m%d_%H%M%S")
     run_name = cfg["run"].get("run_name", "auto")
-    out_root = out_root or cfg["run"].get("output_root", "results")
-    out_dir = Path(out_root) / f"{run_name}_{ts}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # logging setup
-    logging_context = {
-        "module": "scenario",
-        "run_name": run_name,
-        "seed": cfg["run"].get("seed"),
-    }
-    config_file = resolve_path("leadlag.configs", "logging_config.yaml")
-    try:
-        setup_logging(
-            out_dir / "run.log",
-            level="INFO",
-            config_path=config_file,
-            context=logging_context,
-        )
-    except Exception:
-        setup_logging(out_dir / "run.log", level="INFO", context=logging_context)
-    logger = get_logger("run_scenario", context=logging_context)
-    logger.info("Starting scenario run: %s", run_name)
-
-    # snapshot configs and metadata
-    with open(out_dir / "config_merged.yaml", "w", encoding="utf-8") as f:
-        if yaml is None:
-            f.write(json.dumps(cfg, indent=2))
-        else:
-            yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
-
-    manifest_path: Optional[Path] = None
-    with profile_to(out_dir, label="load_data"):
-        prices, resolved_price_path = _read_prices(cfg)
-    manifest = build_manifest(
-        prices,
-        source_path=resolved_price_path,
-        extras={"quality": run_quality_checks(prices)},
+    preparation = prepare_run_environment(
+        cfg,
+        cfg_path=cfg_path,
+        module="scenario",
+        logger_name="run_scenario",
+        out_root=out_root,
+        run_name=run_name,
+        profile_label="load_data",
     )
-    manifest_path = record_manifest(manifest, out_dir)
-
-    meta = {
-        "config_path": str(cfg_path.resolve()),
-        "data_source_config": cfg["data"].get("price_csv", ""),
-        "data_manifest": str(manifest_path) if manifest_path else None,
-        "created_at": ts,
-        "git": _detect_git(),
-        "env": _env_info(),
-    }
-    with open(out_dir / "run_metadata.json", "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2)
-
-    # optional universe is not wired due to format variability; pass None
+    out_dir = preparation.out_dir
+    logger = preparation.logger
+    logger.info("Starting scenario run: %s", preparation.run_name)
+    prices = preparation.prices
 
     # build analyzer
     ll_cfg = _config_to_leadlag(cfg)
