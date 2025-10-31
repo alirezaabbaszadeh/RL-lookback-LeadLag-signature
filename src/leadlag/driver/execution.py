@@ -84,28 +84,71 @@ def execute_scenarios(
     results_root = options.results_root
 
     if options.dry_run:
-        dry_entries: list[ScenarioSelection] = []
-        for sc in selected:
-            sc_path = Path(sc)
-            try:
-                display = sc_path.relative_to(Path.cwd())
-            except ValueError:
-                display = sc_path
-            logger.info(f"[dry-run] {display}")
-            dry_entries.append(
-                ScenarioSelection(
-                    name=sc_path.stem,
-                    display=str(display),
-                    path=str(sc_path),
-                )
-            )
-        return ExecutionResult(dry_run=True, dry_run_entries=dry_entries)
+        return _handle_dry_run(selected, logger)
 
     results_root.mkdir(parents=True, exist_ok=True)
 
+    (
+        summary,
+        errors_list,
+        exit_code,
+        aborted,
+    ) = _run_selected_scenarios(selected, options, results_root, logger)
+
+    aggregate_path, errors_list, exit_code, aborted = _apply_aggregation(
+        summary,
+        errors_list,
+        exit_code,
+        aborted,
+        options,
+        results_root,
+        logger,
+    )
+
+    return ExecutionResult(
+        summary=summary,
+        errors=errors_list,
+        aggregate=aggregate_path,
+        exit_code=exit_code,
+        aborted=aborted,
+        dry_run=False,
+    )
+
+
+def _handle_dry_run(
+    selected: Sequence[Path],
+    logger,
+) -> ExecutionResult:
+    """Return a dry-run execution result with logging."""
+
+    dry_entries: list[ScenarioSelection] = []
+    for sc in selected:
+        sc_path = Path(sc)
+        try:
+            display = sc_path.relative_to(Path.cwd())
+        except ValueError:
+            display = sc_path
+        logger.info(f"[dry-run] {display}")
+        dry_entries.append(
+            ScenarioSelection(
+                name=sc_path.stem,
+                display=str(display),
+                path=str(sc_path),
+            )
+        )
+    return ExecutionResult(dry_run=True, dry_run_entries=dry_entries)
+
+
+def _run_selected_scenarios(
+    selected: Sequence[Path],
+    options: ExecutionOptions,
+    results_root: Path,
+    logger,
+) -> tuple[list[ScenarioResult], list[dict[str, object]], int, bool]:
+    """Execute each selected scenario and collect outcomes."""
+
     summary: list[ScenarioResult] = []
     errors_list: list[dict[str, object]] = []
-    aggregate_path: Path | None = None
     exit_code = 0
     aborted = False
 
@@ -129,25 +172,36 @@ def execute_scenarios(
             aborted = True
             break
 
-    if not aborted:
-        (
-            aggregate_path,
-            aggregate_errors,
-            aggregate_exit,
-            aggregate_aborted,
-        ) = trigger_aggregation(summary, options, results_root, logger)
-        errors_list.extend(aggregate_errors)
-        exit_code = max(exit_code, aggregate_exit)
-        aborted = aborted or aggregate_aborted
+    return summary, errors_list, exit_code, aborted
 
-    return ExecutionResult(
-        summary=summary,
-        errors=errors_list,
-        aggregate=aggregate_path,
-        exit_code=exit_code,
-        aborted=aborted,
-        dry_run=False,
-    )
+
+def _apply_aggregation(
+    summary: Sequence[ScenarioResult],
+    errors: list[dict[str, object]],
+    exit_code: int,
+    aborted: bool,
+    options: ExecutionOptions,
+    results_root: Path,
+    logger,
+) -> tuple[Path | None, list[dict[str, object]], int, bool]:
+    """Run aggregation with the collected state and return updates."""
+
+    if aborted:
+        return None, errors, exit_code, aborted
+
+    (
+        aggregate_path,
+        aggregate_errors,
+        aggregate_exit,
+        aggregate_aborted,
+    ) = trigger_aggregation(summary, options, results_root, logger)
+
+    if aggregate_errors:
+        errors.extend(aggregate_errors)
+
+    exit_code = max(exit_code, aggregate_exit)
+    aborted = aborted or aggregate_aborted
+    return aggregate_path, errors, exit_code, aborted
 
 
 def load_scenario_context(
