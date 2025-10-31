@@ -32,6 +32,7 @@ def _base_args(**overrides) -> Namespace:
         validate=None,
         log_level="INFO",
         log_path=None,
+        results_root="results",
     )
     base.update(overrides)
     return Namespace(**base)
@@ -157,7 +158,7 @@ def test_handle_list(monkeypatch, tmp_path):
 
 
 def test_handle_execute_dry_run(monkeypatch, tmp_path):
-    args = _base_args(dry_run=True)
+    args = _base_args(dry_run=True, results_root=str(tmp_path))
     context = cli_main._CLIContext(command="leadlag", results_root=tmp_path)
     context.discovered_scenarios = [
         tmp_path / "alpha.yaml",
@@ -187,12 +188,6 @@ def test_handle_execute_dry_run(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         cli_main,
-        "configure_driver_logger",
-        lambda *args, **kwargs: DummyLogger(),
-    )
-
-    monkeypatch.setattr(
-        cli_main,
         "render_dry_run_summary",
         lambda payload: Namespace(data={"selected": payload.selected}, text="dry"),
     )
@@ -204,7 +199,16 @@ def test_handle_execute_dry_run(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli_main, "emit_formatted_output", _emit)
 
-    exit_code = cli_main._handle_execute(args, context)
+    logger = DummyLogger()
+    execution_options = cli_main.driver_service.ExecutionOptions(
+        results_root=tmp_path,
+        runner_preference=args.runner,
+        skip_existing=args.skip_existing,
+        stop_on_error=args.stop_on_error,
+        dry_run=args.dry_run,
+    )
+
+    exit_code = cli_main._handle_execute(args, context, logger, execution_options)
 
     assert exit_code == 0
     assert captured["data"] == {"selected": ["alpha", "beta"]}
@@ -212,7 +216,7 @@ def test_handle_execute_dry_run(monkeypatch, tmp_path):
 
 
 def test_handle_execute_full_run(monkeypatch, tmp_path):
-    args = _base_args()
+    args = _base_args(results_root=str(tmp_path))
     context = cli_main._CLIContext(command="leadlag", results_root=tmp_path)
     context.discovered_scenarios = [
         tmp_path / "alpha.yaml",
@@ -241,17 +245,10 @@ def test_handle_execute_full_run(monkeypatch, tmp_path):
         exit_code = 0
         aborted = False
 
-    logger = DummyLogger()
-
     monkeypatch.setattr(
         cli_main.driver_service,
         "execute_scenarios",
         lambda selected, options, logger=None: DummyExecution(),
-    )
-    monkeypatch.setattr(
-        cli_main,
-        "configure_driver_logger",
-        lambda *args, **kwargs: logger,
     )
 
     captured: dict[str, object] = {}
@@ -261,7 +258,16 @@ def test_handle_execute_full_run(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli_main, "emit_formatted_output", _emit)
 
-    exit_code = cli_main._handle_execute(args, context)
+    logger = DummyLogger()
+    execution_options = cli_main.driver_service.ExecutionOptions(
+        results_root=tmp_path,
+        runner_preference=args.runner,
+        skip_existing=args.skip_existing,
+        stop_on_error=args.stop_on_error,
+        dry_run=args.dry_run,
+    )
+
+    exit_code = cli_main._handle_execute(args, context, logger, execution_options)
 
     assert exit_code == 0
     assert captured["message"] == "LeadLag scenarios completed."

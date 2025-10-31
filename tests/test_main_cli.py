@@ -118,7 +118,21 @@ def cli_env(tmp_path, monkeypatch):
     dummy_logger = DummyLogger()
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(main, "configure_driver_logger", lambda *args, **kwargs: dummy_logger)
+
+    def fake_prepare_execution(args):
+        results_root = Path(args.results_root).expanduser().resolve()
+        results_root.mkdir(parents=True, exist_ok=True)
+        options = driver_service.ExecutionOptions(
+            results_root=results_root,
+            runner_preference=args.runner,
+            skip_existing=args.skip_existing,
+            stop_on_error=args.stop_on_error,
+            dry_run=args.dry_run,
+        )
+        command = getattr(args, "_leadlag_command", "leadlag")
+        return results_root, dummy_logger, options, command
+
+    monkeypatch.setattr(driver_service, "prepare_execution", fake_prepare_execution)
 
     return tmp_path, config_dir, dummy_logger
 

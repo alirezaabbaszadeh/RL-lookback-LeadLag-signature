@@ -3,15 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 from dataclasses import dataclass
+from logging import Logger
 from pathlib import Path
 from typing import Iterable, Sequence
 
 from leadlag.driver import service as driver_service
-from leadlag.driver.logging import (
-    configure_driver_logger,
-    render_dry_run_summary,
-    render_status_summary,
-)
+from leadlag.driver.logging import render_dry_run_summary, render_status_summary
 from leadlag.cli.errors import emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.training.run_scenario import _merge_extends, _validate_scenario_schema
@@ -101,10 +98,15 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         "--log-path",
         help="Optional path for the driver log file (defaults to <results-root>/main.log).",
     )
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    raw_argv = list(argv) if argv is not None else None
+    args = parser.parse_args(raw_argv if raw_argv is not None else None)
     finalize_format_args(args, remove_in="0.2.0")
     if args.results_root is None:
         args.results_root = os.environ.get("LEADLAG_RESULTS_ROOT", "results")
+    command_string = "leadlag"
+    if raw_argv:
+        command_string = "leadlag " + " ".join(raw_argv)
+    setattr(args, "_leadlag_command", command_string)
     return args
 
 
@@ -169,7 +171,12 @@ def _handle_list(args: argparse.Namespace, context: _CLIContext) -> int:
     return 0
 
 
-def _handle_execute(args: argparse.Namespace, context: _CLIContext) -> int:
+def _handle_execute(
+    args: argparse.Namespace,
+    context: _CLIContext,
+    logger: Logger,
+    execution_options: driver_service.ExecutionOptions,
+) -> int:
     if context.discovered_scenarios is None:  # pragma: no cover - guard for misuse
         raise ValueError("No scenarios available in context")
 
@@ -207,15 +214,6 @@ def _handle_execute(args: argparse.Namespace, context: _CLIContext) -> int:
         )
         return 1
 
-    results_root.mkdir(parents=True, exist_ok=True)
-
-    log_path = Path(args.log_path).resolve() if args.log_path else None
-    logger = configure_driver_logger(
-        results_root,
-        log_level=args.log_level,
-        log_path=log_path,
-    )
-
     logger.info(
         "Discovered %s scenario(s); %s selected after filtering.",
         len(discovered_scenarios),
@@ -228,13 +226,7 @@ def _handle_execute(args: argparse.Namespace, context: _CLIContext) -> int:
     }
     execution = driver_service.execute_scenarios(
         selected,
-        driver_service.ExecutionOptions(
-            results_root=results_root,
-            runner_preference=args.runner,
-            skip_existing=args.skip_existing,
-            stop_on_error=args.stop_on_error,
-            dry_run=args.dry_run,
-        ),
+        execution_options,
         logger=logger,
     )
 
@@ -319,9 +311,7 @@ def _handle_execute(args: argparse.Namespace, context: _CLIContext) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    command = "leadlag"
-    if argv:
-        command = "leadlag " + " ".join(argv)
+    command = getattr(args, "_leadlag_command", "leadlag")
 
     results_root = Path(args.results_root).resolve()
     context = _CLIContext(command=command, results_root=results_root)
@@ -347,7 +337,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.list:
         return _handle_list(args, context)
 
-    return _handle_execute(args, context)
+    (
+        prepared_root,
+        logger,
+        execution_options,
+        command_string,
+    ) = driver_service.prepare_execution(args)
+    context.results_root = prepared_root
+    context.command = command_string
+
+    return _handle_execute(args, context, logger, execution_options)
 
 
 
