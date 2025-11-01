@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import hydra
 import numpy as np
@@ -388,23 +388,82 @@ def _write_artifacts(
     write_run_manifest(run_dir / "run_manifest.json", manifest_payload)
 
 
-def _materialize_walk_forward(cfg: DictConfig, total_samples: int) -> List[Dict[str, Iterable[int]]]:
-    splits = []
+def _resolve_embargo_fraction(split_cfg: DictConfig) -> float:
+    if split_cfg is None:
+        return 0.0
+
+    explicit_frac = OmegaConf.select(split_cfg, "embargo_frac")
+    if explicit_frac is not None:
+        return float(explicit_frac)
+
+    nested_frac = OmegaConf.select(split_cfg, "embargo.frac")
+    if nested_frac is not None:
+        return float(nested_frac)
+
+    return 0.0
+
+
+def _materialize_walk_forward(cfg: DictConfig, total_samples: int) -> Dict[str, object]:
+    embargo_frac = _resolve_embargo_fraction(cfg.split)
+    splits: List[Dict[str, object]] = []
     for idx, split in enumerate(
         walk_forward_purged(
             total_samples=total_samples,
-            n_splits=cfg.split.n_splits,
-            embargo_frac=cfg.split.embargo_frac,
+            n_splits=int(cfg.split.n_splits),
+            embargo_frac=embargo_frac,
         )
     ):
+        test_start = split.test_start
+        test_end = split.test_end
         splits.append(
             {
                 "split": idx,
                 "train": split.train_indices.tolist(),
                 "test": split.test_indices.tolist(),
+                "test_window": {
+                    "start": test_start,
+                    "end": test_end,
+                },
+                "embargo": split.embargo,
             }
         )
-    return splits
+
+    return {
+        "scheme": str(cfg.split.scheme),
+        "total_samples": int(total_samples),
+        "parameters": {
+            "n_splits": int(cfg.split.n_splits),
+            "embargo_frac": embargo_frac,
+        },
+        "nested": OmegaConf.to_container(cfg.split.get("nested_tuning", {}), resolve=True),
+        "splits": splits,
+    }
+
+
+def _persist_split_manifest(
+    payload: Dict[str, object], split_cfg: DictConfig, destination: Path
+) -> Optional[Path]:
+    manifest_cfg = split_cfg.get("manifest") if split_cfg else None
+    persist = True
+    filename = "data_splits.json"
+    output_dir: Path = destination
+
+    if manifest_cfg is not None:
+        persist = bool(manifest_cfg.get("persist", True))
+        filename = str(manifest_cfg.get("filename", filename))
+        target_root = manifest_cfg.get("output_dir")
+        if target_root:
+            output_dir = Path(target_root).expanduser().resolve()
+
+    if not persist:
+        return None
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / filename
+    with manifest_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+
+    return manifest_path
 
 
 def _write_data_manifest(
@@ -468,9 +527,8 @@ def main(cfg: DictConfig) -> None:
             dataset_length = simulation.get("dataset_length", dataset_length)
 
     total_samples = int(dataset_length) if dataset_length else int(cfg.training.total_env_steps)
-    split_payload = _materialize_walk_forward(cfg, total_samples=total_samples)
-    with (paper_root / "data_splits.json").open("w", encoding="utf-8") as handle:
-        json.dump(split_payload, handle, indent=2)
+    split_manifest = _materialize_walk_forward(cfg, total_samples=total_samples)
+    _persist_split_manifest(split_manifest, cfg.split, paper_root)
 
     (paper_root / "manifest.json").write_text(
         json.dumps(

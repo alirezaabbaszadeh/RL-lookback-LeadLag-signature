@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
@@ -134,3 +135,25 @@ def test_feature_toggle_signature_leadlag(tmp_path):
     assert "leadlag" in feature_stack
     assert feature_stack["leadlag"].shape[0] == 2
     assert "time_channel" in feature_stack
+
+
+def test_walk_forward_manifest_persistence(tmp_path):
+    cfg = _compose_config(tmp_path)
+    total_samples = 32
+    manifest = run_full_suite._materialize_walk_forward(cfg, total_samples)
+    output_dir = tmp_path / "paper_outputs"
+    path = run_full_suite._persist_split_manifest(manifest, cfg.split, output_dir)
+
+    assert path is not None
+    assert path.exists()
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["scheme"] == cfg.split.scheme
+    assert payload["parameters"]["n_splits"] == cfg.split.n_splits
+    assert np.isclose(payload["parameters"]["embargo_frac"], cfg.split.embargo_frac)
+
+    for split in payload["splits"]:
+        assert set(split["train"]).isdisjoint(split["test"])
+        if split["test"]:
+            embargo = int(np.ceil(len(split["test"]) * payload["parameters"]["embargo_frac"]))
+            assert split["embargo"] == embargo

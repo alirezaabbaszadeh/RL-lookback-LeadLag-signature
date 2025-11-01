@@ -14,8 +14,8 @@ def test_embargo_removes_indices_around_each_test_window() -> None:
     for split in splits:
         test_size = len(split.test_indices)
         embargo = int(np.ceil(test_size * embargo_frac))
-        test_start = split.test_indices[0]
-        test_end = split.test_indices[-1] + 1
+        test_start = split.test_start
+        test_end = split.test_end
 
         for idx in split.train_indices:
             assert not (test_start - embargo <= idx < test_start)
@@ -57,3 +57,15 @@ def test_walk_forward_purged_covers_all_indices_with_remainder() -> None:
         ]
     )
     assert set(combined.tolist()) == set(range(total_samples))
+
+
+def test_train_and_test_sets_remain_disjoint_with_embargo() -> None:
+    total_samples = 24
+    n_splits = 4
+    embargo_frac = 0.25
+
+    for split in walk_forward_purged(total_samples, n_splits, embargo_frac):
+        assert split.embargo == int(np.ceil(len(split.test_indices) * embargo_frac))
+        assert set(split.train_indices.tolist()).isdisjoint(
+            split.test_indices.tolist()
+        )

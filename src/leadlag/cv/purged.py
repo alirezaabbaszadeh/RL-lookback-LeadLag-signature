@@ -10,8 +10,29 @@ import numpy as np
 
 @dataclass
 class PurgedSplit:
+    """Container for a single purged split."""
+
     train_indices: np.ndarray
     test_indices: np.ndarray
+    embargo: int = 0
+
+    def __post_init__(self) -> None:
+        """Normalise storage to integer ``ndarray`` instances."""
+
+        self.train_indices = np.asarray(self.train_indices, dtype=int)
+        self.test_indices = np.asarray(self.test_indices, dtype=int)
+
+    @property
+    def test_start(self) -> int | None:
+        if self.test_indices.size == 0:
+            return None
+        return int(self.test_indices[0])
+
+    @property
+    def test_end(self) -> int | None:
+        if self.test_indices.size == 0:
+            return None
+        return int(self.test_indices[-1]) + 1
 
 
 def _apply_embargo(
@@ -60,6 +81,8 @@ def walk_forward_purged(
         raise ValueError("n_splits must be greater than 1")
     if total_samples < n_splits:
         raise ValueError("total_samples must be greater than or equal to n_splits")
+    if embargo_frac < 0:
+        raise ValueError("embargo_frac must be non-negative")
 
     indices = np.arange(total_samples)
     base_size = total_samples // n_splits
@@ -75,7 +98,11 @@ def walk_forward_purged(
         train_indices = np.concatenate([indices[:test_start], indices[test_end:]])
         train_indices = _apply_embargo(train_indices, test_start, test_end, embargo)
 
-        yield PurgedSplit(train_indices=train_indices, test_indices=test_indices)
+        yield PurgedSplit(
+            train_indices=train_indices,
+            test_indices=test_indices,
+            embargo=int(embargo),
+        )
         test_start = test_end
 
 
