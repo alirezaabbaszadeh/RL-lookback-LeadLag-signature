@@ -11,10 +11,9 @@ def test_embargo_removes_indices_around_each_test_window() -> None:
     embargo_frac = 0.5
 
     splits = list(walk_forward_purged(total_samples, n_splits, embargo_frac))
-    test_size = total_samples // n_splits
-    embargo = int(np.ceil(test_size * embargo_frac))
-
     for split in splits:
+        test_size = len(split.test_indices)
+        embargo = int(np.ceil(test_size * embargo_frac))
         test_start = split.test_indices[0]
         test_end = split.test_indices[-1] + 1
 
@@ -34,3 +33,27 @@ def test_embargo_keeps_remote_training_indices() -> None:
 
     for split, expected in zip(splits, expected_trains):
         assert np.array_equal(split.train_indices, expected)
+
+
+def test_walk_forward_purged_covers_all_indices_with_remainder() -> None:
+    total_samples = 10
+    n_splits = 3
+    splits = list(walk_forward_purged(total_samples=total_samples, n_splits=n_splits))
+
+    # Every fold should have contiguous, unique test indices.
+    seen_test_indices = []
+    for split in splits:
+        if len(split.test_indices) > 1:
+            assert np.all(np.diff(split.test_indices) == 1)
+        seen_test_indices.extend(split.test_indices.tolist())
+
+    assert sorted(seen_test_indices) == list(range(total_samples))
+
+    # The combination of all train/test indices across folds should cover the full range.
+    combined = np.concatenate(
+        [
+            np.concatenate([split.train_indices, split.test_indices])
+            for split in splits
+        ]
+    )
+    assert set(combined.tolist()) == set(range(total_samples))
