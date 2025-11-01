@@ -1,0 +1,38 @@
+defaults:
+  - agent: ppo
+  - features: base
+  - data: sp500_sector
+  - split: walk_forward_purged
+  - training: smoke
+  - hardware: auto
+
+results_root: ${oc.env:LEADLAG_RESULTS_ROOT,/kaggle/working/results}
+paper_outputs_root: ${oc.env:LEADLAG_PAPER_ROOT,/kaggle/working/paper_outputs}
+
+env:
+  action_space: discrete3
+
+policy:
+  name: mlp
+
+window:
+  lookback: 128
+
+target:
+  horizon: 1
+
+reward:
+  name: sharpe
+
+costs:
+  fee_bps: 1
+
+slippage:
+  bps: 2
+
+logging:
+  run_id: ${now:%Y%m%d}-${agent.name}
+  append_seed_window: true
+
+metadata:
+  version: 3

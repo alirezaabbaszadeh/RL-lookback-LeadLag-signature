@@ -1,206 +1,78 @@
-import json
-import sys
-from dataclasses import replace
+from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
+import hydra
+import pandas as pd
+from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
+
+from leadlag.eval import stats as stats_mod
 from leadlag.pipelines import run_full_suite
+from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 
 
-class DummyLogger:
-    def __init__(self):
-        self.messages = []
+def _compose_config(tmp_path: Path):
+    config_dir = Path(__file__).resolve().parents[1] / "conf"
+    with initialize_config_dir(config_dir=str(config_dir), job_name="test-suite"):
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                f"results_root={tmp_path / 'results'}",
+                f"paper_outputs_root={tmp_path / 'paper'}",
+                "logging.run_id=test",
+                "training.seeds=[0]",
+                "training.windows=1",
+                "hardware.n_envs=1",
+                "training.total_env_steps=100",
+            ],
+        )
+    return cfg
 
-    def info(self, *args, **kwargs):
-        self.messages.append(("info", args, kwargs))
 
-    def warning(self, *args, **kwargs):
-        self.messages.append(("warning", args, kwargs))
+def test_simulate_episode_produces_metrics(tmp_path):
+    cfg = _compose_config(tmp_path)
+    run_dir = run_full_suite._prepare_directories(Path(cfg.results_root), "test-s00-w00")
+    metrics_writer = MetricsWriter(OmegaConf.to_container(cfg, resolve=True))
+
+    simulation = run_full_suite._simulate_episode(cfg, seed=0, window_idx=0)
+    run_full_suite._write_artifacts(run_dir, cfg, 0, 0, simulation, metrics_writer)
+
+    metrics_path = run_dir / "metrics.csv"
+    equity_path = run_dir / "equity.csv"
+    returns_path = run_dir / "returns.csv"
+    assert metrics_path.exists()
+    assert equity_path.exists()
+    assert returns_path.exists()
+
+    metrics_df = pd.read_csv(metrics_path)
+    assert not metrics_df.empty
+    assert "Sharpe" in metrics_df.columns
+
+    equity_df = pd.read_csv(equity_path)
+    returns_df = pd.read_csv(returns_path)
+    assert len(equity_df) == len(returns_df)
 
 
-@pytest.fixture
-def base_config(tmp_path):
-    return run_full_suite.parse_args(
-        [
-            "--output-root",
-            str(tmp_path / "suite"),
-            "--format",
-            "json",
-            "--dry-run",
-        ]
+def test_build_metadata_row_matches_config(tmp_path):
+    cfg = _compose_config(tmp_path)
+    metrics = {"sharpe": 1.0, "sortino": 1.2, "max_drawdown": -0.1, "pnl": 0.05}
+    row = build_metadata_row(
+        "test-run",
+        OmegaConf.to_container(cfg, resolve=True),
+        metrics,
+        seed=0,
+        window_idx=0,
     )
+    assert row["experiment_id"] == "test-run"
+    assert row["agent"] == cfg.agent.name
+    assert row["Sharpe"] == metrics["sharpe"]
 
 
-def _make_context(config, tmp_path, dependency_status=None):
-    output_root = run_full_suite.ensure_path(config.output_root)
-    logs_dir = run_full_suite.ensure_path(output_root / "logs")
-    paths = run_full_suite.FullSuitePaths(
-        output_root=output_root,
-        logs_dir=logs_dir,
-        baseline_root=run_full_suite.ensure_path(output_root / "core"),
-        robustness_root=run_full_suite.ensure_path(output_root / "robustness"),
-        ablation_root=output_root / "ablations",
-        meta_root=output_root / "meta_rl",
-        offline_root=output_root / "offline",
+def test_hac_confidence_interval_returns_bounds(tmp_path):
+    cfg = _compose_config(tmp_path)
+    simulation = run_full_suite._simulate_episode(cfg, seed=0, window_idx=0)
+    lower, upper = stats_mod.hac_confidence_interval(
+        simulation["returns"], periods_per_year=cfg.training.periods_per_year
     )
-    return run_full_suite.FullSuiteContext(
-        config=config,
-        logger=DummyLogger(),
-        dependency_status=dependency_status or {},
-        paths=paths,
-        python_executable=sys.executable,
-        run_log={},
-        start_time=0.0,
-    )
-
-
-@pytest.fixture
-def stage_mocks(monkeypatch):
-    monkeypatch.setattr(
-        run_full_suite,
-        "inspect_scenario",
-        lambda name: run_full_suite.ScenarioRequirements(
-            name=name,
-            requires_signature=False,
-            requires_sb3=False,
-            requires_sb3_contrib=False,
-        ),
-    )
-    monkeypatch.setattr(run_full_suite, "check_optional_dependencies", lambda *args, **kwargs: True)
-    monkeypatch.setattr(run_full_suite.hydra_main, "_load_scenario_cfg", lambda name: {})
-    monkeypatch.setattr(run_full_suite.hydra_main, "validate_scenario_cfg", lambda cfg: None)
-
-
-def test_parse_args_returns_dataclass(base_config):
-    assert isinstance(base_config, run_full_suite.FullSuiteCLIOptions)
-    assert base_config.output_root.name == "suite"
-    assert base_config.output_format == "json"
-    assert base_config.dry_run is True
-
-
-def test_dataset_audit_stage_runs_command(tmp_path, base_config, monkeypatch):
-    config = replace(
-        base_config,
-        data_path=tmp_path / "data.csv",
-        skip_audit=False,
-        fail_on_quality=True,
-    )
-    context = _make_context(config, tmp_path)
-    commands = []
-
-    def fake_run(cmd, *_args, **_kwargs):
-        commands.append(cmd)
-
-    monkeypatch.setattr(run_full_suite, "run_command", fake_run)
-    run_full_suite._run_dataset_audit(context)
-    assert len(commands) == 1
-    assert commands[0][0] == sys.executable
-    assert "--exit-on-fail" in commands[0]
-
-
-def test_dataset_audit_stage_skips_when_disabled(tmp_path, base_config, monkeypatch):
-    config = replace(base_config, skip_audit=True)
-    context = _make_context(config, tmp_path)
-    called = False
-
-    def fake_run(*_args, **_kwargs):
-        nonlocal called
-        called = True
-
-    monkeypatch.setattr(run_full_suite, "run_command", fake_run)
-    run_full_suite._run_dataset_audit(context)
-    assert called is False
-
-
-def test_prepare_baselines_updates_run_log(tmp_path, base_config, stage_mocks):
-    config = replace(base_config, baseline_scenarios=("a", "b"))
-    context = _make_context(config, tmp_path)
-    validated = run_full_suite._prepare_baselines(context)
-    assert validated == ["a", "b"]
-    assert context.run_log["baseline_scenarios_requested"] == ["a", "b"]
-    assert context.run_log["validated_baselines"] == ["a", "b"]
-
-
-def test_run_baselines_invokes_commands(tmp_path, base_config, stage_mocks, monkeypatch):
-    config = replace(base_config, baseline_scenarios=("alpha",), baseline_single_seed=True)
-    context = _make_context(config, tmp_path)
-    commands = []
-
-    def fake_run(cmd, *_args, **_kwargs):
-        commands.append(cmd)
-
-    monkeypatch.setattr(run_full_suite, "run_command", fake_run)
-    validated = run_full_suite._prepare_baselines(context)
-    run_full_suite._run_baselines(context, validated)
-    assert commands
-    assert "--multi_seed_enabled" not in commands[0]
-
-
-def test_ablation_stage_passes_scenarios(tmp_path, base_config, stage_mocks, monkeypatch):
-    config = replace(base_config, ablation_scenarios=("x", "y"), skip_ablation=False)
-    context = _make_context(config, tmp_path)
-    commands = []
-
-    def fake_run(cmd, *_args, **_kwargs):
-        commands.append(cmd)
-
-    monkeypatch.setattr(run_full_suite, "run_command", fake_run)
-    validated = run_full_suite._run_ablation(context)
-    assert validated == ["x", "y"]
-    assert any("--scenarios" in cmd for cmd in commands)
-
-
-def test_reporting_stage_respects_skip_flag(tmp_path, base_config, monkeypatch):
-    config = replace(base_config, skip_report=True)
-    context = _make_context(config, tmp_path)
-    commands = []
-
-    def fake_run(cmd, *_args, **_kwargs):
-        commands.append(cmd)
-
-    monkeypatch.setattr(run_full_suite, "run_command", fake_run)
-    run_full_suite._run_reporting(context)
-    assert len(commands) == 1  # compare_scenarios only
-
-
-def test_full_suite_json_summary(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(run_full_suite, "run_command", lambda *args, **kwargs: None)
-    monkeypatch.setattr(run_full_suite, "dependency_preflight", lambda skip, logger: {})
-    monkeypatch.setattr(run_full_suite, "setup_logging", lambda *args, **kwargs: None)
-    monkeypatch.setattr(run_full_suite, "get_logger", lambda *args, **kwargs: DummyLogger())
-    monkeypatch.setattr(run_full_suite.hydra_main, "_load_scenario_cfg", lambda name: {})
-    monkeypatch.setattr(run_full_suite.hydra_main, "validate_scenario_cfg", lambda cfg: None)
-    monkeypatch.setattr(
-        run_full_suite,
-        "inspect_scenario",
-        lambda name: run_full_suite.ScenarioRequirements(
-            name=name,
-            requires_signature=False,
-            requires_sb3=False,
-            requires_sb3_contrib=False,
-        ),
-    )
-
-    exit_code = run_full_suite.main(
-        [
-            "--output-root",
-            str(tmp_path / "suite"),
-            "--skip-baseline",
-            "--skip-ablation",
-            "--skip-report",
-            "--skip-meta-offline",
-            "--skip-audit",
-            "--skip-schema-check",
-            "--format",
-            "json",
-            "--dry-run",
-        ]
-    )
-
-    assert exit_code == 0
-    captured = capsys.readouterr()
-    payload = json.loads(captured.out)
-    assert payload["success"] is True
-    data = payload["data"]
-    assert data["output_root"].endswith("suite")
-    assert data["dry_run"] is True
+    assert lower <= upper

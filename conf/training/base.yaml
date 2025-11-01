@@ -1,0 +1,4 @@
+total_env_steps: 250000
+seeds: [0, 1, 2]
+windows: 4
+periods_per_year: 252

@@ -1,0 +1,7 @@
+name: signature
+signature:
+  enabled: true
+  depth: 2
+leadlag:
+  enabled: false
+time_channel: false

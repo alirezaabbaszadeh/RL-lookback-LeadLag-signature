@@ -1,0 +1,5 @@
+device: auto
+mixed_precision: amp
+n_envs: 4
+num_workers: 2
+pin_memory: true

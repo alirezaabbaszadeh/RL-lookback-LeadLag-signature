@@ -1,0 +1,7 @@
+name: base
+signature:
+  enabled: false
+  depth: 0
+leadlag:
+  enabled: false
+time_channel: false
