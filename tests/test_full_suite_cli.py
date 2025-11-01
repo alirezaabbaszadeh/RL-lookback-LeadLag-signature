@@ -26,9 +26,11 @@ def _write_mock_dataset(path: Path) -> None:
 
 
 def _compose_config(tmp_path: Path):
-    config_dir = Path(__file__).resolve().parents[1] / "conf"
+    config_dir = Path(__file__).resolve().parents[1] / "src" / "leadlag" / "configs"
     _write_mock_dataset(tmp_path / "dataset")
-    with initialize_config_dir(config_dir=str(config_dir), job_name="test-suite"):
+    with initialize_config_dir(
+        config_dir=str(config_dir), job_name="test-suite", version_base=None
+    ):
         cfg = compose(
             config_name="config",
             overrides=[

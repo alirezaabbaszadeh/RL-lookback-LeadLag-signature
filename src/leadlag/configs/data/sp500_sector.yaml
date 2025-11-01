@@ -1,0 +1,6 @@
+name: sp500_sector
+universe: sp500_sector
+market: equities
+asset_count: 505
+timeframe: 5m
+dataset_dir: /kaggle/input/placeholder

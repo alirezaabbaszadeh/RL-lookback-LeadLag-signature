@@ -42,7 +42,7 @@ src/leadlag/
     metrics_writer.py
   utils/
     repro.py
-conf/
+src/leadlag/configs/
   config.yaml
   agent/{ppo,dqn,a2c,sac,td3}.yaml
   features/{base,signature,leadlag,signature_leadlag}.yaml
@@ -81,13 +81,13 @@ runs and `/kaggle/working/paper_outputs/` for aggregated artefacts.
 
 ## Hydra Configuration Highlights
 
-- `conf/hardware/gpu.yaml` selects CUDA, enables AMP, and configures vectorised
+- `leadlag/configs/hardware/gpu.yaml` selects CUDA, enables AMP, and configures vectorised
   environments (`n_envs=8`).
-- `conf/split/walk_forward_purged.yaml` wires the leakage-safe walk-forward
+- `leadlag/configs/split/walk_forward_purged.yaml` wires the leakage-safe walk-forward
   splitting strategy with optional nested validation.
-- `conf/training/{smoke,paper}.yaml` control total environment steps, seeds, and
+- `leadlag/configs/training/{smoke,paper}.yaml` control total environment steps, seeds, and
   window counts. `paper` mode expands seeds and windows for full experiments.
-- `conf/config.yaml` holds defaults and exposes the canonical override surface
+- `leadlag/configs/config.yaml` holds defaults and exposes the canonical override surface
   (`agent`, `features`, `data`, `split`, `training`, `hardware`).
 
 ## Phase Milestones

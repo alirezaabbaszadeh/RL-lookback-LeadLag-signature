@@ -444,7 +444,7 @@ def _write_data_manifest(
     dataset_mod.record_manifest(manifest, run_dir)
 
 
-@hydra.main(version_base="1.3", config_path="../../../conf", config_name="config")
+@hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     device_info = select_device(dict(cfg.hardware))
     set_all_seeds(int(cfg.training.seeds[0]))
