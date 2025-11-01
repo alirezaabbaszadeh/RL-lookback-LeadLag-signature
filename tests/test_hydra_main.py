@@ -2,6 +2,10 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("hydra")
+from hydra import compose, initialize
+from omegaconf import OmegaConf
+
 from leadlag.hydra_main import (
     _load_scenario_cfg,
     get_available_scenarios,
@@ -33,3 +37,49 @@ def test_load_scenario_cfg_and_validate_rl_ppo():
     assert isinstance(cfg, dict)
     assert cfg.get("name") == "rl_ppo"
     validate_scenario_cfg(cfg)
+
+
+def test_hydra_default_config_composes(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.chdir(repo_root)
+
+    with initialize(version_base=None, config_path="../src/leadlag/configs"):
+        cfg = compose(config_name="config")
+
+    assert OmegaConf.select(cfg, "scenario.name") == "fixed_30"
+
+    with initialize(version_base=None, config_path="../src/leadlag/configs"):
+        cfg_override = compose(
+            config_name="config",
+            overrides=["scenario=fixed_90", "multi_seed.enabled=false"],
+        )
+
+    assert OmegaConf.select(cfg_override, "scenario.name") == "fixed_90"
+    assert OmegaConf.select(cfg_override, "multi_seed.enabled") is False
+
+
+def test_repo_and_packaged_configs_are_in_sync():
+    repo_root = Path(__file__).resolve().parents[1]
+    packaged = repo_root / "src" / "leadlag" / "configs"
+    workspace = repo_root / "configs"
+
+    tracked_files = [
+        "config.yaml",
+        "default.yaml",
+        "base.yaml",
+        "features/signature.yaml",
+    ]
+
+    for relative in tracked_files:
+        packaged_path = packaged / relative
+        workspace_path = workspace / relative
+        assert packaged_path.exists(), f"missing packaged config: {relative}"
+        assert workspace_path.exists(), f"missing workspace config: {relative}"
+        assert (
+            packaged_path.read_text(encoding="utf-8")
+            == workspace_path.read_text(encoding="utf-8")
+        ), f"config mismatch for {relative}"
+
+    packaged_scenarios = sorted(p.name for p in (packaged / "scenario").glob("*.yaml"))
+    workspace_scenarios = sorted(p.name for p in (workspace / "scenario").glob("*.yaml"))
+    assert packaged_scenarios == workspace_scenarios
