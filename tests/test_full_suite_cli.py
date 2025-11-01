@@ -104,6 +104,9 @@ def test_build_metadata_row_matches_config(tmp_path):
         metrics,
         seed=0,
         window_idx=0,
+        turnover=0.0,
+        exposure=0.0,
+        costs=0.0,
         env_steps=env_steps,
     )
     assert row["experiment_id"] == "test-run"
