@@ -8,79 +8,88 @@ from typing import Iterator
 import numpy as np
 
 
-@dataclass
-class PurgedSplit:
+@dataclass(frozen=True)
+class SplitWindow:
+    """Container for a single purged train/test window."""
+
     train_indices: np.ndarray
     test_indices: np.ndarray
 
 
-def _apply_embargo(
-    train_indices: np.ndarray,
-    test_start: int,
-    test_end: int,
-    embargo: int,
-) -> np.ndarray:
-    """Remove indices that fall within the embargo around the test window."""
+@dataclass
+class PurgedSplit:
+    """Configuration for generating purged walk-forward splits."""
 
-    if embargo <= 0:
-        return train_indices
+    n_splits: int
+    embargo_frac: float = 0.01
 
-    left_start = test_start - embargo
-    left_end = test_start
-    right_start = test_end
-    right_end = test_end + embargo
+    def __post_init__(self) -> None:
+        if self.n_splits < 2:
+            raise ValueError("n_splits must be at least 2")
+        if self.embargo_frac < 0:
+            raise ValueError("embargo_frac must be non-negative")
 
-    mask = np.ones_like(train_indices, dtype=bool)
-    if left_start < left_end:
-        mask &= ~((train_indices >= left_start) & (train_indices < left_end))
-    if right_start < right_end:
-        mask &= ~((train_indices >= right_start) & (train_indices < right_end))
+    def split(self, n: int) -> Iterator[SplitWindow]:
+        if n < self.n_splits:
+            raise ValueError("total samples must be >= n_splits")
 
-    return train_indices[mask]
+        fold_sizes = np.full(self.n_splits, n // self.n_splits, dtype=int)
+        fold_sizes[: n % self.n_splits] += 1
+
+        indices = np.arange(n)
+        embargo_width = int(np.ceil(self.embargo_frac * n))
+
+        test_start = 0
+        for size in fold_sizes:
+            test_end = test_start + size
+            test_indices = indices[test_start:test_end]
+
+            mask = np.ones(n, dtype=bool)
+            left = max(0, test_start - embargo_width)
+            right = min(n, test_end + embargo_width)
+            mask[left:right] = False
+
+            train_indices = indices[mask]
+
+            yield SplitWindow(train_indices=train_indices, test_indices=test_indices)
+            test_start = test_end
+
+
+class WalkForwardPurged:
+    """Convenience wrapper that exposes a scikit-learn like API."""
+
+    def __init__(self, n_splits: int = 6, embargo_frac: float = 0.01) -> None:
+        self.n_splits = int(n_splits)
+        self.embargo_frac = float(embargo_frac)
+        self._splitter = PurgedSplit(self.n_splits, self.embargo_frac)
+
+    def split(self, n: int) -> Iterator[SplitWindow]:
+        """Yield purged train/test indices for ``n`` samples."""
+
+        yield from self._splitter.split(n)
 
 
 def walk_forward_purged(
     total_samples: int,
     n_splits: int,
     embargo_frac: float = 0.0,
-) -> Iterator[PurgedSplit]:
-    """Yield purged walk-forward train/test splits.
+) -> Iterator[SplitWindow]:
+    """Yield purged walk-forward splits as :class:`SplitWindow` objects."""
 
-    The splits are constructed by iteratively selecting contiguous test windows
-    whose lengths differ by at most one sample.  Any remainder after dividing the
-    dataset across ``n_splits`` windows is distributed across the earliest folds,
-    ensuring that every index appears in exactly one test window.  An embargo is
-    optionally applied around each window: any training index that lies within
-    ``embargo`` steps immediately before ``test_start`` or immediately after
-    ``test_end`` is removed.  The embargo therefore depends on the absolute
-    position of each test slice and never trims unrelated regions of the training
-    set.
-    """
-    if n_splits <= 1:
-        raise ValueError("n_splits must be greater than 1")
-    if total_samples < n_splits:
-        raise ValueError("total_samples must be greater than or equal to n_splits")
-
-    indices = np.arange(total_samples)
-    base_size = total_samples // n_splits
-    remainder = total_samples % n_splits
-
-    test_start = 0
-    for split in range(n_splits):
-        test_size = base_size + (1 if split < remainder else 0)
-        test_end = test_start + test_size
-        test_indices = indices[test_start:test_end]
-
-        embargo = int(np.ceil(test_size * embargo_frac))
-        train_indices = np.concatenate([indices[:test_start], indices[test_end:]])
-        train_indices = _apply_embargo(train_indices, test_start, test_end, embargo)
-
-        yield PurgedSplit(train_indices=train_indices, test_indices=test_indices)
-        test_start = test_end
+    splitter = WalkForwardPurged(n_splits=n_splits, embargo_frac=embargo_frac)
+    yield from splitter.split(total_samples)
 
 
-def purged_kfold(total_samples: int, n_splits: int, embargo_frac: float = 0.0) -> Iterator[PurgedSplit]:
-    return walk_forward_purged(total_samples, n_splits, embargo_frac)
+def purged_kfold(total_samples: int, n_splits: int, embargo_frac: float = 0.0) -> Iterator[SplitWindow]:
+    """Backward compatible alias for :func:`walk_forward_purged`."""
+
+    yield from walk_forward_purged(total_samples, n_splits, embargo_frac)
 
 
-__all__ = ["PurgedSplit", "walk_forward_purged", "purged_kfold"]
+__all__ = [
+    "SplitWindow",
+    "PurgedSplit",
+    "WalkForwardPurged",
+    "walk_forward_purged",
+    "purged_kfold",
+]

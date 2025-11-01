@@ -22,7 +22,7 @@ except Exception:  # pragma: no cover - library optional in CI
     DummyVecEnv = Monitor = None  # type: ignore[assignment]
     SB3_AVAILABLE = False
 
-from leadlag.cv.purged import walk_forward_purged
+from leadlag.cv.purged import WalkForwardPurged, walk_forward_purged
 from leadlag.env.trading_env import TradeMetrics
 from leadlag.envs.leadlag_env import LeadLagEnv
 from leadlag.features.leadlag import compute_lead_lag
@@ -368,6 +368,11 @@ def _write_artifacts(
     )
     metrics_writer.write_row(run_dir / "metrics.csv", metrics_row)
 
+    dataset_length_value = simulation.get("dataset_length")
+    dataset_length = int(dataset_length_value) if dataset_length_value is not None else 0
+    if dataset_length:
+        _write_split_manifest(run_dir, cfg, dataset_length)
+
     _write_data_manifest(run_dir, cfg, prices=prices, dataset_path=dataset_path)
 
     manifest_payload = {
@@ -444,7 +449,46 @@ def _write_data_manifest(
     dataset_mod.record_manifest(manifest, run_dir)
 
 
-@hydra.main(version_base="1.3", config_path="../../../conf", config_name="config")
+def _write_split_manifest(run_dir: Path, cfg: DictConfig, dataset_length: int) -> None:
+    split_cfg = cfg.get("split")
+    if not split_cfg:
+        return
+
+    n_splits = int(split_cfg.get("n_splits", 0))
+    if n_splits < 2 or dataset_length <= 0 or dataset_length < n_splits:
+        return
+
+    embargo_frac = float(split_cfg.get("embargo_frac", 0.0))
+    splitter = WalkForwardPurged(n_splits=n_splits, embargo_frac=embargo_frac)
+
+    rows = []
+    for window_idx, split in enumerate(splitter.split(dataset_length)):
+        train_indices = split.train_indices
+        test_indices = split.test_indices
+        rows.append(
+            {
+                "window": window_idx,
+                "train_idx_start": int(train_indices.min()) if train_indices.size else None,
+                "train_idx_end": int(train_indices.max()) if train_indices.size else None,
+                "test_idx_start": int(test_indices.min()) if test_indices.size else None,
+                "test_idx_end": int(test_indices.max()) if test_indices.size else None,
+                "embargo_frac": embargo_frac,
+            }
+        )
+
+    columns = [
+        "window",
+        "train_idx_start",
+        "train_idx_end",
+        "test_idx_start",
+        "test_idx_end",
+        "embargo_frac",
+    ]
+    df = pd.DataFrame.from_records(rows, columns=columns)
+    df.to_csv(run_dir / "splits.csv", index=False)
+
+
+@hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
     device_info = select_device(dict(cfg.hardware))
     set_all_seeds(int(cfg.training.seeds[0]))

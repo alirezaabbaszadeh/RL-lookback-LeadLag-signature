@@ -26,9 +26,11 @@ def _write_mock_dataset(path: Path) -> None:
 
 
 def _compose_config(tmp_path: Path):
-    config_dir = Path(__file__).resolve().parents[1] / "conf"
+    config_dir = Path(__file__).resolve().parents[1] / "src" / "leadlag" / "configs"
     _write_mock_dataset(tmp_path / "dataset")
-    with initialize_config_dir(config_dir=str(config_dir), job_name="test-suite"):
+    with initialize_config_dir(
+        config_dir=str(config_dir), job_name="test-suite", version_base=None
+    ):
         cfg = compose(
             config_name="config",
             overrides=[
@@ -58,11 +60,13 @@ def test_simulate_episode_produces_metrics(tmp_path):
     returns_path = run_dir / "returns.csv"
     data_manifest_path = run_dir / "data_manifest.json"
     run_manifest_path = run_dir / "run_manifest.json"
+    splits_path = run_dir / "splits.csv"
     assert metrics_path.exists()
     assert equity_path.exists()
     assert returns_path.exists()
     assert data_manifest_path.exists()
     assert run_manifest_path.exists()
+    assert splits_path.exists()
 
     metrics_df = pd.read_csv(metrics_path)
     assert not metrics_df.empty
@@ -73,6 +77,17 @@ def test_simulate_episode_produces_metrics(tmp_path):
     equity_df = pd.read_csv(equity_path)
     returns_df = pd.read_csv(returns_path)
     assert len(equity_df) == len(returns_df)
+
+    splits_df = pd.read_csv(splits_path)
+    assert list(splits_df.columns) == [
+        "window",
+        "train_idx_start",
+        "train_idx_end",
+        "test_idx_start",
+        "test_idx_end",
+        "embargo_frac",
+    ]
+    assert len(splits_df) == cfg.split.n_splits
 
     manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
     assert manifest_payload["config"]["data"]["dataset_dir"] == str(tmp_path / "dataset")
