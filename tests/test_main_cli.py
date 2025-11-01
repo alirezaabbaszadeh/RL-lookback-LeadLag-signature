@@ -40,6 +40,9 @@ def results_fixture(tmp_path):
         {"sharpe": 1.0, "sortino": 0.9, "max_drawdown": -0.1, "pnl": returns.sum()},
         seed=0,
         window_idx=0,
+        turnover=0.0,
+        exposure=0.0,
+        costs=0.0,
         env_steps=len(returns),
     )
     metrics_writer.write_row(run_dir / "metrics.csv", metrics_row)

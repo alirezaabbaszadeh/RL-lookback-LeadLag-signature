@@ -188,7 +188,13 @@ def _compute_trade_metrics(returns: pd.Series) -> TradeMetrics:
     exposure = float(np.mean(np.abs(cumulative - 1.0))) if cumulative.size else 0.0
     pnl = float(arr.sum())
     env_steps = int(arr.size)
-    return TradeMetrics(pnl=pnl, turnover=turnover, exposure=exposure, env_steps=env_steps)
+    return TradeMetrics(
+        pnl=pnl,
+        turnover=turnover,
+        exposure=exposure,
+        env_steps=env_steps,
+        costs=0.0,
+    )
 
 
 def _random_rollout(env: LeadLagEnv, total_steps: int, seed: int) -> pd.Series:
@@ -364,6 +370,7 @@ def _write_artifacts(
         window_idx=window_idx,
         turnover=trade_metrics.turnover,
         exposure=trade_metrics.exposure,
+        costs=trade_metrics.costs,
         env_steps=env_steps,
     )
     metrics_writer.write_row(run_dir / "metrics.csv", metrics_row)

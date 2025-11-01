@@ -12,6 +12,8 @@ paper_outputs_root: ${oc.env:LEADLAG_PAPER_ROOT,/kaggle/working/paper_outputs}
 
 env:
   action_space: discrete3
+  max_abs_position: 1.0
+  initial_position: 0.0
 
 policy:
   name: mlp
