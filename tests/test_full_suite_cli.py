@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import hydra
 import pandas as pd
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
@@ -13,8 +12,22 @@ from leadlag.pipelines import run_full_suite
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 
 
+def _write_mock_dataset(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    dates = pd.date_range("2024-01-01", periods=180, freq="D")
+    data = {
+        "date": dates,
+        "AssetA": 100 + pd.Series(range(len(dates))) * 0.1,
+        "AssetB": 120 + pd.Series(range(len(dates))) * 0.05,
+        "AssetC": 90 + pd.Series(range(len(dates))) * 0.08,
+    }
+    df = pd.DataFrame(data)
+    df.to_csv(path / "prices.csv", index=False)
+
+
 def _compose_config(tmp_path: Path):
     config_dir = Path(__file__).resolve().parents[1] / "conf"
+    _write_mock_dataset(tmp_path / "dataset")
     with initialize_config_dir(config_dir=str(config_dir), job_name="test-suite"):
         cfg = compose(
             config_name="config",
@@ -67,11 +80,15 @@ def test_simulate_episode_produces_metrics(tmp_path):
     assert environment.get("python")
     assert "git_commit" in environment
     assert isinstance(environment.get("packages", {}), dict)
+    assert manifest_payload.get("agent")
+    feature_meta = manifest_payload.get("feature_stack", {})
+    assert "returns" in feature_meta
 
     data_manifest = json.loads(data_manifest_path.read_text(encoding="utf-8"))
     assert data_manifest.get("dataset_dir") == str(tmp_path / "dataset")
     training_meta = data_manifest.get("training", {})
     assert training_meta.get("total_env_steps") == cfg.training.total_env_steps
+    assert data_manifest.get("row_count")
 
 
 def test_build_metadata_row_matches_config(tmp_path):
@@ -98,3 +115,20 @@ def test_hac_confidence_interval_returns_bounds(tmp_path):
         simulation["returns"], periods_per_year=cfg.training.periods_per_year
     )
     assert lower <= upper
+
+
+def test_feature_toggle_signature_leadlag(tmp_path):
+    cfg = _compose_config(tmp_path)
+    cfg.features = OmegaConf.merge(cfg.features, OmegaConf.create({"name": "signature_leadlag"}))
+    cfg.features.signature.enabled = True
+    cfg.features.signature.depth = 3
+    cfg.features.leadlag.enabled = True
+    cfg.features.time_channel = True
+
+    simulation = run_full_suite._simulate_episode(cfg, seed=0, window_idx=0)
+    feature_stack = simulation["feature_stack"]
+    assert "signature" in feature_stack
+    assert feature_stack["signature"].shape[0] == cfg.features.signature.depth
+    assert "leadlag" in feature_stack
+    assert feature_stack["leadlag"].shape[0] == 2
+    assert "time_channel" in feature_stack
