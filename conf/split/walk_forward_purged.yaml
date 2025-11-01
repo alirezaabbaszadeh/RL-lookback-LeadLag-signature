@@ -1,0 +1,7 @@
+scheme: walk_forward_purged
+n_splits: 6
+embargo_frac: 0.01
+nested_tuning:
+  enabled: true
+  inner_n_splits: 3
+  inner_embargo_frac: 0.01
