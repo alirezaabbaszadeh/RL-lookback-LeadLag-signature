@@ -1,0 +1,7 @@
+name: leadlag
+signature:
+  enabled: false
+  depth: 0
+leadlag:
+  enabled: true
+time_channel: false

@@ -34,7 +34,7 @@ src/leadlag/
   eval/{stats.py,stats_cli.py}  # sharpe/sortino/HAC/SPA/MCS utilities
   reporting/metrics_writer.py   # canonical metrics.csv writer
   utils/repro.py                # device selection, seed control, manifests
-conf/
+src/leadlag/configs/
   config.yaml                   # defaults (agent, data, features, hardware)
   agent/                        # PPO, DQN, A2C, SAC, TD3 presets
   features/                     # base/signature/leadlag toggles
@@ -59,7 +59,7 @@ python -m leadlag.pipelines.run_full_suite \
   +logging.run_id=local-ppo-smoke
 ```
 
-Hydra overrides mirror the configuration tree under `conf/`. Example toggles:
+Hydra overrides mirror the configuration tree under `leadlag/configs`. Example toggles:
 
 ```bash
 python -m leadlag.pipelines.run_full_suite \

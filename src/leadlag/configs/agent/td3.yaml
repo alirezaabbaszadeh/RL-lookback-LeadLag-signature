@@ -1,0 +1,6 @@
+name: td3
+library: sb3
+policy: MlpPolicy
+hyperparams:
+  buffer_size: 100000
+  learning_rate: 0.0003

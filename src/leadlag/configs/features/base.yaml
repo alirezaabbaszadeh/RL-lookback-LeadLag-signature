@@ -1,7 +1,7 @@
-name: signature
+name: base
 signature:
-  enabled: true
-  depth: 2
+  enabled: false
+  depth: 0
 leadlag:
   enabled: false
 time_channel: false
