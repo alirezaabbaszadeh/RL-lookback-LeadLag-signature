@@ -34,6 +34,7 @@ CANONICAL_COLUMNS = [
     "Turnover",
     "PnL",
     "Exposure",
+    "EnvSteps",
 ]
 
 
@@ -70,6 +71,7 @@ def build_metadata_row(
     window_idx: int,
     turnover: float = 0.0,
     exposure: float = 0.0,
+    env_steps: int | None = None,
 ) -> Dict[str, object]:
     """Compose a canonical metrics row for ``metrics.csv``."""
 
@@ -104,4 +106,5 @@ def build_metadata_row(
         "Turnover": turnover,
         "PnL": metrics.get("pnl"),
         "Exposure": exposure,
+        "EnvSteps": env_steps,
     }

@@ -45,19 +45,24 @@ def _simulate_episode(
         slippage_bps=slippage_cfg.bps,
         seed=seed * 1_000 + window_idx,
     )
-    steps = int(training_cfg.total_env_steps // max(1, cfg.hardware.n_envs))
-    returns = env.simulate_returns(steps)
+    total_steps = max(1, int(training_cfg.total_env_steps))
+    n_envs = max(1, int(cfg.hardware.n_envs))
+    returns = env.simulate_returns(total_steps, n_envs=n_envs)
     summary = stats_mod.summarize_performance(
         returns,
         periods_per_year=training_cfg.periods_per_year,
     )
     equity = stats_mod.compute_equity_curve(summary.returns)
     trade_metrics = env.summarize_trades(summary.returns)
+    actual_env_steps = trade_metrics.env_steps
     return {
         "returns": summary.returns,
         "equity": equity,
         "summary": summary,
         "trade_metrics": trade_metrics,
+        "env_steps": actual_env_steps,
+        "requested_env_steps": total_steps,
+        "n_envs": n_envs,
     }
 
 
@@ -74,6 +79,7 @@ def _write_artifacts(
     equity_series = simulation["equity"]
     summary = simulation["summary"]
     trade_metrics = simulation["trade_metrics"]
+    env_steps = int(simulation.get("env_steps", len(returns_series)))
 
     stats_mod.export_returns(run_dir / "returns.csv", returns_series)
     stats_mod.export_equity(run_dir / "equity.csv", equity_series)
@@ -91,6 +97,7 @@ def _write_artifacts(
         window_idx=window_idx,
         turnover=trade_metrics.turnover,
         exposure=trade_metrics.exposure,
+        env_steps=env_steps,
     )
     metrics_writer.write_row(run_dir / "metrics.csv", metrics_row)
 
@@ -100,6 +107,9 @@ def _write_artifacts(
         "window_index": window_idx,
         "config": OmegaConf.to_container(cfg, resolve=True),
         "metrics": metrics_row,
+        "requested_env_steps": int(simulation.get("requested_env_steps", env_steps)),
+        "actual_env_steps": env_steps,
+        "vectorised_envs": int(simulation.get("n_envs", 1)),
     }
     write_run_manifest(run_dir / "run_manifest.json", manifest_payload)
 
