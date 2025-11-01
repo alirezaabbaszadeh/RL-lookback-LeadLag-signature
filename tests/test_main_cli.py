@@ -87,3 +87,20 @@ def test_stats_cli_generates_expected_artifacts(tmp_path, monkeypatch, results_f
     with (out_dir / "mcs.json").open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     assert "members" in payload
+
+
+def test_stats_workflow_function_interface(tmp_path, results_fixture):
+    results_root, _ = results_fixture
+    out_dir = tmp_path / "paper_fn"
+
+    artifacts = stats_cli.run_workflow(
+        results_root,
+        out_dir,
+        periods=252,
+        spa_iterations=20,
+        seed=123,
+    )
+
+    assert (out_dir / "all_metrics_raw.csv").exists()
+    assert (out_dir / "paper_results.md").exists()
+    assert "summary_markdown" in artifacts

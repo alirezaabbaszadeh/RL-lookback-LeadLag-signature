@@ -103,20 +103,21 @@ def _plot_sharpe_heatmap(metrics: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results", type=Path, required=True, help="Root directory with run outputs")
-    parser.add_argument("--out", type=Path, required=True, help="Directory to store aggregated artifacts")
-    parser.add_argument("--periods", type=int, default=252, help="Trading periods per year")
-    parser.add_argument("--spa-iterations", type=int, default=500, help="Bootstrap iterations for SPA")
-    parser.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap routines")
-    args = parser.parse_args()
+def run_workflow(
+    results_root: Path,
+    out_dir: Path,
+    *,
+    periods: int = 252,
+    spa_iterations: int = 500,
+    seed: int = 0,
+) -> Dict[str, Path]:
+    """Aggregate per-run metrics and export paper-ready artefacts."""
 
-    args.out.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     metrics_frames = []
     returns_map: Dict[str, pd.Series] = {}
-    for run_dir in sorted(p for p in args.results.iterdir() if p.is_dir()):
+    for run_dir in sorted(p for p in results_root.iterdir() if p.is_dir()):
         metrics = _load_metrics(run_dir)
         if metrics is not None:
             metrics_frames.append(metrics)
@@ -129,8 +130,11 @@ def main() -> None:
     else:
         all_metrics = pd.DataFrame()
 
-    metrics_path = args.out / "all_metrics_raw.csv"
+    artifact_paths: Dict[str, Path] = {}
+
+    metrics_path = out_dir / "all_metrics_raw.csv"
     all_metrics.to_csv(metrics_path, index=False)
+    artifact_paths["all_metrics"] = metrics_path
 
     if not all_metrics.empty:
         summary = (
@@ -141,24 +145,28 @@ def main() -> None:
         )
         summary.columns = ["_".join(col).strip("_") for col in summary.columns.to_flat_index()]
         summary.sort_index(inplace=True)
-        summary.to_csv(args.out / "summary_table.csv")
+        summary_path = out_dir / "summary_table.csv"
+        summary.to_csv(summary_path)
+        artifact_paths["summary_table"] = summary_path
 
         best_idx = all_metrics.groupby("agent")["Sharpe"].idxmax()
         best = all_metrics.loc[best_idx].sort_values("Sharpe", ascending=False)
-        best.to_csv(args.out / "best_per_agent.csv", index=False)
+        best_path = out_dir / "best_per_agent.csv"
+        best.to_csv(best_path, index=False)
+        artifact_paths["best_per_agent"] = best_path
     else:
         summary = pd.DataFrame()
         best = pd.DataFrame()
 
     advanced_records = []
     for run_id, returns in returns_map.items():
-        psr = stats.probabilistic_sharpe_ratio(returns, periods_per_year=args.periods)
+        psr = stats.probabilistic_sharpe_ratio(returns, periods_per_year=periods)
         dsr = stats.deflated_sharpe_ratio(
             returns,
-            periods_per_year=args.periods,
+            periods_per_year=periods,
             num_trials=max(1, len(returns_map)),
         )
-        hac_low, hac_high = stats.hac_confidence_interval(returns, periods_per_year=args.periods)
+        hac_low, hac_high = stats.hac_confidence_interval(returns, periods_per_year=periods)
         advanced_records.append(
             {
                 "run_id": run_id,
@@ -169,31 +177,47 @@ def main() -> None:
             }
         )
     advanced_df = pd.DataFrame.from_records(advanced_records)
-    advanced_df.to_csv(args.out / "advanced_metrics.csv", index=False)
+    advanced_path = out_dir / "advanced_metrics.csv"
+    advanced_df.to_csv(advanced_path, index=False)
+    artifact_paths["advanced_metrics"] = advanced_path
     if not advanced_df.empty:
-        advanced_df[["run_id", "psr", "dsr"]].to_csv(
-            args.out / "psr_dsr_pvalues.csv", index=False
-        )
+        psr_path = out_dir / "psr_dsr_pvalues.csv"
+        advanced_df[["run_id", "psr", "dsr"]].to_csv(psr_path, index=False)
+        artifact_paths["psr_dsr"] = psr_path
+
+        hac_path = out_dir / "hac_confidence_intervals.csv"
         advanced_df[["run_id", "hac_lower", "hac_upper"]].to_csv(
-            args.out / "hac_confidence_intervals.csv", index=False
+            hac_path, index=False
         )
-        _plot_hac_forest(advanced_df, args.out / "forest_hac_ci.png")
+        artifact_paths["hac_confidence_intervals"] = hac_path
+
+        forest_path = out_dir / "forest_hac_ci.png"
+        _plot_hac_forest(advanced_df, forest_path)
+        artifact_paths["forest_plot"] = forest_path
 
     spa_df = stats.spa_reality_check(
         returns_map,
-        periods_per_year=args.periods,
-        iterations=args.spa_iterations,
-        seed=args.seed,
+        periods_per_year=periods,
+        iterations=spa_iterations,
+        seed=seed,
     )
-    spa_df.to_csv(args.out / "spa_results.csv", index=False)
+    spa_path = out_dir / "spa_results.csv"
+    spa_df.to_csv(spa_path, index=False)
+    artifact_paths["spa_results"] = spa_path
     if not spa_df.empty:
-        spa_df.to_csv(args.out / "spa_pvalues.csv", index=False)
+        spa_pvalues_path = out_dir / "spa_pvalues.csv"
+        spa_df.to_csv(spa_pvalues_path, index=False)
+        artifact_paths["spa_pvalues"] = spa_pvalues_path
 
-    mcs_members = stats.model_confidence_set(returns_map, periods_per_year=args.periods)
-    with (args.out / "mcs.json").open("w", encoding="utf-8") as handle:
+    mcs_members = stats.model_confidence_set(returns_map, periods_per_year=periods)
+    mcs_path = out_dir / "mcs.json"
+    with mcs_path.open("w", encoding="utf-8") as handle:
         json.dump({"members": mcs_members}, handle, indent=2)
+    artifact_paths["mcs"] = mcs_path
 
-    _plot_sharpe_heatmap(all_metrics, args.out / "heatmap_agent_timeframe.png")
+    heatmap_path = out_dir / "heatmap_agent_timeframe.png"
+    _plot_sharpe_heatmap(all_metrics, heatmap_path)
+    artifact_paths["heatmap"] = heatmap_path
 
     summary_lines = ["# Paper Results", ""]
     if not all_metrics.empty:
@@ -210,8 +234,29 @@ def main() -> None:
     if not spa_df.empty:
         summary_lines.append("\n## SPA Reality Check")
         summary_lines.append(_table_to_text(spa_df))
-    summary_path = args.out / "paper_results.md"
+    summary_path = out_dir / "paper_results.md"
     summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
+    artifact_paths["summary_markdown"] = summary_path
+
+    return artifact_paths
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results", type=Path, required=True, help="Root directory with run outputs")
+    parser.add_argument("--out", type=Path, required=True, help="Directory to store aggregated artifacts")
+    parser.add_argument("--periods", type=int, default=252, help="Trading periods per year")
+    parser.add_argument("--spa-iterations", type=int, default=500, help="Bootstrap iterations for SPA")
+    parser.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap routines")
+    args = parser.parse_args()
+
+    run_workflow(
+        args.results,
+        args.out,
+        periods=args.periods,
+        spa_iterations=args.spa_iterations,
+        seed=args.seed,
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
