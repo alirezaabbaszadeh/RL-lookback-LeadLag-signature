@@ -4,7 +4,7 @@ defaults:
   - data: sp500_sector
   - split: walk_forward_purged
   - training: smoke
-  - hardware: auto
+  - hardware: gpu
 
 results_root: ${oc.env:LEADLAG_RESULTS_ROOT,/kaggle/working/results}
 paper_outputs_root: ${oc.env:LEADLAG_PAPER_ROOT,/kaggle/working/paper_outputs}
@@ -31,7 +31,7 @@ slippage:
   bps: 2
 
 logging:
-  run_id: ${now:%Y%m%d}-${agent.name}
+  run_id: ${now:%Y%m%d}-${agent.name}-${training.seeds[0]}
   append_seed_window: true
 
 metadata:
