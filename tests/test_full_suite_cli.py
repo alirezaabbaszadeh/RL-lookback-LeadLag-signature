@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import hydra
@@ -25,6 +26,7 @@ def _compose_config(tmp_path: Path):
                 "training.windows=1",
                 "hardware.n_envs=1",
                 "training.total_env_steps=100",
+                f"data.dataset_dir={tmp_path / 'dataset'}",
             ],
         )
     return cfg
@@ -41,9 +43,13 @@ def test_simulate_episode_produces_metrics(tmp_path):
     metrics_path = run_dir / "metrics.csv"
     equity_path = run_dir / "equity.csv"
     returns_path = run_dir / "returns.csv"
+    data_manifest_path = run_dir / "data_manifest.json"
+    run_manifest_path = run_dir / "run_manifest.json"
     assert metrics_path.exists()
     assert equity_path.exists()
     assert returns_path.exists()
+    assert data_manifest_path.exists()
+    assert run_manifest_path.exists()
 
     metrics_df = pd.read_csv(metrics_path)
     assert not metrics_df.empty
@@ -54,6 +60,18 @@ def test_simulate_episode_produces_metrics(tmp_path):
     equity_df = pd.read_csv(equity_path)
     returns_df = pd.read_csv(returns_path)
     assert len(equity_df) == len(returns_df)
+
+    manifest_payload = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+    assert manifest_payload["config"]["data"]["dataset_dir"] == str(tmp_path / "dataset")
+    environment = manifest_payload.get("environment", {})
+    assert environment.get("python")
+    assert "git_commit" in environment
+    assert isinstance(environment.get("packages", {}), dict)
+
+    data_manifest = json.loads(data_manifest_path.read_text(encoding="utf-8"))
+    assert data_manifest.get("dataset_dir") == str(tmp_path / "dataset")
+    training_meta = data_manifest.get("training", {})
+    assert training_meta.get("total_env_steps") == cfg.training.total_env_steps
 
 
 def test_build_metadata_row_matches_config(tmp_path):

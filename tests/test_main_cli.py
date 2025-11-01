@@ -69,9 +69,14 @@ def test_stats_cli_generates_expected_artifacts(tmp_path, monkeypatch, results_f
         out_dir / "summary_table.csv",
         out_dir / "best_per_agent.csv",
         out_dir / "advanced_metrics.csv",
+        out_dir / "psr_dsr_pvalues.csv",
+        out_dir / "hac_confidence_intervals.csv",
         out_dir / "spa_results.csv",
+        out_dir / "spa_pvalues.csv",
         out_dir / "mcs.json",
         out_dir / "paper_results.md",
+        out_dir / "forest_hac_ci.png",
+        out_dir / "heatmap_agent_timeframe.png",
     ]
     for path in expected_files:
         assert path.exists()
