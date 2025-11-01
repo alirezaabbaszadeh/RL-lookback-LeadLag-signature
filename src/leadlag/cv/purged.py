@@ -46,25 +46,37 @@ def walk_forward_purged(
 ) -> Iterator[PurgedSplit]:
     """Yield purged walk-forward train/test splits.
 
-    The splits are constructed by iteratively selecting contiguous test windows of
-    equal length (``total_samples // n_splits``).  An embargo is optionally applied
-    around each window: any training index that lies within ``embargo`` steps
-    immediately before ``test_start`` or immediately after ``test_end`` is removed.
-    The embargo therefore depends on the absolute position of each test slice and
-    never trims unrelated regions of the training set.
+    The splits are constructed by iteratively selecting contiguous test windows
+    whose lengths differ by at most one sample.  Any remainder after dividing the
+    dataset across ``n_splits`` windows is distributed across the earliest folds,
+    ensuring that every index appears in exactly one test window.  An embargo is
+    optionally applied around each window: any training index that lies within
+    ``embargo`` steps immediately before ``test_start`` or immediately after
+    ``test_end`` is removed.  The embargo therefore depends on the absolute
+    position of each test slice and never trims unrelated regions of the training
+    set.
     """
     if n_splits <= 1:
         raise ValueError("n_splits must be greater than 1")
+    if total_samples < n_splits:
+        raise ValueError("total_samples must be greater than or equal to n_splits")
+
     indices = np.arange(total_samples)
-    test_size = total_samples // n_splits
-    embargo = int(np.ceil(test_size * embargo_frac))
+    base_size = total_samples // n_splits
+    remainder = total_samples % n_splits
+
+    test_start = 0
     for split in range(n_splits):
-        test_start = split * test_size
+        test_size = base_size + (1 if split < remainder else 0)
         test_end = test_start + test_size
         test_indices = indices[test_start:test_end]
+
+        embargo = int(np.ceil(test_size * embargo_frac))
         train_indices = np.concatenate([indices[:test_start], indices[test_end:]])
         train_indices = _apply_embargo(train_indices, test_start, test_end, embargo)
+
         yield PurgedSplit(train_indices=train_indices, test_indices=test_indices)
+        test_start = test_end
 
 
 def purged_kfold(total_samples: int, n_splits: int, embargo_frac: float = 0.0) -> Iterator[PurgedSplit]:
