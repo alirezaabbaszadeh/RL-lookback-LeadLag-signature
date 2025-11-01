@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 import hydra
+import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 from leadlag.cv.purged import walk_forward_purged
 from leadlag.env.trading_env import SyntheticTradingEnvironment
+from leadlag.governance import dataset as dataset_mod
 from leadlag.eval import stats as stats_mod
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 from leadlag.utils import select_device, set_all_seeds, write_run_manifest
@@ -101,6 +103,8 @@ def _write_artifacts(
     )
     metrics_writer.write_row(run_dir / "metrics.csv", metrics_row)
 
+    _write_data_manifest(run_dir, cfg)
+
     manifest_payload = {
         "run_id": run_id,
         "seed": seed,
@@ -131,6 +135,33 @@ def _materialize_walk_forward(cfg: DictConfig, total_samples: int) -> List[Dict[
             }
         )
     return splits
+
+
+def _write_data_manifest(run_dir: Path, cfg: DictConfig) -> None:
+    data_cfg = OmegaConf.to_container(cfg.get("data", {}), resolve=True)
+    training_cfg = OmegaConf.to_container(cfg.get("training", {}), resolve=True)
+    split_cfg = OmegaConf.to_container(cfg.get("split", {}), resolve=True)
+
+    extras = {
+        "universe": data_cfg.get("universe"),
+        "timeframe": data_cfg.get("timeframe"),
+        "market": data_cfg.get("market"),
+        "training": {
+            "total_env_steps": training_cfg.get("total_env_steps"),
+            "seeds": training_cfg.get("seeds"),
+            "windows": training_cfg.get("windows"),
+        },
+        "split": split_cfg,
+    }
+
+    extras = {key: value for key, value in extras.items() if value is not None}
+
+    manifest = dataset_mod.build_manifest(pd.DataFrame(), extras=extras)
+    dataset_dir = data_cfg.get("dataset_dir")
+    if dataset_dir:
+        manifest["dataset_dir"] = str(dataset_dir)
+
+    dataset_mod.record_manifest(manifest, run_dir)
 
 
 @hydra.main(version_base="1.3", config_path="../../../conf", config_name="config")

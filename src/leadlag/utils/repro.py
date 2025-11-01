@@ -6,7 +6,9 @@ import json
 import os
 import platform
 import random
+import subprocess
 from dataclasses import dataclass
+from importlib import metadata
 from pathlib import Path
 from typing import Any, Dict
 
@@ -70,11 +72,31 @@ def collect_environment_manifest() -> Dict[str, Any]:
         "python": platform.python_version(),
         "cwd": os.getcwd(),
     }
+    git_commit = _git_commit()
+    if git_commit:
+        manifest["git_commit"] = git_commit
+        manifest["git_dirty"] = _git_is_dirty()
+
     if torch is not None:
         manifest["torch_version"] = torch.__version__
         manifest["cuda_available"] = torch.cuda.is_available()
         if torch.cuda.is_available():
             manifest["cuda_device"] = torch.cuda.get_device_name(0)
+
+    packages = _package_versions(
+        [
+            "numpy",
+            "pandas",
+            "scipy",
+            "torch",
+            "stable-baselines3",
+            "gymnasium",
+            "hydra-core",
+            "statsmodels",
+        ]
+    )
+    if packages:
+        manifest["packages"] = packages
     return manifest
 
 
@@ -86,3 +108,32 @@ def write_run_manifest(path: Path, payload: Dict[str, Any]) -> None:
     payload.setdefault("environment", collect_environment_manifest())
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
+
+
+def _git_commit() -> str | None:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):  # pragma: no cover - git optional
+        return None
+
+
+def _git_is_dirty() -> bool:
+    try:
+        result = subprocess.check_output(
+            ["git", "status", "--porcelain"], stderr=subprocess.DEVNULL, text=True
+        )
+        return bool(result.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):  # pragma: no cover - git optional
+        return False
+
+
+def _package_versions(packages: list[str]) -> Dict[str, str]:
+    versions: Dict[str, str] = {}
+    for name in packages:
+        try:
+            versions[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:  # pragma: no cover - optional deps
+            continue
+    return versions
