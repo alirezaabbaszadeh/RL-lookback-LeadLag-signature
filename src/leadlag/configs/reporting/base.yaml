@@ -1,0 +1,4 @@
+enabled: true
+periods_per_year: ${training.periods_per_year}
+spa_iterations: 500
+seed: 0

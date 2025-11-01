@@ -29,6 +29,7 @@ from leadlag.features.leadlag import compute_lead_lag
 from leadlag.features.signature import compute_signature_features
 from leadlag.governance import dataset as dataset_mod
 from leadlag.eval import stats as stats_mod
+from leadlag.eval.stats_cli import run_workflow as run_stats_workflow
 from leadlag.models.config import LeadLagConfig, SIGNATURE_AVAILABLE
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 from leadlag.utils import select_device, set_all_seeds, write_run_manifest
@@ -536,6 +537,24 @@ def main(cfg: DictConfig) -> None:
     total_samples = int(dataset_length) if dataset_length else int(cfg.training.total_env_steps)
     split_manifest = _materialize_walk_forward(cfg, total_samples=total_samples)
     _persist_split_manifest(split_manifest, cfg.split, paper_root)
+
+    reporting_cfg = cfg.get("reporting")
+    reporting_enabled = True
+    if reporting_cfg is not None and hasattr(reporting_cfg, "enabled"):
+        reporting_enabled = bool(reporting_cfg.enabled)
+    if reporting_enabled:
+        periods = int(
+            getattr(reporting_cfg, "periods_per_year", cfg.training.periods_per_year)
+        )
+        spa_iterations = int(getattr(reporting_cfg, "spa_iterations", 500))
+        spa_seed = int(getattr(reporting_cfg, "seed", cfg.training.seeds[0]))
+        run_stats_workflow(
+            results_root,
+            paper_root,
+            periods=periods,
+            spa_iterations=spa_iterations,
+            seed=spa_seed,
+        )
 
     (paper_root / "manifest.json").write_text(
         json.dumps(

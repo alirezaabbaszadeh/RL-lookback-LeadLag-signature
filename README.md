@@ -16,7 +16,8 @@ artefacts.
 - **Standard outputs** – Canonical `metrics.csv`, equity curves, trade summaries,
   and JSON manifests under `/kaggle/working/results/<run_id>/`.
 - **Paper-grade statistics** – HAC confidence intervals, PSR/DSR, SPA-lite, and a
-  model confidence set CLI.
+  model confidence set CLI automatically exported to `paper_outputs_root` after
+  each run (the CLI remains available for ad-hoc aggregation).
 - **Kaggle-native** – One notebook path with Internet + GPU ON; all artefacts
   stored inside `/kaggle/working`.
 
@@ -112,6 +113,8 @@ python -m leadlag.pipelines.run_full_suite \
    all_metrics.to_csv('/kaggle/working/paper_outputs/all_metrics_raw.csv', index=False)
    all_metrics.head()
    ```
+   _Note: `run_full_suite` already materialises these artefacts; rerun the CLI to
+   customise bootstrap parameters or regenerate plots on demand._
 6. **Paper-grade statistics**
    ```python
    !python -m leadlag.eval.stats_cli \
