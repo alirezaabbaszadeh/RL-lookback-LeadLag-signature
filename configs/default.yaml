@@ -1,7 +1,8 @@
 defaults:
   - scenario: fixed_30
-  - hydra/job_logging: disabled
-  - hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+  - _self_
 
 output_root: results
 
