@@ -126,7 +126,8 @@ p-values, and plots ready for publication.
 ## Standard Outputs
 
 Per-run directory (`/kaggle/working/results/<run_id>/`):
-- `metrics.csv` – canonical schema for aggregation.
+- `metrics.csv` – canonical schema for aggregation (includes `EnvSteps` for
+  auditing equal interaction budgets).
 - `equity.csv` – equity curve per timestamp.
 - `returns.csv` – per-step returns.
 - `run_manifest.json` – seeds, device info, package versions, and resolved config.

@@ -16,8 +16,9 @@ of producing paper-grade artefacts under strict reproducibility constraints.
 - **Paper-grade statistics** – Reporting includes HAC confidence intervals,
   probabilistic/deflated Sharpe ratios, SPA/Reality-Check approximations, and a
   lightweight model confidence set routine.
-- **Standard outputs** – Every run writes a canonical `metrics.csv` schema along
-  with equity curves, trade logs, and a JSON manifest.
+- **Standard outputs** – Every run writes a canonical `metrics.csv` schema (now
+  including an `EnvSteps` column for fairness audits) along with equity curves,
+  trade logs, and a JSON manifest.
 - **Kaggle-native** – Installs resolve from a pinned GitHub commit and all run
   artefacts live under `/kaggle/working`.
 

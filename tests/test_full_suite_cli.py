@@ -48,6 +48,8 @@ def test_simulate_episode_produces_metrics(tmp_path):
     metrics_df = pd.read_csv(metrics_path)
     assert not metrics_df.empty
     assert "Sharpe" in metrics_df.columns
+    assert "EnvSteps" in metrics_df.columns
+    assert metrics_df.loc[0, "EnvSteps"] == simulation["env_steps"]
 
     equity_df = pd.read_csv(equity_path)
     returns_df = pd.read_csv(returns_path)
@@ -57,12 +59,14 @@ def test_simulate_episode_produces_metrics(tmp_path):
 def test_build_metadata_row_matches_config(tmp_path):
     cfg = _compose_config(tmp_path)
     metrics = {"sharpe": 1.0, "sortino": 1.2, "max_drawdown": -0.1, "pnl": 0.05}
+    env_steps = int(cfg.training.total_env_steps)
     row = build_metadata_row(
         "test-run",
         OmegaConf.to_container(cfg, resolve=True),
         metrics,
         seed=0,
         window_idx=0,
+        env_steps=env_steps,
     )
     assert row["experiment_id"] == "test-run"
     assert row["agent"] == cfg.agent.name
