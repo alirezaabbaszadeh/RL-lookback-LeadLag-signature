@@ -9,6 +9,8 @@ artefacts.
 
 - **Single entry point** – `python -m leadlag.pipelines.run_full_suite` orchestrates
   training, evaluation, and reporting from the Kaggle notebook with Hydra overrides.
+  Startup logs include the Hydra config source order so operators can verify which
+  packages and directories populated the final configuration.
 - **GPU aware** – Defaults to CUDA with AMP enabled; automatically falls back to
   CPU when unavailable.
 - **Leakage-safe CV** – Purged/embargoed walk-forward splits, ready for nested
