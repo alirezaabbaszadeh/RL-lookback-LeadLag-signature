@@ -38,7 +38,7 @@ def test_collect_status_reports_runs(tmp_path: Path) -> None:
     success = results_root / "alpha_20240101_000000"
     success.mkdir()
     (success / "run_metadata.json").write_text(
-        json.dumps({"config_path": "configs/scenarios/alpha.yaml"}), encoding="utf-8"
+        json.dumps({"config_path": "leadlag/configs/scenarios/alpha.yaml"}), encoding="utf-8"
     )
     (success / "summary.csv").write_text("metric,mean\n", encoding="utf-8")
 

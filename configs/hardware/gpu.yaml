@@ -1,6 +1,0 @@
-preset_name: gpu
-device: cuda
-mixed_precision: amp
-n_envs: 8
-num_workers: 4
-pin_memory: true

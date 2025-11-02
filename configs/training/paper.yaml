@@ -1,5 +1,0 @@
-preset_name: paper
-total_env_steps: 500000
-seeds: [0, 1, 2, 3, 4, 5, 6]
-windows: 6
-periods_per_year: 252

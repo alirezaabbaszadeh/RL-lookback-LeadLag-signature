@@ -11,7 +11,7 @@ This reference outlines how Hydra drives scenario execution for the LeadLag-sign
 ## Directory Overview
 
 ```text
-configs/
+leadlag/configs/
 ├── config.yaml            # base entry point for leadlag.hydra_main
 └── scenario/              # reusable scenario descriptors (Hydra/YAML mode)
     ├── fixed_30.yaml
@@ -24,13 +24,13 @@ configs/
 
 | Key | Type | Description |
 | --- | --- | --- |
-| `defaults.scenario` | str | Hydra default pointing to a file in `configs/scenario/`. Override with `python -m leadlag.hydra_main scenario=fixed_90`. |
+| `defaults.scenario` | str | Hydra default pointing to a file in `leadlag/configs/scenario/`. Override with `python -m leadlag.hydra_main scenario=fixed_90`. |
 | `output_root` | str | Root directory for run artefacts (defaults to `results/`; override with `output_root=/tmp/run`). |
 | `multi_seed.enabled` | bool | Enables multi-seed aggregation when `true`. Scenario descriptors can override this flag. |
 | `multi_seed.seeds` | list[int] | Default seeds used when multi-seed aggregation is enabled. |
 | `scenarios` | list[str \| dict] | Optional sequence of scenarios to run back-to-back. Entries may be scenario names or inline dicts matching the columns below. |
 
-## Scenario descriptors (`configs/scenario/*.yaml`)
+## Scenario descriptors (`leadlag/configs/scenario/*.yaml`)
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -87,7 +87,7 @@ Use inline dictionaries to run ad-hoc scenarios without creating YAML files:
 
 ```bash
 python -m leadlag.hydra_main \
-  scenarios='[{name: custom, path: configs/scenarios/fixed_30.yaml, runner: scenario}]'
+  scenarios='[{name: custom, path: leadlag/configs/scenarios/fixed_30.yaml, runner: scenario}]'
 ```
 
 Hydra writes merged configs to `<output_root>/<scenario>/config_merged.yaml`, enabling diffs between presets and overrides.

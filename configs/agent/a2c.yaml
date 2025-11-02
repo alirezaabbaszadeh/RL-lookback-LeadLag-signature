@@ -1,6 +1,0 @@
-name: a2c
-library: sb3
-policy: MlpPolicy
-hyperparams:
-  n_steps: 5
-  learning_rate: 0.0007

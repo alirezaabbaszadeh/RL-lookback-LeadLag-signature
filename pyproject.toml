@@ -77,9 +77,6 @@ where = [
 ]
 
 [tool.setuptools.package-data]
-leadlag = [
-    "configs/**/*.yaml",
-]
 "leadlag.configs" = [
     "**/*.yaml",
 ]

@@ -138,7 +138,7 @@ Mount additional data volumes or override the entry command as needed.
 For bulk execution across all descriptors and aggregation tooling, rely on the packaged command:
 
 ```bash
-# Execute every scenario discovered in configs/scenario/
+# Execute every scenario discovered in leadlag/configs/scenario/
 leadlag --results-root results
 
 # Preview scenarios without running them

@@ -58,10 +58,10 @@ def test_hydra_default_config_composes(monkeypatch):
     assert OmegaConf.select(cfg_override, "multi_seed.enabled") is False
 
 
-def test_repo_and_packaged_configs_are_in_sync():
+def test_packaged_configs_are_canonical():
     repo_root = Path(__file__).resolve().parents[1]
     packaged = repo_root / "src" / "leadlag" / "configs"
-    workspace = repo_root / "configs"
+    legacy_root = repo_root / "configs"
 
     tracked_files = [
         "config.yaml",
@@ -70,16 +70,12 @@ def test_repo_and_packaged_configs_are_in_sync():
         "features/signature.yaml",
     ]
 
+    assert not legacy_root.exists(), "legacy configs/ directory should be removed"
+
     for relative in tracked_files:
         packaged_path = packaged / relative
-        workspace_path = workspace / relative
         assert packaged_path.exists(), f"missing packaged config: {relative}"
-        assert workspace_path.exists(), f"missing workspace config: {relative}"
-        assert (
-            packaged_path.read_text(encoding="utf-8")
-            == workspace_path.read_text(encoding="utf-8")
-        ), f"config mismatch for {relative}"
 
     packaged_scenarios = sorted(p.name for p in (packaged / "scenario").glob("*.yaml"))
-    workspace_scenarios = sorted(p.name for p in (workspace / "scenario").glob("*.yaml"))
-    assert packaged_scenarios == workspace_scenarios
+    packaged_scenarios += sorted(p.name for p in (packaged / "scenarios").glob("*.yaml"))
+    assert "rl_ppo.yaml" in packaged_scenarios

@@ -1,7 +1,7 @@
 # Phase 8 - Scenario Discovery and Config Hygiene (Completed 2025-10-19)
 
 ## Discovery
-- `leadlag.hydra_main.get_available_scenarios()` now merges presets from `SCENARIO_PRESETS` and both `configs/scenario/` and `configs/scenarios/` directories. Current output:
+- `leadlag.hydra_main.get_available_scenarios()` now merges presets from `SCENARIO_PRESETS` and the packaged `leadlag/configs/scenario/` and `leadlag/configs/scenarios/` directories. Current output:
   `['abl_lite_gpu', 'abl_random', 'abl_server', 'abl_smoke', 'ccf_fixed', 'dynamic_adaptive', 'fast_smoke', 'fixed_30', 'fixed_90', 'rl_ppo', 'rl_ppo_drawdown', 'rl_ppo_lstm', 'rl_ppo_sharpe']`.
 - `leadlag.hydra_main.validate_scenario_cfg` enforces required keys (`name`, `path`, `runner`) and confirms YAML paths exist before execution.
 

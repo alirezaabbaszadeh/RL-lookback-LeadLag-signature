@@ -7,7 +7,7 @@ Accepted – 2025-10-11
 The project requires a flexible and reproducible way to configure experiments. Prior to this decision each runner (`run_scenario`, `run_dynamic`, `run_rl`) consumed a static YAML file with limited ability to override parameters such as seeds or output directories. Running multiple scenarios or multi-seed sweeps required manual scripting.
 
 ## Decision
-Adopt [Hydra](https://hydra.cc) to manage configuration. The module entry point `leadlag.hydra_main:main` (invoked via `python -m leadlag.hydra_main` or the packaged `leadlag` CLI) loads `configs/config.yaml`, supports scenario defaults, multi-seed runs, and sequential execution of multiple scenarios. Scenario descriptors live under `configs/scenario/` and can be referenced by name or overridden inline.
+Adopt [Hydra](https://hydra.cc) to manage configuration. The module entry point `leadlag.hydra_main:main` (invoked via `python -m leadlag.hydra_main` or the packaged `leadlag` CLI) loads `leadlag/configs/config.yaml`, supports scenario defaults, multi-seed runs, and sequential execution of multiple scenarios. Scenario descriptors live under `leadlag/configs/scenario/` and can be referenced by name or overridden inline.
 
 ## Consequences
 - Pros: Dynamic CLI overrides, scenario composition, simple multi-seed orchestration, and systematic logging of outputs.

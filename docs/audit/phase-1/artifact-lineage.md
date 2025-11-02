@@ -3,7 +3,7 @@
 Source data → Per‑run outputs → Multi‑seed aggregates → Reporting
 
 1) Per‑run (training/run_scenario.py)
-- Inputs: configs/scenarios/*.yaml, raw_data/daily_price.csv (or synthetic fallback)
+- Inputs: leadlag/configs/scenarios/*.yaml, raw_data/daily_price.csv (or synthetic fallback)
 - Outputs per run directory (results/<run_name>_<ts>/):
   - config_merged.yaml
   - run_metadata.json (includes data_price_hash, git commit/branch if available, env info)

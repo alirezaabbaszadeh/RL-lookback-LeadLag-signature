@@ -1,3 +1,0 @@
-name: rl_ppo
-path: configs/scenarios/rl_ppo.yaml
-runner: rl

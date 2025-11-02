@@ -1,6 +1,6 @@
 {
   "generated_at": "2025-10-16T16:10:20.713447Z",
-  "config_path": "configs/features/signature.yaml",
+  "config_path": "leadlag/configs/features/signature.yaml",
   "status": "signature_library_unavailable",
   "selected_feature_count": 0,
   "selected_features": {},

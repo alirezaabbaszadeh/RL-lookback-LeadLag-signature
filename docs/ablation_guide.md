@@ -29,7 +29,7 @@ leadlag --scenarios abl_smoke abl_lite_gpu abl_server --results-root results/abl
 Notes:
 - `abl_smoke` ignores multi-seed to remain fast.
 - `abl_server` enables multi-seed by default (seeds 101, 202, 303).
-- All three scenarios live under `configs/scenario/` and inherit the same aggregation pipeline as baseline runs.
+- All three scenarios live under `leadlag/configs/scenario/` and inherit the same aggregation pipeline as baseline runs.
 
 ## Hydra overrides
 
@@ -42,11 +42,11 @@ python -m leadlag.hydra_main \
   output_root=results/ablations_multiseed
 ```
 
-To experiment with alternative RL hyperparameters, clone the YAML under `configs/scenarios/`, adjust values (for example `rl.total_timesteps`), and reference the new file through an inline descriptor:
+To experiment with alternative RL hyperparameters, clone the YAML under `leadlag/configs/scenarios/`, adjust values (for example `rl.total_timesteps`), and reference the new file through an inline descriptor:
 
 ```bash
 python -m leadlag.hydra_main \
-  scenarios='[{name: abl_lite_gpu_custom, path: configs/scenarios/abl_lite_gpu_custom.yaml, runner: rl}]' \
+  scenarios='[{name: abl_lite_gpu_custom, path: leadlag/configs/scenarios/abl_lite_gpu_custom.yaml, runner: rl}]' \
   output_root=results/ablations_custom
 ```
 

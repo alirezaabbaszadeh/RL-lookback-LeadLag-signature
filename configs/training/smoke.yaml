@@ -1,5 +1,0 @@
-preset_name: smoke
-total_env_steps: 100000
-seeds: [0, 1]
-windows: 2
-periods_per_year: 252
