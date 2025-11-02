@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -17,6 +17,15 @@ import numpy as np
 
 from . import stats
 
+CANDIDATE_RETURN_COLUMNS = [
+    "portfolio_return",
+    "strategy_return",
+    "reward",
+    "reward_step_mean",
+    "pnl",
+]
+FALLBACK_COLUMN = "mean_abs_matrix"
+
 
 def _table_to_text(df: pd.DataFrame) -> str:
     try:
@@ -25,14 +34,52 @@ def _table_to_text(df: pd.DataFrame) -> str:
         return df.to_csv(index=False)
 
 
+def _derive_returns_from_metrics(df: pd.DataFrame) -> Optional[pd.Series]:
+    for column in CANDIDATE_RETURN_COLUMNS:
+        if column in df.columns:
+            series = pd.to_numeric(df[column], errors="coerce").dropna()
+            if len(series) > 2:
+                return series.astype(float)
+    if FALLBACK_COLUMN in df.columns:
+        base = pd.to_numeric(df[FALLBACK_COLUMN], errors="coerce").dropna()
+        if len(base) > 5:
+            pct = base.pct_change().dropna()
+            if len(pct) > 2:
+                return pct.astype(float)
+    return None
+
+
 def _load_returns(run_dir: Path) -> pd.Series | None:
     returns_path = run_dir / "returns.csv"
-    if not returns_path.exists():
-        return None
-    df = pd.read_csv(returns_path)
-    if "returns" not in df.columns:
-        raise ValueError(f"returns.csv in {run_dir} is missing the 'returns' column")
-    return pd.Series(df["returns"], dtype=float)
+    if returns_path.exists():
+        df = pd.read_csv(returns_path)
+        if "returns" not in df.columns:
+            raise ValueError(f"returns.csv in {run_dir} is missing the 'returns' column")
+        series = pd.Series(df["returns"], dtype=float).dropna()
+        return series if not series.empty else None
+
+    metrics_timeseries = run_dir / "metrics_timeseries.csv"
+    if metrics_timeseries.exists():
+        df = pd.read_csv(metrics_timeseries)
+        if "date" in df.columns:
+            try:
+                df = df.sort_values("date")
+            except Exception:
+                pass
+        series = _derive_returns_from_metrics(df)
+        if series is not None:
+            return series
+
+    equity_path = run_dir / "equity.csv"
+    if equity_path.exists():
+        df = pd.read_csv(equity_path)
+        if "equity" in df.columns:
+            equity = pd.Series(df["equity"], dtype=float).dropna()
+            if len(equity) > 1:
+                returns = equity.pct_change().dropna()
+                if not returns.empty:
+                    return returns
+    return None
 
 
 def _load_metrics(run_dir: Path) -> pd.DataFrame | None:
@@ -43,13 +90,13 @@ def _load_metrics(run_dir: Path) -> pd.DataFrame | None:
 
 
 def _plot_hac_forest(df: pd.DataFrame, out_path: Path) -> None:
-    filtered = df.dropna(subset=["hac_lower", "hac_upper"]).copy()
+    filtered = df.dropna(subset=["hac_sharpe_lower", "hac_sharpe_upper"]).copy()
     if filtered.empty:
         return
     filtered.sort_values("run_id", inplace=True)
-    centers = (filtered["hac_lower"].to_numpy() + filtered["hac_upper"].to_numpy()) / 2
-    lower_errors = centers - filtered["hac_lower"].to_numpy()
-    upper_errors = filtered["hac_upper"].to_numpy() - centers
+    centers = (filtered["hac_sharpe_lower"].to_numpy() + filtered["hac_sharpe_upper"].to_numpy()) / 2
+    lower_errors = centers - filtered["hac_sharpe_lower"].to_numpy()
+    upper_errors = filtered["hac_sharpe_upper"].to_numpy() - centers
     errors = np.vstack([lower_errors, upper_errors])
 
     fig, ax = plt.subplots(figsize=(10, max(3, 0.5 * len(filtered) + 1)))
@@ -65,7 +112,7 @@ def _plot_hac_forest(df: pd.DataFrame, out_path: Path) -> None:
         color="#1f77b4",
     )
     ax.axvline(0.0, color="#aaaaaa", linestyle="--", linewidth=1)
-    ax.set_xlabel("Annualised Mean Return (HAC CI)")
+    ax.set_xlabel("Annualised Sharpe (HAC CI)")
     ax.set_yticks(positions)
     ax.set_yticklabels(filtered["run_id"].tolist())
     ax.set_title("HAC Confidence Intervals per Run")
@@ -109,6 +156,7 @@ def run_workflow(
     *,
     periods: int = 252,
     spa_iterations: int = 500,
+    block_length: int | None = None,
     seed: int = 0,
 ) -> Dict[str, Path]:
     """Aggregate per-run metrics and export paper-ready artefacts."""
@@ -159,21 +207,28 @@ def run_workflow(
         best = pd.DataFrame()
 
     advanced_records = []
+    returns_cache: Dict[str, pd.Series] = {}
     for run_id, returns in returns_map.items():
+        returns_cache[run_id] = returns
         psr = stats.probabilistic_sharpe_ratio(returns, periods_per_year=periods)
         dsr = stats.deflated_sharpe_ratio(
             returns,
             periods_per_year=periods,
             num_trials=max(1, len(returns_map)),
         )
-        hac_low, hac_high = stats.hac_confidence_interval(returns, periods_per_year=periods)
+        hac_low, hac_high = stats.hac_sharpe_confidence_interval(returns, periods_per_year=periods)
+        sharpe = stats.annualized_sharpe(returns, periods_per_year=periods)
+        sortino = stats.sortino_ratio(returns, periods_per_year=periods)
         advanced_records.append(
             {
                 "run_id": run_id,
+                "n_obs": len(returns),
+                "sharpe": sharpe,
+                "sortino": sortino,
                 "psr": psr,
                 "dsr": dsr,
-                "hac_lower": hac_low,
-                "hac_upper": hac_high,
+                "hac_sharpe_lower": hac_low,
+                "hac_sharpe_upper": hac_high,
             }
         )
     advanced_df = pd.DataFrame.from_records(advanced_records)
@@ -185,8 +240,8 @@ def run_workflow(
         advanced_df[["run_id", "psr", "dsr"]].to_csv(psr_path, index=False)
         artifact_paths["psr_dsr"] = psr_path
 
-        hac_path = out_dir / "hac_confidence_intervals.csv"
-        advanced_df[["run_id", "hac_lower", "hac_upper"]].to_csv(
+        hac_path = out_dir / "hac_sharpe_confidence_intervals.csv"
+        advanced_df[["run_id", "hac_sharpe_lower", "hac_sharpe_upper"]].to_csv(
             hac_path, index=False
         )
         artifact_paths["hac_confidence_intervals"] = hac_path
@@ -196,9 +251,10 @@ def run_workflow(
         artifact_paths["forest_plot"] = forest_path
 
     spa_df = stats.spa_reality_check(
-        returns_map,
+        returns_cache,
         periods_per_year=periods,
         iterations=spa_iterations,
+        block_length=block_length,
         seed=seed,
     )
     spa_path = out_dir / "spa_results.csv"
@@ -206,10 +262,16 @@ def run_workflow(
     artifact_paths["spa_results"] = spa_path
     if not spa_df.empty:
         spa_pvalues_path = out_dir / "spa_pvalues.csv"
-        spa_df.to_csv(spa_pvalues_path, index=False)
+        spa_df[["run_id", "spa_pvalue", "spa_sup_pvalue"]].to_csv(spa_pvalues_path, index=False)
         artifact_paths["spa_pvalues"] = spa_pvalues_path
 
-    mcs_members = stats.model_confidence_set(returns_map, periods_per_year=periods)
+    mcs_members = stats.model_confidence_set(
+        returns_cache,
+        periods_per_year=periods,
+        iterations=spa_iterations,
+        block_length=block_length,
+        seed=seed,
+    )
     mcs_path = out_dir / "mcs.json"
     with mcs_path.open("w", encoding="utf-8") as handle:
         json.dump({"members": mcs_members}, handle, indent=2)
@@ -247,6 +309,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True, help="Directory to store aggregated artifacts")
     parser.add_argument("--periods", type=int, default=252, help="Trading periods per year")
     parser.add_argument("--spa-iterations", type=int, default=500, help="Bootstrap iterations for SPA")
+    parser.add_argument("--block-length", type=int, default=None, help="Block length for stationary bootstrap")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap routines")
     args = parser.parse_args()
 
@@ -255,6 +318,7 @@ def main() -> None:
         args.out,
         periods=args.periods,
         spa_iterations=args.spa_iterations,
+        block_length=args.block_length,
         seed=args.seed,
     )
 

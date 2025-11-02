@@ -119,12 +119,15 @@ python -m leadlag.pipelines.run_full_suite \
    ```python
    !python -m leadlag.eval.stats_cli \
        --results /kaggle/working/results \
-       --out /kaggle/working/paper_outputs
+       --out /kaggle/working/paper_outputs \
+       --spa-iterations 500 \
+       --block-length 5
    ```
 
 All notebook cells write outputs beneath `/kaggle/working/`. The consolidated
-`paper_outputs` folder contains summary tables, confidence intervals, SPA/MCS
-p-values, and plots ready for publication.
+`paper_outputs` folder contains summary tables, HAC Sharpe confidence intervals,
+PSR/DSR and SPA p-values (including the global supremum statistic), MCS
+membership, and plots ready for publication.
 
 ## Standard Outputs
 
@@ -137,7 +140,9 @@ Per-run directory (`/kaggle/working/results/<run_id>/`):
 
 Aggregate directory (`/kaggle/working/paper_outputs/`):
 - `all_metrics_raw.csv` – concatenated metrics for every run.
-- `*_pvalues.csv`, `*_ci.csv`, forest/heatmap PNGs, and `paper_results.md`.
+- `psr_dsr_pvalues.csv`, `hac_sharpe_confidence_intervals.csv`, SPA result tables
+  (per-strategy and supremum p-values), forest/heatmap PNGs, and
+  `paper_results.md`.
 
 ## Testing
 

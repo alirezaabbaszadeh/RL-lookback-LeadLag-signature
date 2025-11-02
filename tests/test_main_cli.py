@@ -73,7 +73,7 @@ def test_stats_cli_generates_expected_artifacts(tmp_path, monkeypatch, results_f
         out_dir / "best_per_agent.csv",
         out_dir / "advanced_metrics.csv",
         out_dir / "psr_dsr_pvalues.csv",
-        out_dir / "hac_confidence_intervals.csv",
+        out_dir / "hac_sharpe_confidence_intervals.csv",
         out_dir / "spa_results.csv",
         out_dir / "spa_pvalues.csv",
         out_dir / "mcs.json",
@@ -88,6 +88,14 @@ def test_stats_cli_generates_expected_artifacts(tmp_path, monkeypatch, results_f
         payload = json.load(handle)
     assert "members" in payload
 
+    advanced = pd.read_csv(out_dir / "advanced_metrics.csv")
+    assert {"run_id", "sharpe", "psr", "dsr", "hac_sharpe_lower", "hac_sharpe_upper", "n_obs"}.issubset(
+        set(advanced.columns)
+    )
+
+    spa = pd.read_csv(out_dir / "spa_results.csv")
+    assert {"run_id", "spa_pvalue", "spa_sup_pvalue"}.issubset(set(spa.columns))
+
 
 def test_stats_workflow_function_interface(tmp_path, results_fixture):
     results_root, _ = results_fixture
@@ -98,6 +106,7 @@ def test_stats_workflow_function_interface(tmp_path, results_fixture):
         out_dir,
         periods=252,
         spa_iterations=20,
+        block_length=None,
         seed=123,
     )
 
