@@ -19,6 +19,32 @@ conda activate leadlag
 - Optional extras can be installed via `pip install .[rl]`, `pip install .[signature]`, or `pip install .[mlflow]` after activating the environment.
 - `requirements.txt`, `requirements-rl.txt`, and `requirements-kaggle.txt` remain available for fully pinned offline installs.
 
+## Wheel packaging and CLI smoke check
+
+Run this sequence from a clean checkout to confirm that the wheel bundles all
+configs and that the console scripts resolve correctly. The verification mirrors
+what Kaggle notebooks do when they install the project from a wheel cache.
+
+```bash
+python -m pip install build  # one-time dependency
+python -m build              # produces dist/leadlag_signature_rl-<ver>.whl
+
+python -m venv .venv_packaging
+source .venv_packaging/bin/activate
+pip install dist/leadlag_signature_rl-*.whl
+
+# CLI entry points should now resolve without touching the source tree
+leadlag --help
+leadlag-full-suite --help
+
+deactivate
+rm -rf .venv_packaging
+```
+
+If any of the help commands fail, inspect `pyproject.toml` packaging metadata
+and ensure new modules/config files live under `src/leadlag/` so they are picked
+up by the wheel builder.
+
 ## Quick runs with the packaged CLI
 
 Single scenario (uses the descriptor defaults for seeds and outputs artefacts under `results/` by default):
