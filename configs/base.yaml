@@ -2,6 +2,8 @@ run:
   output_root: results
   run_name: auto
   seed: 42
+  training_preset: analysis-base
+  hardware_preset: cpu
 
 data:
   price_csv: raw_data/daily_price.csv

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +18,12 @@ except Exception:  # pragma: no cover - yaml is optional
 from leadlag.governance.dataset import build_manifest, record_manifest, run_quality_checks
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 from leadlag.reporting.profiling import profile_to
+from leadlag.utils import (
+    collect_determinism_settings,
+    collect_environment_manifest,
+    set_all_seeds,
+    update_run_manifest,
+)
 from leadlag.utils.resources import resolve_path
 
 
@@ -37,62 +42,16 @@ class RunPreparation:
     seed: int
     run_name: str
     resolved_price_path: Optional[Path]
+    run_manifest_path: Path
+    requested_env_steps: Optional[int]
 
 
-def _set_seed(seed: int) -> None:
-    """Seed Python, NumPy, and the default random generator."""
-
-    random.seed(seed)
-    np.random.seed(seed)
-
-
-def _detect_git() -> Dict[str, Any]:
-    import subprocess
-
-    meta: Dict[str, Any] = {}
-    try:
-        meta["git_commit"] = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL)
-            .decode()
-            .strip()
-        )
-        meta["git_branch"] = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
-            )
-            .decode()
-            .strip()
-        )
-        status = subprocess.check_output(
-            ["git", "status", "--porcelain"], stderr=subprocess.DEVNULL
-        ).decode()
-        meta["git_dirty"] = len(status.strip()) > 0
-    except Exception:  # pragma: no cover - best effort metadata capture
-        meta["git_commit"] = None
-        meta["git_branch"] = None
-        meta["git_dirty"] = None
-    return meta
-
-
-def _env_info() -> Dict[str, Any]:
-    import platform
-    import sys
-
-    info = {
-        "python_version": sys.version,
-        "platform": platform.platform(),
-    }
-
-    def version_for(pkg: str) -> Optional[str]:
-        try:
-            module = __import__(pkg)
-            return getattr(module, "__version__", "unknown")
-        except Exception:  # pragma: no cover - optional dependencies
-            return None
-
-    for pkg in ["numpy", "pandas", "scipy", "sklearn", "tqdm", "iisignature", "dcor"]:
-        info[f"{pkg}_version"] = version_for(pkg)
-    return info
+def _resolve_preset_name(section: Mapping[str, Any] | None, fallback: Optional[str] = None) -> Optional[str]:
+    if isinstance(section, Mapping):
+        candidate = section.get("preset_name") or section.get("preset")
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return fallback
 
 
 def read_prices(cfg: Dict[str, Any]) -> Tuple[pd.DataFrame, Optional[Path]]:
@@ -158,18 +117,23 @@ def prepare_run_environment(
     extra_logging_context: Optional[Mapping[str, Any]] = None,
     extra_metadata: Optional[Mapping[str, Any]] = None,
     profile_label: Optional[str] = None,
+    requested_env_steps: Optional[int] = None,
 ) -> RunPreparation:
     """Prepare the common execution environment for training scripts."""
 
     run_section = cfg.get("run", {})
     seed = int(run_section.get("seed", 42))
-    _set_seed(seed)
+    set_all_seeds(seed)
+    determinism = collect_determinism_settings(seed)
 
     ts = time.strftime("%Y%m%d_%H%M%S")
     resolved_run_name = run_name or run_section.get("run_name", module)
     output_root = Path(out_root or run_section.get("output_root", "results"))
     out_dir = output_root / f"{resolved_run_name}_{ts}"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    training_preset = _resolve_preset_name(cfg.get("training"), run_section.get("training_preset"))
+    hardware_preset = _resolve_preset_name(cfg.get("hardware"), run_section.get("hardware_preset"))
 
     logging_context: Dict[str, Any] = {
         "module": module,
@@ -212,18 +176,60 @@ def prepare_run_environment(
     )
     manifest_path = record_manifest(manifest, out_dir)
 
+    run_manifest_path = out_dir / "run_manifest.json"
+    base_manifest: Dict[str, Any] = {
+        "run": {
+            "module": module,
+            "name": resolved_run_name,
+            "seed": seed,
+            "timestamp": ts,
+            "output_dir": str(out_dir),
+        },
+        "presets": {
+            "training": training_preset,
+            "hardware": hardware_preset,
+        },
+        "determinism": determinism,
+    }
+    if requested_env_steps is not None:
+        base_manifest["requested_env_steps"] = int(requested_env_steps)
+
+    update_run_manifest(run_manifest_path, base_manifest)
+
+    environment_manifest = collect_environment_manifest()
     metadata: Dict[str, Any] = {
         "config_path": str(cfg_path.resolve()),
         "created_at": ts,
-        "git": _detect_git(),
-        "env": _env_info(),
+        "environment": environment_manifest,
+        "determinism": determinism,
         "data_source_config": cfg.get("data", {}).get("price_csv", ""),
         "data_manifest": str(manifest_path),
+        "run_manifest": str(run_manifest_path),
+        "hardware_preset": hardware_preset,
+        "training_preset": training_preset,
     }
+    git_commit = environment_manifest.get("git_commit")
+    if git_commit:
+        metadata["git"] = {
+            "commit": git_commit,
+            "dirty": environment_manifest.get("git_dirty"),
+            "branch": environment_manifest.get("git_branch"),
+        }
     if extra_metadata:
         metadata.update(dict(extra_metadata))
 
     (out_dir / "run_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+    update_run_manifest(
+        run_manifest_path,
+        {
+            "data_manifest": str(manifest_path),
+            "config": {
+                "source": str(cfg_path.resolve()),
+                "merged": str(config_path),
+            },
+        },
+    )
 
     return RunPreparation(
         out_dir=out_dir,
@@ -234,4 +240,6 @@ def prepare_run_environment(
         seed=seed,
         run_name=resolved_run_name,
         resolved_price_path=resolved_price_path,
+        run_manifest_path=run_manifest_path,
+        requested_env_steps=requested_env_steps,
     )

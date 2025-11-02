@@ -1,3 +1,4 @@
+preset_name: gpu
 device: cuda
 mixed_precision: amp
 n_envs: 8

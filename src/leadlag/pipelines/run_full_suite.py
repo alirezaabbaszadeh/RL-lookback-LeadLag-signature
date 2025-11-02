@@ -32,7 +32,12 @@ from leadlag.eval import stats as stats_mod
 from leadlag.eval.stats_cli import run_workflow as run_stats_workflow
 from leadlag.models.config import LeadLagConfig, SIGNATURE_AVAILABLE
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
-from leadlag.utils import select_device, set_all_seeds, write_run_manifest
+from leadlag.utils import (
+    collect_determinism_settings,
+    select_device,
+    set_all_seeds,
+    write_run_manifest,
+)
 
 
 
@@ -393,6 +398,11 @@ def _write_artifacts(
             for key, value in feature_stack.items()
         },
     }
+    manifest_payload["presets"] = {
+        "training": OmegaConf.select(cfg, "training.preset_name"),
+        "hardware": OmegaConf.select(cfg, "hardware.preset_name"),
+    }
+    manifest_payload["determinism"] = collect_determinism_settings(int(seed))
     write_run_manifest(run_dir / "run_manifest.json", manifest_payload)
 
 

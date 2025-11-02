@@ -53,8 +53,9 @@ def test_simulate_episode_produces_metrics(tmp_path):
     run_dir = run_full_suite._prepare_directories(Path(cfg.results_root), "test-s00-w00")
     metrics_writer = MetricsWriter(OmegaConf.to_container(cfg, resolve=True))
 
-    simulation = run_full_suite._simulate_episode(cfg, seed=0, window_idx=0)
-    run_full_suite._write_artifacts(run_dir, cfg, 0, 0, simulation, metrics_writer)
+    seed = 0
+    simulation = run_full_suite._simulate_episode(cfg, seed=seed, window_idx=0)
+    run_full_suite._write_artifacts(run_dir, cfg, seed, 0, simulation, metrics_writer)
 
     metrics_path = run_dir / "metrics.csv"
     equity_path = run_dir / "equity.csv"
@@ -83,6 +84,11 @@ def test_simulate_episode_produces_metrics(tmp_path):
     assert environment.get("python")
     assert "git_commit" in environment
     assert isinstance(environment.get("packages", {}), dict)
+    presets = manifest_payload.get("presets", {})
+    assert "training" in presets
+    assert "hardware" in presets
+    determinism = manifest_payload.get("determinism", {})
+    assert determinism.get("seed") == seed
     assert manifest_payload.get("agent")
     feature_meta = manifest_payload.get("feature_stack", {})
     assert "returns" in feature_meta

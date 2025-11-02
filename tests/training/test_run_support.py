@@ -57,6 +57,8 @@ def test_prepare_run_environment_creates_expected_artifacts(tmp_path):
     metadata = json.loads((prep.out_dir / "run_metadata.json").read_text(encoding="utf-8"))
     assert metadata["extra_field"] == "value"
     assert metadata["data_manifest"] == str(prep.manifest_path)
+    assert metadata["run_manifest"] == str(prep.run_manifest_path)
+    assert "environment" in metadata
 
     # Seeded RNG should be deterministic
     assert prep.seed == 123
@@ -64,6 +66,11 @@ def test_prepare_run_environment_creates_expected_artifacts(tmp_path):
     assert prep.timestamp
     assert prep.logger is not None
     assert prep.out_dir.name.startswith("unit_")
+
+    run_manifest = json.loads((prep.run_manifest_path).read_text(encoding="utf-8"))
+    assert run_manifest["run"]["seed"] == 123
+    assert run_manifest["determinism"]["seed"] == 123
+    assert "environment" in run_manifest
 
     # The NumPy RNG seeded by the helper should yield a deterministic value
     assert np.random.randint(0, 1000) == 510
