@@ -31,6 +31,8 @@ If you need optional integrations (Stable-Baselines3, MLflow, PyTorch), install 
 Before submitting a pull request:
 
 ```bash
+pre-commit install
+pre-commit run -a
 python scripts/audit/dataset_quality.py --path raw_data/daily_price.csv  # adjust path if using custom data
 python scripts/smoke_kaggle.py --output-root dist/kaggle_smoke            # add --keep-meta-rl/--keep-offline if relevant
 pytest -q
