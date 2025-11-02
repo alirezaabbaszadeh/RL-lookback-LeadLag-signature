@@ -3,7 +3,9 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("hydra")
-from hydra import compose, initialize
+from importlib import resources
+
+from hydra import compose, initialize, initialize_config_module
 from omegaconf import OmegaConf
 
 from leadlag.hydra_main import (
@@ -79,3 +81,23 @@ def test_packaged_configs_are_canonical():
     packaged_scenarios = sorted(p.name for p in (packaged / "scenario").glob("*.yaml"))
     packaged_scenarios += sorted(p.name for p in (packaged / "scenarios").glob("*.yaml"))
     assert "rl_ppo.yaml" in packaged_scenarios
+
+
+def test_packaged_configs_resolve_via_module_api():
+    cfg_root = resources.files("leadlag").joinpath("configs")
+    assert cfg_root.joinpath("config.yaml").is_file()
+
+    with initialize_config_module(version_base=None, config_module="leadlag.configs"):
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                "agent=ppo",
+                "training=smoke",
+                "hardware=gpu",
+                "data=sp500_sector",
+                "split=walk_forward_purged",
+            ],
+        )
+
+    assert OmegaConf.select(cfg, "agent.policy") == "MlpPolicy"
+    assert OmegaConf.select(cfg, "training.total_env_steps") > 0
