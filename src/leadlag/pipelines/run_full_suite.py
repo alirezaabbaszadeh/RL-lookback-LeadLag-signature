@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -38,6 +39,82 @@ from leadlag.utils import (
     set_all_seeds,
     write_run_manifest,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+def _collect_config_sources(cfg: DictConfig) -> List[str]:
+    sources: List[str] = []
+
+    metadata = getattr(cfg, "_metadata", None)
+    meta_sources = getattr(metadata, "sources", None) if metadata else None
+    if meta_sources:
+        for source in meta_sources:
+            path = getattr(source, "path", None)
+            provider = getattr(source, "provider", None)
+            if path and provider:
+                sources.append(f"{provider}:{path}")
+            elif path:
+                sources.append(str(path))
+            elif provider:
+                sources.append(str(provider))
+            else:
+                sources.append(str(source))
+
+    if not sources:
+        runtime_sources = OmegaConf.select(cfg, "hydra.runtime.config_sources")
+        if runtime_sources is None:
+            try:
+                from hydra.core.hydra_config import HydraConfig
+
+                if HydraConfig.initialized():
+                    runtime_sources = OmegaConf.select(
+                        HydraConfig.get().cfg, "hydra.runtime.config_sources"
+                    )
+            except Exception:  # pragma: no cover - defensive fallback
+                runtime_sources = None
+
+        if runtime_sources:
+            for entry in runtime_sources:
+                if isinstance(entry, dict):
+                    path = entry.get("path")
+                    provider = entry.get("provider")
+                    if path and provider:
+                        sources.append(f"{provider}:{path}")
+                    elif path:
+                        sources.append(str(path))
+                    elif provider:
+                        sources.append(str(provider))
+                    else:
+                        sources.append(str(entry))
+                else:
+                    sources.append(str(entry))
+
+    if not sources:
+        try:
+            from hydra.utils import get_original_cwd
+
+            original_cwd = get_original_cwd()
+        except Exception:  # pragma: no cover - Hydra not initialised
+            original_cwd = None
+
+        if original_cwd:
+            sources.append(original_cwd)
+
+    return sources
+
+
+def _log_config_sources(cfg: DictConfig) -> List[str]:
+    sources = _collect_config_sources(cfg)
+    if sources:
+        logger.info(
+            "Hydra config sources (load order): %s",
+            " -> ".join(sources),
+        )
+    else:
+        logger.info("Hydra config sources (load order): <unavailable>")
+    return sources
 
 
 
@@ -523,6 +600,8 @@ def _write_data_manifest(
 
 @hydra.main(version_base=None, config_path="../configs", config_name="config")
 def main(cfg: DictConfig) -> None:
+    _log_config_sources(cfg)
+
     device_info = select_device(dict(cfg.hardware))
     set_all_seeds(int(cfg.training.seeds[0]))
 

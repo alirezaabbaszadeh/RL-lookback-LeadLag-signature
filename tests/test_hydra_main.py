@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -13,6 +14,7 @@ from leadlag.hydra_main import (
     get_available_scenarios,
     validate_scenario_cfg,
 )
+from leadlag.pipelines import run_full_suite
 
 pytestmark = pytest.mark.e2e
 
@@ -101,3 +103,22 @@ def test_packaged_configs_resolve_via_module_api():
 
     assert OmegaConf.select(cfg, "agent.policy") == "MlpPolicy"
     assert OmegaConf.select(cfg, "training.total_env_steps") > 0
+
+
+def test_run_full_suite_logs_config_sources(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.chdir(repo_root)
+
+    mock_logger = Mock()
+    monkeypatch.setattr(run_full_suite, "logger", mock_logger)
+
+    with initialize(version_base=None, config_path="../src/leadlag/configs"):
+        cfg = compose(config_name="config", return_hydra_config=True)
+
+    sources = run_full_suite._log_config_sources(cfg)
+    assert sources, "expected at least one config source"
+
+    assert mock_logger.info.call_count == 1
+    message, summary = mock_logger.info.call_args[0]
+    assert "Hydra config sources" in message
+    assert "leadlag/configs" in summary
