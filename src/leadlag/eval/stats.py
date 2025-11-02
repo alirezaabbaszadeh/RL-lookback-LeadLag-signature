@@ -165,6 +165,25 @@ def hac_sharpe_confidence_interval(
     return lower, upper
 
 
+def hac_confidence_interval(
+    returns: Iterable[float],
+    *,
+    alpha: float = 0.05,
+    periods_per_year: int = 252,
+    risk_free_rate: float = 0.0,
+    max_lag: int | None = None,
+) -> tuple[float, float]:
+    """Backward compatible alias for :func:`hac_sharpe_confidence_interval`."""
+
+    return hac_sharpe_confidence_interval(
+        returns,
+        alpha=alpha,
+        periods_per_year=periods_per_year,
+        risk_free_rate=risk_free_rate,
+        max_lag=max_lag,
+    )
+
+
 def probabilistic_sharpe_ratio(
     returns: Iterable[float],
     *,

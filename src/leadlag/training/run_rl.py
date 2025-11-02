@@ -32,6 +32,7 @@ from leadlag.training.run_scenario import _config_to_leadlag
 from leadlag.training.scenario_config import _merge_extends
 from leadlag.training.run_support import prepare_run_environment
 from leadlag.utils.config import deep_update
+from leadlag.utils import update_run_manifest
 
 
 def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
@@ -81,6 +82,8 @@ def run_rl(
         raise ImportError("stable-baselines3 is required for RL policies other than 'random'.")
     run_name = cfg["run"].get("run_name", "rl_ppo")
     out_root = out_root or cfg["run"].get("output_root", "results")
+    requested_env_steps = int(rl_cfg.get("total_timesteps", 0)) if rl_cfg.get("total_timesteps") else None
+
     preparation = prepare_run_environment(
         cfg,
         cfg_path=cfg_path,
@@ -90,12 +93,28 @@ def run_rl(
         run_name=run_name,
         extra_logging_context={"scenario": cfg_path.stem},
         extra_metadata={"scenario": cfg_path.stem, "use_random_policy": use_random_policy},
+        requested_env_steps=requested_env_steps,
     )
     out_dir = preparation.out_dir
     logger = preparation.logger
     logger.info("Starting RL run", context={"use_random_policy": use_random_policy})
     logger.info("Dataset manifest captured", context={"manifest": str(preparation.manifest_path)})
     set_random_seed(preparation.seed)
+
+    rl_manifest = {
+        "use_random_policy": use_random_policy,
+        "episode_length": rl_cfg.get("episode_length"),
+        "random_start": rl_cfg.get("random_start", True),
+        "ema_alpha": rl_cfg.get("ema_alpha"),
+    }
+    if requested_env_steps is not None:
+        rl_manifest["requested_timesteps"] = requested_env_steps
+    update_run_manifest(
+        preparation.run_manifest_path,
+        {
+            "rl": rl_manifest,
+        },
+    )
 
     prices = preparation.prices
     env = _instantiate_env(prices, cfg)
@@ -159,6 +178,22 @@ def run_rl(
         )
         model = algo_spec.algo_cls(algo_spec.policy, env, **algo_kwargs)
 
+        update_run_manifest(
+            preparation.run_manifest_path,
+            {
+                "rl": {
+                    "algo": algo_spec.algo_cls.__name__,
+                    "policy": str(algo_spec.policy),
+                    "n_steps": algo_kwargs["n_steps"],
+                    "batch_size": algo_kwargs["batch_size"],
+                    "learning_rate": algo_kwargs["learning_rate"],
+                    "gamma": algo_kwargs["gamma"],
+                    "ent_coef": algo_kwargs["ent_coef"],
+                    "eval_freq": int(rl_cfg.get("eval_freq", 0)),
+                },
+            },
+        )
+
         # optional evaluation callback (self-play, so reuse env)
         eval_freq = int(rl_cfg.get("eval_freq", 0))
         callbacks = []
@@ -212,6 +247,22 @@ def run_rl(
             "steps": step_count,
             "summary": str(out_dir / "summary.csv"),
             "model_path": str(model_path) if model_path.exists() else "random_policy",
+        },
+    )
+
+    update_run_manifest(
+        preparation.run_manifest_path,
+        {
+            "actual_env_steps": int(step_count),
+            "rl": {
+                "evaluated_policy": "deterministic",
+                "vectorised_envs": int(rl_cfg.get("n_envs", 1)),
+            },
+            "artifacts": {
+                "metrics_timeseries": str(out_dir / "metrics_timeseries.csv"),
+                "summary": str(out_dir / "summary.csv"),
+                "model": str(model_path) if model_path.exists() else None,
+            },
         },
     )
 

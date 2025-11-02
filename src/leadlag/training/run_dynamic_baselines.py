@@ -20,6 +20,7 @@ from leadlag.training.run_scenario import _config_to_leadlag
 from leadlag.training.scenario_config import _merge_extends
 from leadlag.training.run_support import prepare_run_environment
 from leadlag.utils.config import deep_update
+from leadlag.utils import update_run_manifest
 
 
 def _compute_matrix_for_window(
@@ -166,6 +167,25 @@ def run_dynamic(
         context={
             "decisions": len(decisions),
             "metrics_path": str(out_dir / "summary.csv"),
+        },
+    )
+
+    update_run_manifest(
+        preparation.run_manifest_path,
+        {
+            "actual_env_steps": int(metrics_df.shape[0]),
+            "dynamic": {
+                "decisions": len(decisions),
+                "lookback_bounds": {
+                    "min": L_min,
+                    "max": L_max,
+                    "step": step,
+                },
+            },
+            "artifacts": {
+                "metrics_timeseries": str(out_dir / "metrics_timeseries.csv"),
+                "summary": str(out_dir / "summary.csv"),
+            },
         },
     )
 
