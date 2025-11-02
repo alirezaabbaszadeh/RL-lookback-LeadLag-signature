@@ -1,6 +1,0 @@
-name: crypto_top
-universe: crypto_top
-market: crypto
-asset_count: 30
-timeframe: 1h
-dataset_dir: /kaggle/input/placeholder

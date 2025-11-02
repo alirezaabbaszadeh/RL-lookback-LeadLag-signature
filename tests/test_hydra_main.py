@@ -3,7 +3,9 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("hydra")
-from hydra import compose, initialize
+from importlib import resources
+
+from hydra import compose, initialize, initialize_config_module
 from omegaconf import OmegaConf
 
 from leadlag.hydra_main import (
@@ -58,10 +60,10 @@ def test_hydra_default_config_composes(monkeypatch):
     assert OmegaConf.select(cfg_override, "multi_seed.enabled") is False
 
 
-def test_repo_and_packaged_configs_are_in_sync():
+def test_packaged_configs_are_canonical():
     repo_root = Path(__file__).resolve().parents[1]
     packaged = repo_root / "src" / "leadlag" / "configs"
-    workspace = repo_root / "configs"
+    legacy_root = repo_root / "configs"
 
     tracked_files = [
         "config.yaml",
@@ -70,16 +72,32 @@ def test_repo_and_packaged_configs_are_in_sync():
         "features/signature.yaml",
     ]
 
+    assert not legacy_root.exists(), "legacy configs/ directory should be removed"
+
     for relative in tracked_files:
         packaged_path = packaged / relative
-        workspace_path = workspace / relative
         assert packaged_path.exists(), f"missing packaged config: {relative}"
-        assert workspace_path.exists(), f"missing workspace config: {relative}"
-        assert (
-            packaged_path.read_text(encoding="utf-8")
-            == workspace_path.read_text(encoding="utf-8")
-        ), f"config mismatch for {relative}"
 
     packaged_scenarios = sorted(p.name for p in (packaged / "scenario").glob("*.yaml"))
-    workspace_scenarios = sorted(p.name for p in (workspace / "scenario").glob("*.yaml"))
-    assert packaged_scenarios == workspace_scenarios
+    packaged_scenarios += sorted(p.name for p in (packaged / "scenarios").glob("*.yaml"))
+    assert "rl_ppo.yaml" in packaged_scenarios
+
+
+def test_packaged_configs_resolve_via_module_api():
+    cfg_root = resources.files("leadlag").joinpath("configs")
+    assert cfg_root.joinpath("config.yaml").is_file()
+
+    with initialize_config_module(version_base=None, config_module="leadlag.configs"):
+        cfg = compose(
+            config_name="config",
+            overrides=[
+                "agent=ppo",
+                "training=smoke",
+                "hardware=gpu",
+                "data=sp500_sector",
+                "split=walk_forward_purged",
+            ],
+        )
+
+    assert OmegaConf.select(cfg, "agent.policy") == "MlpPolicy"
+    assert OmegaConf.select(cfg, "training.total_env_steps") > 0

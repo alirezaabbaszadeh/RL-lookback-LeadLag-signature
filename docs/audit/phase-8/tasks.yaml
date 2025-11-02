@@ -3,7 +3,7 @@ tasks:
     title: Scenario discovery unification and validation
     owner: audit_team
     status: completed
-    description: Confirm robust discovery (configs/scenarios + presets) and validate each preset loads and runs.
+    description: Confirm robust discovery (leadlag/configs/scenarios + presets) and validate each preset loads and runs.
     outputs:
       - docs/audit/phase-8/config-hygiene.md
     acceptance: 100% presets pass validation; no dangling paths.

@@ -1,7 +1,0 @@
-name: signature_leadlag
-signature:
-  enabled: true
-  depth: 3
-leadlag:
-  enabled: true
-time_channel: true

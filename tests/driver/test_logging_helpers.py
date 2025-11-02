@@ -131,13 +131,13 @@ def test_render_dry_run_summary(tmp_path):
     entries = [
         dto.ScenarioSelection(
             name="alpha",
-            display="configs/alpha.yaml",
-            path="/abs/configs/alpha.yaml",
+            display="leadlag/configs/alpha.yaml",
+            path="/abs/leadlag/configs/alpha.yaml",
         ),
         dto.ScenarioSelection(
             name="beta",
             display="beta.yaml",
-            path="/abs/configs/beta.yaml",
+            path="/abs/leadlag/configs/beta.yaml",
         ),
     ]
     execution = dto.ExecutionResult(dry_run=True, dry_run_entries=entries)

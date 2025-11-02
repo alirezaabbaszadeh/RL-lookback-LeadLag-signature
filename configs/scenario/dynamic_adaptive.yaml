@@ -1,3 +1,0 @@
-name: dynamic_adaptive
-path: configs/scenarios/dynamic_adaptive.yaml
-runner: dynamic
