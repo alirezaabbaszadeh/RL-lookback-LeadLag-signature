@@ -78,6 +78,29 @@ python kaggle/run_all.py
 zip -r multi_stage_artifacts.zip multi_stage_artifacts
 ```
 
+Smoke Notebook Commands
+-----------------------
+Need a faster end-to-end validation in a clean notebook before running the
+multi-stage marathon? The smoke path installs the wheel, exercises the CLI, and
+captures meta/offline artefacts with deterministic seeds.
+
+```python
+!pip install -r requirements-kaggle.txt
+!python -m pip install --no-deps dist/leadlag_signature_rl-*.whl  # if you preloaded the wheel
+!python scripts/smoke_kaggle.py \
+    --output-root /kaggle/working/kaggle_smoke \
+    --keep-meta-rl \
+    --keep-offline
+!leadlag --list --format json --results-root /kaggle/working/kaggle_smoke/results | head
+!zip -r kaggle_smoke_artifacts.zip /kaggle/working/kaggle_smoke
+```
+
+The command sequence mirrors CI: run the fast Hydra scenario, optional meta-RL
+baseline, and offline RL baseline. The resulting `/kaggle/working/kaggle_smoke`
+folder contains the same manifest, metrics, and audit files expected by the
+full notebook run, making it safe to promote into datasets or compare against
+historical smoke outputs.
+
 Outputs
 -------
 - `/kaggle/working/multi_stage_artifacts/`
