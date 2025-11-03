@@ -151,7 +151,10 @@ def test_walk_forward_manifest_persistence(tmp_path):
     total_samples = 32
     manifest = run_full_suite._materialize_walk_forward(cfg, total_samples)
     output_dir = tmp_path / "paper_outputs"
-    path = run_full_suite._persist_split_manifest(manifest, cfg.split, output_dir)
+    run_dir = tmp_path / "results" / "test-run"
+    path = run_full_suite._persist_split_manifest(
+        manifest, cfg.split, output_dir, run_dirs=[run_dir]
+    )
 
     assert path is not None
     assert path.exists()
@@ -166,3 +169,17 @@ def test_walk_forward_manifest_persistence(tmp_path):
         if split["test"]:
             embargo = int(np.ceil(len(split["test"]) * payload["parameters"]["embargo_frac"]))
             assert split["embargo"] == embargo
+
+    csv_path = run_dir / "splits.csv"
+    assert csv_path.exists()
+    splits_df = pd.read_csv(csv_path)
+    expected_columns = [
+        "split",
+        "train_indices",
+        "test_indices",
+        "test_start",
+        "test_end",
+        "embargo",
+    ]
+    assert splits_df.columns.tolist() == expected_columns
+    assert len(splits_df) == cfg.split.n_splits

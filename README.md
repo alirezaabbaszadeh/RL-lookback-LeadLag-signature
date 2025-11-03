@@ -126,6 +126,8 @@ Per-run directory (`/kaggle/working/results/<run_id>/`):
   auditing equal interaction budgets).
 - `equity.csv` – equity curve per timestamp.
 - `returns.csv` – per-step returns.
+- `splits.csv` – walk-forward split audit trail (train/test indices, window
+  bounds, and embargo for every fold).
 - `run_manifest.json` – seeds, device info, package versions, and resolved config.
 
 Aggregate directory (`/kaggle/working/paper_outputs/`):

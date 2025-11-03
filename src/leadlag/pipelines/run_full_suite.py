@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import hydra
 import numpy as np
@@ -536,7 +536,11 @@ def _materialize_walk_forward(cfg: DictConfig, total_samples: int) -> Dict[str, 
 
 
 def _persist_split_manifest(
-    payload: Dict[str, object], split_cfg: DictConfig, destination: Path
+    payload: Dict[str, object],
+    split_cfg: DictConfig,
+    destination: Path,
+    *,
+    run_dirs: Optional[Iterable[Path]] = None,
 ) -> Optional[Path]:
     manifest_cfg = split_cfg.get("manifest") if split_cfg else None
     persist = True
@@ -549,6 +553,36 @@ def _persist_split_manifest(
         target_root = manifest_cfg.get("output_dir")
         if target_root:
             output_dir = Path(target_root).expanduser().resolve()
+
+    csv_columns = [
+        "split",
+        "train_indices",
+        "test_indices",
+        "test_start",
+        "test_end",
+        "embargo",
+    ]
+    csv_records: List[Dict[str, object]] = []
+    for entry in payload.get("splits", []):
+        test_window = entry.get("test_window") if isinstance(entry, dict) else {}
+        if not isinstance(test_window, dict):
+            test_window = {}
+        csv_records.append(
+            {
+                "split": entry.get("split") if isinstance(entry, dict) else None,
+                "train_indices": entry.get("train") if isinstance(entry, dict) else None,
+                "test_indices": entry.get("test") if isinstance(entry, dict) else None,
+                "test_start": test_window.get("start"),
+                "test_end": test_window.get("end"),
+                "embargo": entry.get("embargo") if isinstance(entry, dict) else None,
+            }
+        )
+
+    splits_frame = pd.DataFrame(csv_records, columns=csv_columns)
+    if run_dirs:
+        for run_dir in run_dirs:
+            run_dir.mkdir(parents=True, exist_ok=True)
+            splits_frame.to_csv(run_dir / "splits.csv", index=False)
 
     if not persist:
         return None
@@ -614,18 +648,20 @@ def main(cfg: DictConfig) -> None:
     base_run_id = cfg.logging.run_id
 
     dataset_length: Optional[int] = None
+    run_dirs: List[Path] = []
     for window_idx in range(cfg.training.windows):
         for seed in cfg.training.seeds:
             set_all_seeds(int(seed))
             run_id = _format_run_id(base_run_id, int(seed), window_idx, bool(cfg.logging.append_seed_window))
             run_dir = _prepare_directories(results_root, run_id)
+            run_dirs.append(run_dir)
             simulation = _simulate_episode(cfg, int(seed), window_idx)
             _write_artifacts(run_dir, cfg, int(seed), window_idx, simulation, metrics_writer)
             dataset_length = simulation.get("dataset_length", dataset_length)
 
     total_samples = int(dataset_length) if dataset_length else int(cfg.training.total_env_steps)
     split_manifest = _materialize_walk_forward(cfg, total_samples=total_samples)
-    _persist_split_manifest(split_manifest, cfg.split, paper_root)
+    _persist_split_manifest(split_manifest, cfg.split, paper_root, run_dirs=run_dirs)
 
     reporting_cfg = cfg.get("reporting")
     reporting_enabled = True
