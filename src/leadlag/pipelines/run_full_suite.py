@@ -188,7 +188,11 @@ def _build_feature_stack(
     cache_enabled = bool(cache_cfg.get("enabled")) if cache_cfg else False
     cache_dir = None
     signature_cfg = features_cfg.get("signature") if features_cfg else None
+    signature_enabled = bool(signature_cfg and signature_cfg.get("enabled"))
     signature_depth = int(signature_cfg.get("depth", 0)) if signature_cfg else 0
+    leadlag_cfg = features_cfg.get("leadlag") if features_cfg else None
+    leadlag_enabled = bool(leadlag_cfg and leadlag_cfg.get("enabled"))
+    time_channel_enabled = bool(features_cfg.get("time_channel")) if features_cfg else False
 
     if cache_enabled:
         cache_dir = Path(cache_cfg.get("dir", ".cache/features")).expanduser()
@@ -198,6 +202,9 @@ def _build_feature_stack(
             lookback=int(lookback),
             signature_depth=signature_depth,
             seed=int(seed),
+            signature_enabled=signature_enabled,
+            leadlag_enabled=leadlag_enabled,
+            time_channel=time_channel_enabled,
         )
         cached = load_feature_stack(cache_dir, key)
         if cached is not None:
@@ -208,17 +215,16 @@ def _build_feature_stack(
     returns = prices.pct_change().dropna()
     stack["returns"] = returns.to_numpy(dtype=float)
 
-    if signature_cfg and signature_cfg.get("enabled"):
+    if signature_enabled:
         depth = int(signature_cfg.get("depth", 2))
         flattened = returns.to_numpy(dtype=float).ravel()
         stack["signature"] = compute_signature_features(flattened, depth)
 
-    leadlag_cfg = features_cfg.get("leadlag") if features_cfg else None
-    if leadlag_cfg and leadlag_cfg.get("enabled"):
+    if leadlag_enabled:
         reference_series = returns.mean(axis=1).to_numpy(dtype=float)
         stack["leadlag"] = compute_lead_lag(reference_series)
 
-    if features_cfg.get("time_channel"):
+    if time_channel_enabled:
         stack["time_channel"] = np.linspace(0.0, 1.0, num=len(returns), dtype=float)
 
     if cache_enabled and cache_dir is not None:

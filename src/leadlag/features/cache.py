@@ -26,13 +26,22 @@ def _normalise_component(component: Optional[str]) -> str:
 
 @dataclass(frozen=True)
 class FeatureCacheKey:
-    """Unique key describing a cached feature stack."""
+    """Unique key describing a cached feature stack.
+
+    When introducing new feature toggles, extend this key with boolean flags so
+    cache hits remain aligned with the enabled feature set. The filename embeds
+    the toggle states for human readability while the digest guards against
+    collisions if additional attributes are added later.
+    """
 
     universe: Optional[str]
     timeframe: Optional[str]
     lookback: int
     signature_depth: int
     seed: int
+    signature_enabled: bool
+    leadlag_enabled: bool
+    time_channel: bool
 
     def to_components(self) -> Dict[str, object]:
         return {
@@ -41,6 +50,9 @@ class FeatureCacheKey:
             "lookback": self.lookback,
             "signature_depth": self.signature_depth,
             "seed": self.seed,
+            "signature_enabled": self.signature_enabled,
+            "leadlag_enabled": self.leadlag_enabled,
+            "time_channel": self.time_channel,
         }
 
     def filename(self) -> str:
@@ -53,6 +65,9 @@ class FeatureCacheKey:
                 str(self.lookback),
                 str(self.signature_depth),
                 str(self.seed),
+                "signature-on" if self.signature_enabled else "signature-off",
+                "leadlag-on" if self.leadlag_enabled else "leadlag-off",
+                "timech-on" if self.time_channel else "timech-off",
             ]
         )
         return f"{stem}__{digest}.npz"
