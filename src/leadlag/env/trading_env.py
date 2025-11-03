@@ -45,16 +45,19 @@ class SyntheticTradingEnvironment:
         seed: int,
         max_abs_position: float = 1.0,
         initial_position: float = 0.0,
+        allow_short: bool = True,
     ) -> None:
         self.lookback = lookback
         self.horizon = horizon
         self.fee_bps = fee_bps
         self.slippage_bps = slippage_bps
         self.rng = np.random.default_rng(seed)
+        self.allow_short = bool(allow_short)
         self.max_abs_position = float(max(0.0, max_abs_position))
         if self.max_abs_position == 0.0:
             self.max_abs_position = 1.0
-        clipped_initial = np.clip(initial_position, -self.max_abs_position, self.max_abs_position)
+        self._min_position = -self.max_abs_position if self.allow_short else 0.0
+        clipped_initial = np.clip(initial_position, self._min_position, self.max_abs_position)
         self.initial_position = float(clipped_initial)
         self._last_metrics: List[TradeMetrics] = []
         self._last_paths: List[TradePath] = []
@@ -115,7 +118,7 @@ class SyntheticTradingEnvironment:
             episode_actions = np.asarray(actions, dtype=float)
 
         initial_pos = self.initial_position if initial_position is None else float(initial_position)
-        initial_pos = float(np.clip(initial_pos, -self.max_abs_position, self.max_abs_position))
+        initial_pos = float(np.clip(initial_pos, self._min_position, self.max_abs_position))
 
         positions: List[float] = []
         trades: List[float] = []
@@ -128,7 +131,7 @@ class SyntheticTradingEnvironment:
 
         for step in range(steps):
             current_position = pending_position
-            current_position = float(np.clip(current_position, -self.max_abs_position, self.max_abs_position))
+            current_position = float(np.clip(current_position, self._min_position, self.max_abs_position))
             trade_size = current_position - prev_position
             trade_cost = abs(trade_size) * cost_rate
             pnl = current_position * float(base_returns[step]) - trade_cost
@@ -142,8 +145,8 @@ class SyntheticTradingEnvironment:
             if episode_actions is not None and step < episode_actions.size:
                 target = float(episode_actions[step])
             else:
-                target = float(self.rng.uniform(-self.max_abs_position, self.max_abs_position))
-            pending_position = float(np.clip(target, -self.max_abs_position, self.max_abs_position))
+                target = float(self.rng.uniform(self._min_position, self.max_abs_position))
+            pending_position = float(np.clip(target, self._min_position, self.max_abs_position))
 
         returns_arr = np.asarray(realised_returns, dtype=float)
         positions_arr = np.asarray(positions, dtype=float)

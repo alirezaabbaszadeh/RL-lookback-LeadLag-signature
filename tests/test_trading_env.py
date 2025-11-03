@@ -127,3 +127,29 @@ def test_hydra_fee_knobs_affect_pnl(tmp_path):
     assert high_returns.sum() < low_returns.sum()
     assert high_cost_env.last_metrics[0].costs > low_cost_env.last_metrics[0].costs
 
+
+def test_long_only_environment_clips_negative_positions():
+    env = SyntheticTradingEnvironment(
+        lookback=8,
+        horizon=4,
+        fee_bps=0.0,
+        slippage_bps=0.0,
+        seed=321,
+        max_abs_position=2.0,
+        initial_position=-1.0,
+        allow_short=False,
+    )
+
+    actions = np.array([-2.0, -1.0, 0.5, 1.5], dtype=float)
+    env.simulate_returns(
+        total_steps=actions.size,
+        actions=actions,
+        base_returns=np.zeros(actions.size, dtype=float),
+        initial_position=-0.5,
+    )
+    trade_path = env.last_paths[0]
+    assert np.all(trade_path.positions >= 0.0)
+
+    env.simulate_returns(total_steps=5)
+    random_path = env.last_paths[0]
+    assert np.all(random_path.positions >= 0.0)

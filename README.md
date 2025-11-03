@@ -119,6 +119,17 @@ Every cell writes to `/kaggle/working/`, producing per-run directories under
 `/kaggle/working/results/<run_id>/` and aggregated summaries inside
 `/kaggle/working/paper_outputs/`.
 
+### Long-only experiments
+
+Set `env.allow_short=false` in your Hydra overrides to clamp the synthetic
+trading environment to the long-only range `[0, env.max_abs_position]`. Actions
+and random exploration will respect the bound while costs and metrics continue
+to accumulate normally. For example:
+
+```bash
+python -m leadlag.pipelines.run_full_suite training=smoke env.allow_short=false
+```
+
 ## Standard Outputs
 
 Per-run directory (`/kaggle/working/results/<run_id>/`):
