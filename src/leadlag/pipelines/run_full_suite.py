@@ -26,6 +26,7 @@ except Exception:  # pragma: no cover - library optional in CI
 from leadlag.cv.purged import walk_forward_purged
 from leadlag.env.trading_env import TradeMetrics
 from leadlag.envs.leadlag_env import LeadLagEnv
+from leadlag.features.cache import FeatureCacheKey, load_feature_stack, save_feature_stack
 from leadlag.features.leadlag import compute_lead_lag
 from leadlag.features.signature import compute_signature_features
 from leadlag.governance import dataset as dataset_mod
@@ -174,12 +175,39 @@ def _load_price_data(cfg: DictConfig, seed: int) -> tuple[pd.DataFrame, Optional
     return df, None
 
 
-def _build_feature_stack(prices: pd.DataFrame, features_cfg: DictConfig) -> Dict[str, np.ndarray]:
+def _build_feature_stack(
+    prices: pd.DataFrame,
+    features_cfg: DictConfig,
+    *,
+    universe: Optional[str],
+    timeframe: Optional[str],
+    lookback: int,
+    seed: int,
+) -> Dict[str, np.ndarray]:
+    cache_cfg = features_cfg.get("cache") if features_cfg else None
+    cache_enabled = bool(cache_cfg.get("enabled")) if cache_cfg else False
+    cache_dir = None
+    signature_cfg = features_cfg.get("signature") if features_cfg else None
+    signature_depth = int(signature_cfg.get("depth", 0)) if signature_cfg else 0
+
+    if cache_enabled:
+        cache_dir = Path(cache_cfg.get("dir", ".cache/features")).expanduser()
+        key = FeatureCacheKey(
+            universe=universe,
+            timeframe=timeframe,
+            lookback=int(lookback),
+            signature_depth=signature_depth,
+            seed=int(seed),
+        )
+        cached = load_feature_stack(cache_dir, key)
+        if cached is not None:
+            logger.info("Loaded feature stack from cache: %s", cache_dir / key.filename())
+            return cached
+
     stack: Dict[str, np.ndarray] = {}
     returns = prices.pct_change().dropna()
     stack["returns"] = returns.to_numpy(dtype=float)
 
-    signature_cfg = features_cfg.get("signature") if features_cfg else None
     if signature_cfg and signature_cfg.get("enabled"):
         depth = int(signature_cfg.get("depth", 2))
         flattened = returns.to_numpy(dtype=float).ravel()
@@ -192,6 +220,10 @@ def _build_feature_stack(prices: pd.DataFrame, features_cfg: DictConfig) -> Dict
 
     if features_cfg.get("time_channel"):
         stack["time_channel"] = np.linspace(0.0, 1.0, num=len(returns), dtype=float)
+
+    if cache_enabled and cache_dir is not None:
+        save_feature_stack(cache_dir, key, stack)
+        logger.info("Saved feature stack to cache: %s", cache_dir / key.filename())
 
     return stack
 
@@ -388,7 +420,17 @@ def _simulate_episode(
     effective_seed = seed * 10_000 + window_idx
 
     prices, dataset_path = _load_price_data(cfg, effective_seed)
-    feature_stack = _build_feature_stack(prices, cfg.get("features") or {})
+    features_cfg = cfg.get("features") or {}
+    data_cfg = cfg.get("data")
+    window_cfg = cfg.get("window")
+    feature_stack = _build_feature_stack(
+        prices,
+        features_cfg,
+        universe=getattr(data_cfg, "universe", None) if data_cfg else None,
+        timeframe=getattr(data_cfg, "timeframe", None) if data_cfg else None,
+        lookback=int(getattr(window_cfg, "lookback", len(prices))) if window_cfg else len(prices),
+        seed=effective_seed,
+    )
 
     returns, agent_meta = _train_sb3_agent(cfg, prices, total_steps, seed=effective_seed)
     if returns.empty:
