@@ -1,4 +1,7 @@
 name: base
+cache:
+  enabled: false  # Set to true to persist feature stacks between runs.
+  dir: ${oc.env:LEADLAG_FEATURE_CACHE,.cache/features}  # Directory for cached feature files.
 signature:
   enabled: false
   depth: 0
