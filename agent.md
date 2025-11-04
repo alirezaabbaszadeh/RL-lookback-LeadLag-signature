@@ -72,3 +72,10 @@ leadlag --status --format json
 ```
 
 Agents can now rely on identical envelopes whether they execute `leadlag`, `leadlag-full-suite`, `leadlag-plot-balance`, or any other companion utility.
+
+## TMLR Submission Readiness Signals
+
+- Keep `docs/tmlr_preparation.md` current; when TMLR policies change, update that document and note the delta in `CHANGELOG.md`.
+- For any CLI or pipeline touching submission artifacts, ensure outputs remain compliant with the open-review JSON envelope defined above and bundle reproducibility metadata (seeds, hardware, compute hours).
+- Prior to feature refactors, confirm the change strengthens at least one axis of the TMLR roadmap (evidence quality, reproducibility, ethical safeguards, or research claims). Capture the rationale in PR descriptions.
+- When generating release artifacts, include anonymized supplementary material stubs (data provenance summary, broader impact checklist) to accelerate paper packaging.
