@@ -1,0 +1,4 @@
+name: mlp_q_network
+class_name: MlpPolicy
+kwargs:
+  net_arch: [256, 128]
