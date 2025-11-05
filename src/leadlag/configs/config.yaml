@@ -1,5 +1,6 @@
 defaults:
   - agent: ppo
+  - policy_arch: mlp_medium
   - features: base
   - data: sp500_sector
   - split: walk_forward_purged
@@ -17,9 +18,6 @@ env:
   max_abs_position: 1.0
   initial_position: 0.0
   allow_short: true  # Set to false to clamp positions/actions to long-only range
-
-policy:
-  name: mlp
 
 window:
   lookback: 128

@@ -1,6 +1,14 @@
 name: a2c
 library: sb3
-policy: MlpPolicy
+policy: ${policy_arch.class_name}
+policy_architecture: ${policy_arch.name}
+policy_kwargs: ${policy_arch.kwargs}
 hyperparams:
   n_steps: 5
+  gamma: 0.99
   learning_rate: 0.0007
+  gae_lambda: 0.95
+  ent_coef: 0.0
+  vf_coef: 0.25
+  max_grad_norm: 0.5
+  use_rms_prop: true

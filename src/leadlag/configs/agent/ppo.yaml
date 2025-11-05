@@ -1,7 +1,17 @@
 name: ppo
 library: sb3
-policy: MlpPolicy
+policy: ${policy_arch.class_name}
+policy_architecture: ${policy_arch.name}
+policy_kwargs: ${policy_arch.kwargs}
 hyperparams:
   n_steps: 256
   batch_size: 128
   learning_rate: 0.0003
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.0
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  n_epochs: 4
+  target_kl: 0.015

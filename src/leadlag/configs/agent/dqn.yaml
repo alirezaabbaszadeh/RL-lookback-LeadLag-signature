@@ -1,6 +1,15 @@
 name: dqn
 library: sb3
-policy: MlpPolicy
+policy: ${policy_arch.class_name}
+policy_architecture: ${policy_arch.name}
+policy_kwargs: ${policy_arch.kwargs}
 hyperparams:
-  buffer_size: 50000
+  buffer_size: 100000
   learning_rate: 0.0005
+  batch_size: 256
+  gamma: 0.99
+  train_freq: 1
+  gradient_steps: 1
+  target_update_interval: 1000
+  exploration_fraction: 0.1
+  exploration_final_eps: 0.01

@@ -1,6 +1,16 @@
 name: td3
 library: sb3
-policy: MlpPolicy
+policy: ${policy_arch.class_name}
+policy_architecture: ${policy_arch.name}
+policy_kwargs: ${policy_arch.kwargs}
 hyperparams:
-  buffer_size: 100000
+  buffer_size: 1000000
   learning_rate: 0.0003
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  train_freq: 1
+  gradient_steps: 1
+  policy_delay: 2
+  target_policy_noise: 0.2
+  target_noise_clip: 0.5
