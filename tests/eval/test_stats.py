@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np  # Required for tests to use numpy namespace
 import pandas as pd
 
 from leadlag.eval import stats
