@@ -302,23 +302,75 @@ def _make_leadlag_env(
     return env
 
 
-def _compute_trade_metrics(returns: pd.Series) -> TradeMetrics:
-    arr = returns.to_numpy(dtype=float)
-    turnover = float(np.mean(np.abs(arr))) if arr.size else 0.0
-    cumulative = (1.0 + arr).cumprod()
-    exposure = float(np.mean(np.abs(cumulative - 1.0))) if cumulative.size else 0.0
-    pnl = float(arr.sum())
-    env_steps = int(arr.size)
+def _summarize_trade_history(
+    cfg: DictConfig,
+    history: pd.DataFrame,
+    returns: pd.Series,
+) -> TradeMetrics:
+    """Convert environment history into :class:`TradeMetrics`.
+
+    The environment records the lookback applied at each step and, when available,
+    the normalised change between consecutive steps (``delta_norm``). These values
+    allow us to recover a turnover profile and apply configured commission and
+    slippage rates instead of relying on reward magnitudes.
+    """
+
+    pnl = float(returns.sum())
+
+    if history.empty:
+        env_steps = int(returns.size)
+        return TradeMetrics(
+            pnl=pnl,
+            turnover=0.0,
+            exposure=0.0,
+            env_steps=env_steps,
+            costs=0.0,
+        )
+
+    turnover_series: pd.Series
+    if "delta_norm" in history.columns:
+        turnover_series = history["delta_norm"].astype(float).abs()
+    elif "lookback" in history.columns:
+        turnover_series = history["lookback"].astype(float).diff().fillna(0.0).abs()
+    else:
+        turnover_series = pd.Series(0.0, index=history.index, dtype=float)
+
+    env_steps = int(turnover_series.size) if not turnover_series.empty else int(returns.size)
+    turnover = float(turnover_series.mean()) if not turnover_series.empty else 0.0
+    cumulative_turnover = float(turnover_series.sum()) if not turnover_series.empty else 0.0
+
+    if "lookback" in history.columns and not history["lookback"].empty:
+        lookback_series = history["lookback"].astype(float)
+        lb_min = float(lookback_series.min())
+        lb_max = float(lookback_series.max())
+        denominator = max(lb_max - lb_min, 1.0)
+        normalised_positions = (lookback_series - lb_min) / denominator
+        exposure = float(normalised_positions.abs().mean())
+    else:
+        exposure = 0.0
+
+    costs_cfg = cfg.get("costs") or {}
+    slippage_cfg = cfg.get("slippage") or {}
+    fee_bps = float(costs_cfg.get("fee_bps", 0.0))
+    slippage_bps = float(slippage_cfg.get("bps", 0.0))
+    cost_rate = (fee_bps + slippage_bps) / 10000.0
+    total_costs = cumulative_turnover * cost_rate
+
     return TradeMetrics(
         pnl=pnl,
         turnover=turnover,
         exposure=exposure,
         env_steps=env_steps,
-        costs=0.0,
+        costs=float(total_costs),
     )
 
 
-def _random_rollout(env: LeadLagEnv, total_steps: int, seed: int) -> pd.Series:
+def _random_rollout(
+    cfg: DictConfig,
+    env: LeadLagEnv,
+    total_steps: int,
+    seed: int,
+) -> tuple[pd.Series, TradeMetrics]:
     rng = np.random.default_rng(seed)
     obs, _ = env.reset()
     terminated = False
@@ -338,12 +390,13 @@ def _random_rollout(env: LeadLagEnv, total_steps: int, seed: int) -> pd.Series:
             truncated = False
             obs, _ = env.reset()
     history = env.get_history_dataframe()
-    if "reward" in history.columns:
+    if "reward" in history.columns and not history["reward"].empty:
         returns = history["reward"].astype(float)
     else:
         index = pd.RangeIndex(len(rewards))
         returns = pd.Series(rewards, index=index, dtype=float)
-    return returns
+    trade_metrics = _summarize_trade_history(cfg, history, returns)
+    return returns, trade_metrics
 
 
 def _train_sb3_agent(
@@ -352,11 +405,11 @@ def _train_sb3_agent(
     total_steps: int,
     *,
     seed: int,
-) -> tuple[pd.Series, Dict[str, object]]:
+) -> tuple[pd.Series, TradeMetrics, Dict[str, object]]:
     if not SB3_AVAILABLE or cfg.agent.library != "sb3":
         env = _make_leadlag_env(cfg, prices, seed=seed)
-        returns = _random_rollout(env, total_steps, seed)
-        return returns, {"name": "random", "reason": "sb3_unavailable"}
+        returns, trade_metrics = _random_rollout(cfg, env, total_steps, seed)
+        return returns, trade_metrics, {"name": "random", "reason": "sb3_unavailable"}
 
     algo_name = str(cfg.agent.name).lower()
     algo_map = {
@@ -369,8 +422,12 @@ def _train_sb3_agent(
     algo_cls = algo_map.get(algo_name)
     if algo_cls is None:
         env = _make_leadlag_env(cfg, prices, seed=seed)
-        returns = _random_rollout(env, total_steps, seed)
-        return returns, {"name": "random", "reason": f"unsupported_agent:{algo_name}"}
+        returns, trade_metrics = _random_rollout(cfg, env, total_steps, seed)
+        return (
+            returns,
+            trade_metrics,
+            {"name": "random", "reason": f"unsupported_agent:{algo_name}"},
+        )
 
     n_envs = max(1, int(cfg.hardware.n_envs))
 
@@ -413,7 +470,12 @@ def _train_sb3_agent(
     else:
         index = pd.RangeIndex(len(rewards))
         returns = pd.Series(rewards, index=index, dtype=float)
-    return returns, {"name": algo_name, "library": cfg.agent.library, "trained_steps": steps}
+    trade_metrics = _summarize_trade_history(cfg, history, returns)
+    return (
+        returns,
+        trade_metrics,
+        {"name": algo_name, "library": cfg.agent.library, "trained_steps": steps},
+    )
 
 
 def _simulate_episode(
@@ -438,7 +500,9 @@ def _simulate_episode(
         seed=effective_seed,
     )
 
-    returns, agent_meta = _train_sb3_agent(cfg, prices, total_steps, seed=effective_seed)
+    returns, trade_metrics, agent_meta = _train_sb3_agent(
+        cfg, prices, total_steps, seed=effective_seed
+    )
     if returns.empty:
         returns = pd.Series([0.0], dtype=float)
 
@@ -447,8 +511,9 @@ def _simulate_episode(
         periods_per_year=training_cfg.periods_per_year,
     )
     equity = stats_mod.compute_equity_curve(summary.returns)
-    trade_metrics = _compute_trade_metrics(summary.returns)
-    actual_env_steps = trade_metrics.env_steps
+    if trade_metrics.env_steps == 0:
+        trade_metrics = _summarize_trade_history(cfg, pd.DataFrame(), summary.returns)
+    actual_env_steps = trade_metrics.env_steps or int(summary.returns.size)
 
     return {
         "returns": summary.returns,
