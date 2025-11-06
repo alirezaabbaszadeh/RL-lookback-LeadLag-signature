@@ -128,6 +128,51 @@ def test_hydra_fee_knobs_affect_pnl(tmp_path):
     assert high_cost_env.last_metrics[0].costs > low_cost_env.last_metrics[0].costs
 
 
+@pytest.mark.parametrize("base_fee", [5.0, 12.5])
+def test_trade_costs_scale_with_fee(base_fee):
+    steps = 4
+    actions = np.array([1.0, -1.0, 1.0, -1.0], dtype=float)
+    base_returns = np.array([0.01, 0.015, -0.005, 0.0], dtype=float)
+
+    low_fee_env = SyntheticTradingEnvironment(
+        lookback=8,
+        horizon=4,
+        fee_bps=base_fee,
+        slippage_bps=0.0,
+        seed=999,
+        max_abs_position=1.0,
+        initial_position=0.0,
+    )
+    high_fee_env = SyntheticTradingEnvironment(
+        lookback=8,
+        horizon=4,
+        fee_bps=base_fee * 2.0,
+        slippage_bps=0.0,
+        seed=999,
+        max_abs_position=1.0,
+        initial_position=0.0,
+    )
+
+    low_fee_env.simulate_returns(
+        total_steps=steps,
+        actions=actions,
+        base_returns=base_returns,
+        initial_position=0.0,
+    )
+    high_fee_env.simulate_returns(
+        total_steps=steps,
+        actions=actions,
+        base_returns=base_returns,
+        initial_position=0.0,
+    )
+
+    low_costs = low_fee_env.last_metrics[0].costs
+    high_costs = high_fee_env.last_metrics[0].costs
+
+    assert low_costs > 0.0
+    assert high_costs == pytest.approx(low_costs * 2.0, rel=0.05)
+
+
 def test_long_only_environment_clips_negative_positions():
     env = SyntheticTradingEnvironment(
         lookback=8,

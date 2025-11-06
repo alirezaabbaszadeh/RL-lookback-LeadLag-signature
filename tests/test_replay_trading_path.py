@@ -37,11 +37,20 @@ def test_replay_trading_path_uses_recorded_positions():
     realized = _replay_trading_path(cfg, prices, history)
     assert realized is not None
 
-    expected_positions = pd.Series([-1.0, -0.5, 0.5, 1.0], index=history_index, dtype=float)
-    expected_trades = expected_positions.diff().fillna(expected_positions.iloc[0]).astype(float)
+    signals = history["trading_signal"].astype(float)
+    initial_position = float(cfg.env.initial_position)
+    expected_positions = signals.shift(1).fillna(initial_position).iloc[1:]
+    expected_trades = expected_positions.diff().fillna(
+        expected_positions.iloc[0] - initial_position
+    ).astype(float)
     cost_rate = (10.0 + 0.0) / 10000.0
-    expected_costs = expected_trades.abs() * cost_rate
-    expected_returns = expected_positions.values * base_returns - expected_costs.values
+    price_proxy = prices.mean(axis=1)
+    execution_prices = price_proxy.reindex(expected_positions.index).astype(float)
+    execution_prices = execution_prices.ffill().bfill()
+    expected_costs = expected_trades.abs() * execution_prices * cost_rate
+    base_returns_series = prices.pct_change().mean(axis=1).fillna(0.0).iloc[1:]
+    base_returns_series = base_returns_series.reindex(expected_positions.index)
+    expected_returns = expected_positions.values * base_returns_series.values - expected_costs.values
 
     expected_positions.name = realized.positions.name
     expected_trades.name = realized.trades.name
