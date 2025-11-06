@@ -83,11 +83,33 @@ def build_metadata_row(
     data_cfg = cfg.get("data", {})
     training_cfg = cfg.get("training", {})
 
+    agent_cfg = cfg.get("agent", {})
+    if not isinstance(agent_cfg, Mapping):
+        agent_cfg = {}
+    agent_policy_cfg = agent_cfg.get("policy")
+
+    policy_value: object | None = None
+    if isinstance(agent_policy_cfg, Mapping):
+        policy_value = (
+            agent_policy_cfg.get("name")
+            or agent_policy_cfg.get("policy")
+            or agent_policy_cfg.get("target")
+        )
+    elif agent_policy_cfg is not None:
+        policy_value = agent_policy_cfg
+
+    if policy_value is None:
+        policy_cfg = cfg.get("policy")
+        if isinstance(policy_cfg, Mapping):
+            policy_value = policy_cfg.get("name") or policy_cfg.get("policy")
+        else:
+            policy_value = policy_cfg
+
     return {
         "experiment_id": run_id,
         "agent": cfg.get("agent", {}).get("name") if isinstance(cfg.get("agent"), Mapping) else cfg.get("agent"),
         "action_space": cfg.get("env", {}).get("action_space") if isinstance(cfg.get("env"), Mapping) else None,
-        "policy": cfg.get("policy", {}).get("name") if isinstance(cfg.get("policy"), Mapping) else None,
+        "policy": policy_value,
         "features_signature": signature_cfg.get("enabled", False),
         "signature_depth": signature_cfg.get("depth", 0),
         "features_leadlag": leadlag_cfg.get("enabled", False),
