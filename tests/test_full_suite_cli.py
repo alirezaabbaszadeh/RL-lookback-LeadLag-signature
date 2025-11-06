@@ -9,6 +9,7 @@ import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
+from leadlag.env.trading_env import TradeMetrics
 from leadlag.eval import stats as stats_mod
 from leadlag.pipelines import run_full_suite
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
@@ -104,6 +105,85 @@ def test_simulate_episode_produces_metrics(tmp_path):
     training_meta = data_manifest.get("training", {})
     assert training_meta.get("total_env_steps") == cfg.training.total_env_steps
     assert data_manifest.get("row_count")
+
+
+def test_realized_metrics_follow_trading_path(tmp_path, monkeypatch):
+    cfg = _compose_config(tmp_path)
+    cfg.training.total_env_steps = 4
+    metrics_writer = MetricsWriter(OmegaConf.to_container(cfg, resolve=True))
+
+    dates = pd.date_range("2024-02-01", periods=6, freq="D")
+    prices = pd.DataFrame(
+        {
+            "AssetA": np.linspace(100, 105, len(dates)),
+            "AssetB": np.linspace(50, 53, len(dates)),
+        },
+        index=dates,
+    )
+    dataset_path = tmp_path / "dataset" / "prices.csv"
+    dataset_path.parent.mkdir(parents=True, exist_ok=True)
+    prices.reset_index().rename(columns={"index": "date"}).to_csv(dataset_path, index=False)
+
+    def _fake_load_price_data(cfg_param, seed):
+        return prices, dataset_path
+
+    monkeypatch.setattr(run_full_suite, "_load_price_data", _fake_load_price_data)
+
+    min_lb = max(5, int(cfg.window.lookback) // 2)
+    max_lb = max(min_lb + 1, int(cfg.window.lookback))
+    history_index = prices.index[1 : 1 + cfg.training.total_env_steps]
+
+    base_returns = pd.Series([0.1] * cfg.training.total_env_steps, dtype=float)
+    trade_metrics = TradeMetrics(
+        pnl=float(base_returns.sum()),
+        turnover=0.0,
+        exposure=0.0,
+        env_steps=len(base_returns),
+        costs=0.0,
+    )
+
+    histories = []
+    positive_history = pd.DataFrame(
+        {
+            "lookback": [float(max_lb)] * len(history_index),
+            "reward": [0.0] * len(history_index),
+            "delta_norm": [0.0] * len(history_index),
+        },
+        index=history_index,
+    )
+    negative_history = pd.DataFrame(
+        {
+            "lookback": [float(min_lb)] * len(history_index),
+            "reward": [0.0] * len(history_index),
+            "delta_norm": [0.0] * len(history_index),
+        },
+        index=history_index,
+    )
+    histories.extend([positive_history, negative_history])
+
+    reward_returns = pd.Series(np.zeros(len(history_index), dtype=float))
+    call_counter = {"count": 0}
+
+    def _fake_train(cfg_param, prices_param, total_steps, seed):
+        idx = call_counter["count"]
+        call_counter["count"] += 1
+        history = histories[idx]
+        return reward_returns, trade_metrics, {"name": "patched"}, history
+
+    monkeypatch.setattr(run_full_suite, "_train_sb3_agent", _fake_train)
+
+    pnl_values = []
+    sharpe_values = []
+    for idx, run_id in enumerate(["path-pos", "path-neg"]):
+        run_dir = run_full_suite._prepare_directories(Path(cfg.results_root), run_id)
+        simulation = run_full_suite._simulate_episode(cfg, seed=0, window_idx=idx)
+        run_full_suite._write_artifacts(run_dir, cfg, 0, idx, simulation, metrics_writer)
+        metrics_df = pd.read_csv(run_dir / "metrics.csv")
+        pnl_values.append(metrics_df.loc[0, "PnL"])
+        sharpe_values.append(metrics_df.loc[0, "Sharpe"])
+
+    assert pnl_values[0] > pnl_values[1]
+    assert sharpe_values[0] > sharpe_values[1]
 
 
 def test_build_metadata_row_matches_config(tmp_path):

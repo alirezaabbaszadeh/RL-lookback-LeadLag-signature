@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -43,6 +44,15 @@ from leadlag.utils import (
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RealizedTradingPath:
+    returns: pd.Series
+    positions: pd.Series
+    trades: pd.Series
+    costs: pd.Series
+    metrics: TradeMetrics
 
 
 def _collect_config_sources(cfg: DictConfig) -> List[str]:
@@ -365,12 +375,101 @@ def _summarize_trade_history(
     )
 
 
+def _replay_trading_path(
+    cfg: DictConfig,
+    prices: pd.DataFrame,
+    history: pd.DataFrame,
+) -> Optional[RealizedTradingPath]:
+    if history is None or history.empty or "lookback" not in history.columns:
+        return None
+
+    lookbacks = history["lookback"].astype(float).dropna()
+    if lookbacks.empty:
+        return None
+
+    window_cfg = cfg.get("window")
+    base_lookback = int(getattr(window_cfg, "lookback", 0) or 0) if window_cfg else 0
+    if base_lookback > 0:
+        min_lb = max(5, base_lookback // 2)
+        max_lb = max(min_lb + 1, base_lookback)
+    else:
+        min_lb = int(np.floor(lookbacks.min()))
+        max_lb = int(np.ceil(lookbacks.max()))
+        if min_lb == max_lb:
+            max_lb += 1
+
+    denom = max(float(max_lb - min_lb), 1.0)
+    normalized = (lookbacks - min_lb) / denom
+    normalized = normalized.clip(0.0, 1.0)
+
+    env_cfg = cfg.get("env") or {}
+    max_abs_position = float(env_cfg.get("max_abs_position", 1.0))
+    allow_short = bool(env_cfg.get("allow_short", True))
+    initial_position = float(env_cfg.get("initial_position", 0.0))
+    min_position = -max_abs_position if allow_short else 0.0
+    max_position = max_abs_position
+    initial_position = float(np.clip(initial_position, min_position, max_position))
+
+    if allow_short:
+        scaled = normalized * 2.0 - 1.0
+    else:
+        scaled = normalized
+
+    positions = pd.Series(scaled * max_abs_position, index=lookbacks.index, dtype=float)
+    positions = positions.clip(lower=min_position, upper=max_position)
+    positions = positions.sort_index()
+
+    price_returns = prices.sort_index().pct_change().reindex(positions.index)
+    if price_returns is None or price_returns.empty:
+        return None
+
+    base_returns = price_returns.mean(axis=1).fillna(0.0).astype(float)
+    if base_returns.empty:
+        return None
+
+    positions = positions.reindex(base_returns.index).ffill().fillna(initial_position).astype(float)
+    prev_positions = positions.shift(fill_value=initial_position)
+    trades = (positions - prev_positions).astype(float)
+
+    costs_cfg = cfg.get("costs") or {}
+    slippage_cfg = cfg.get("slippage") or {}
+    fee_bps = float(costs_cfg.get("fee_bps", 0.0))
+    slippage_bps = float(slippage_cfg.get("bps", 0.0))
+    cost_rate = (fee_bps + slippage_bps) / 10000.0
+
+    costs = trades.abs() * cost_rate
+    realized_returns = positions * base_returns - costs
+    realized_returns = realized_returns.astype(float)
+    costs = costs.astype(float)
+
+    if realized_returns.empty:
+        return None
+
+    turnover = float(trades.abs().mean()) if not trades.empty else 0.0
+    exposure = float(positions.abs().mean()) if not positions.empty else 0.0
+    metrics = TradeMetrics(
+        pnl=float(realized_returns.sum()),
+        turnover=turnover,
+        exposure=exposure,
+        env_steps=int(realized_returns.size),
+        costs=float(costs.sum()),
+    )
+
+    return RealizedTradingPath(
+        returns=realized_returns,
+        positions=positions,
+        trades=trades,
+        costs=costs,
+        metrics=metrics,
+    )
+
+
 def _random_rollout(
     cfg: DictConfig,
     env: LeadLagEnv,
     total_steps: int,
     seed: int,
-) -> tuple[pd.Series, TradeMetrics]:
+) -> tuple[pd.Series, TradeMetrics, pd.DataFrame]:
     rng = np.random.default_rng(seed)
     obs, _ = env.reset()
     terminated = False
@@ -396,7 +495,7 @@ def _random_rollout(
         index = pd.RangeIndex(len(rewards))
         returns = pd.Series(rewards, index=index, dtype=float)
     trade_metrics = _summarize_trade_history(cfg, history, returns)
-    return returns, trade_metrics
+    return returns, trade_metrics, history
 
 
 def _train_sb3_agent(
@@ -405,11 +504,16 @@ def _train_sb3_agent(
     total_steps: int,
     *,
     seed: int,
-) -> tuple[pd.Series, TradeMetrics, Dict[str, object]]:
+) -> tuple[pd.Series, TradeMetrics, Dict[str, object], pd.DataFrame]:
     if not SB3_AVAILABLE or cfg.agent.library != "sb3":
         env = _make_leadlag_env(cfg, prices, seed=seed)
-        returns, trade_metrics = _random_rollout(cfg, env, total_steps, seed)
-        return returns, trade_metrics, {"name": "random", "reason": "sb3_unavailable"}
+        returns, trade_metrics, history = _random_rollout(cfg, env, total_steps, seed)
+        return (
+            returns,
+            trade_metrics,
+            {"name": "random", "reason": "sb3_unavailable"},
+            history,
+        )
 
     algo_name = str(cfg.agent.name).lower()
     algo_map = {
@@ -422,11 +526,12 @@ def _train_sb3_agent(
     algo_cls = algo_map.get(algo_name)
     if algo_cls is None:
         env = _make_leadlag_env(cfg, prices, seed=seed)
-        returns, trade_metrics = _random_rollout(cfg, env, total_steps, seed)
+        returns, trade_metrics, history = _random_rollout(cfg, env, total_steps, seed)
         return (
             returns,
             trade_metrics,
             {"name": "random", "reason": f"unsupported_agent:{algo_name}"},
+            history,
         )
 
     n_envs = max(1, int(cfg.hardware.n_envs))
@@ -475,6 +580,7 @@ def _train_sb3_agent(
         returns,
         trade_metrics,
         {"name": algo_name, "library": cfg.agent.library, "trained_steps": steps},
+        history,
     )
 
 
@@ -500,19 +606,33 @@ def _simulate_episode(
         seed=effective_seed,
     )
 
-    returns, trade_metrics, agent_meta = _train_sb3_agent(
+    reward_returns, reward_metrics, agent_meta, history = _train_sb3_agent(
         cfg, prices, total_steps, seed=effective_seed
     )
-    if returns.empty:
-        returns = pd.Series([0.0], dtype=float)
+    realized_path = _replay_trading_path(cfg, prices, history)
+
+    if realized_path is not None:
+        returns_series = realized_path.returns
+        trade_metrics = realized_path.metrics
+        positions = realized_path.positions
+        trades = realized_path.trades
+        cost_series = realized_path.costs
+    else:
+        returns_series = reward_returns
+        if returns_series.empty:
+            returns_series = pd.Series([0.0], dtype=float)
+        trade_metrics = _summarize_trade_history(cfg, history, returns_series)
+        positions = None
+        trades = None
+        cost_series = None
 
     summary = stats_mod.summarize_performance(
-        returns,
+        returns_series,
         periods_per_year=training_cfg.periods_per_year,
     )
     equity = stats_mod.compute_equity_curve(summary.returns)
     if trade_metrics.env_steps == 0:
-        trade_metrics = _summarize_trade_history(cfg, pd.DataFrame(), summary.returns)
+        trade_metrics = _summarize_trade_history(cfg, history, summary.returns)
     actual_env_steps = trade_metrics.env_steps or int(summary.returns.size)
 
     return {
@@ -520,6 +640,12 @@ def _simulate_episode(
         "equity": equity,
         "summary": summary,
         "trade_metrics": trade_metrics,
+        "positions": positions,
+        "trades": trades,
+        "cost_series": cost_series,
+        "reward_returns": reward_returns,
+        "reward_trade_metrics": reward_metrics,
+        "history": history,
         "env_steps": actual_env_steps,
         "requested_env_steps": total_steps,
         "n_envs": int(cfg.hardware.n_envs),
