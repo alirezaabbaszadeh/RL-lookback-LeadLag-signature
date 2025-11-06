@@ -55,6 +55,96 @@ class RealizedTradingPath:
     metrics: TradeMetrics
 
 
+@dataclass
+class TradingBounds:
+    max_abs_position: float
+    min_position: float
+    allow_short: bool
+    initial_position: float
+
+
+def _resolve_trading_bounds(cfg: DictConfig) -> TradingBounds:
+    env_cfg = cfg.get("env") or {}
+    max_abs_position = float(env_cfg.get("max_abs_position", 1.0))
+    max_abs_position = max(max_abs_position, 0.0)
+    if max_abs_position == 0.0:
+        max_abs_position = 1.0
+    allow_short = bool(env_cfg.get("allow_short", True))
+    min_position = -max_abs_position if allow_short else 0.0
+    initial_position = float(env_cfg.get("initial_position", 0.0))
+    initial_position = float(np.clip(initial_position, min_position, max_abs_position))
+    return TradingBounds(
+        max_abs_position=max_abs_position,
+        min_position=min_position,
+        allow_short=allow_short,
+        initial_position=initial_position,
+    )
+
+
+def _extract_signal_series(history: pd.DataFrame) -> tuple[Optional[pd.Series], Optional[str]]:
+    if history is None or history.empty:
+        return None, None
+    for column in ("position", "trading_signal", "lookback_normalized"):
+        if column in history.columns:
+            series = history[column].astype(float)
+            return series.sort_index(), column
+    return None, None
+
+
+def _positions_from_signals(
+    signals: pd.Series,
+    kind: str,
+    bounds: TradingBounds,
+) -> pd.Series:
+    if signals.empty:
+        return pd.Series(dtype=float)
+
+    if kind == "position":
+        positions = signals.clip(lower=bounds.min_position, upper=bounds.max_abs_position)
+    elif kind == "lookback_normalized":
+        normalized = signals.clip(0.0, 1.0)
+        if bounds.allow_short:
+            scaled = normalized * 2.0 - 1.0
+            positions = scaled * bounds.max_abs_position
+        else:
+            positions = normalized * bounds.max_abs_position
+    elif kind == "trading_signal":
+        if bounds.allow_short:
+            signal = signals.clip(-1.0, 1.0)
+            positions = signal * bounds.max_abs_position
+        else:
+            long_only = ((signals + 1.0) / 2.0).clip(0.0, 1.0)
+            positions = long_only * bounds.max_abs_position
+    else:  # pragma: no cover - defensive
+        positions = signals
+
+    positions = positions.astype(float)
+    positions = positions.clip(lower=bounds.min_position, upper=bounds.max_abs_position)
+    return positions.sort_index()
+
+
+def _compute_positions_and_trades(
+    cfg: DictConfig,
+    history: pd.DataFrame,
+    *,
+    index: Optional[pd.Index] = None,
+) -> tuple[Optional[pd.Series], Optional[pd.Series], TradingBounds]:
+    bounds = _resolve_trading_bounds(cfg)
+    signals, kind = _extract_signal_series(history)
+    if signals is None or kind is None:
+        return None, None, bounds
+    positions = _positions_from_signals(signals, kind, bounds)
+    if index is not None:
+        positions = positions.reindex(index)
+    if positions.empty:
+        return None, None, bounds
+    positions = positions.ffill().fillna(bounds.initial_position).astype(float)
+    positions = positions.clip(lower=bounds.min_position, upper=bounds.max_abs_position)
+    trades = positions.diff().fillna(positions.iloc[0] - bounds.initial_position)
+    trades = trades.astype(float)
+    return positions, trades, bounds
+
+
 def _collect_config_sources(cfg: DictConfig) -> List[str]:
     sources: List[str] = []
 
@@ -337,26 +427,19 @@ def _summarize_trade_history(
             costs=0.0,
         )
 
-    turnover_series: pd.Series
-    if "delta_norm" in history.columns:
-        turnover_series = history["delta_norm"].astype(float).abs()
-    elif "lookback" in history.columns:
-        turnover_series = history["lookback"].astype(float).diff().fillna(0.0).abs()
+    positions, trades, _bounds = _compute_positions_and_trades(cfg, history)
+
+    if positions is not None and trades is not None:
+        turnover_series = trades.abs()
+        env_steps = int(positions.size)
+        turnover = float(turnover_series.mean()) if not turnover_series.empty else 0.0
+        cumulative_turnover = float(turnover_series.sum()) if not turnover_series.empty else 0.0
+        exposure = float(positions.abs().mean()) if not positions.empty else 0.0
     else:
         turnover_series = pd.Series(0.0, index=history.index, dtype=float)
-
-    env_steps = int(turnover_series.size) if not turnover_series.empty else int(returns.size)
-    turnover = float(turnover_series.mean()) if not turnover_series.empty else 0.0
-    cumulative_turnover = float(turnover_series.sum()) if not turnover_series.empty else 0.0
-
-    if "lookback" in history.columns and not history["lookback"].empty:
-        lookback_series = history["lookback"].astype(float)
-        lb_min = float(lookback_series.min())
-        lb_max = float(lookback_series.max())
-        denominator = max(lb_max - lb_min, 1.0)
-        normalised_positions = (lookback_series - lb_min) / denominator
-        exposure = float(normalised_positions.abs().mean())
-    else:
+        env_steps = int(turnover_series.size) if not turnover_series.empty else int(returns.size)
+        turnover = float(turnover_series.mean()) if not turnover_series.empty else 0.0
+        cumulative_turnover = float(turnover_series.sum()) if not turnover_series.empty else 0.0
         exposure = 0.0
 
     costs_cfg = cfg.get("costs") or {}
@@ -380,44 +463,9 @@ def _replay_trading_path(
     prices: pd.DataFrame,
     history: pd.DataFrame,
 ) -> Optional[RealizedTradingPath]:
-    if history is None or history.empty or "lookback" not in history.columns:
+    positions, trades, bounds = _compute_positions_and_trades(cfg, history)
+    if positions is None or positions.empty:
         return None
-
-    lookbacks = history["lookback"].astype(float).dropna()
-    if lookbacks.empty:
-        return None
-
-    window_cfg = cfg.get("window")
-    base_lookback = int(getattr(window_cfg, "lookback", 0) or 0) if window_cfg else 0
-    if base_lookback > 0:
-        min_lb = max(5, base_lookback // 2)
-        max_lb = max(min_lb + 1, base_lookback)
-    else:
-        min_lb = int(np.floor(lookbacks.min()))
-        max_lb = int(np.ceil(lookbacks.max()))
-        if min_lb == max_lb:
-            max_lb += 1
-
-    denom = max(float(max_lb - min_lb), 1.0)
-    normalized = (lookbacks - min_lb) / denom
-    normalized = normalized.clip(0.0, 1.0)
-
-    env_cfg = cfg.get("env") or {}
-    max_abs_position = float(env_cfg.get("max_abs_position", 1.0))
-    allow_short = bool(env_cfg.get("allow_short", True))
-    initial_position = float(env_cfg.get("initial_position", 0.0))
-    min_position = -max_abs_position if allow_short else 0.0
-    max_position = max_abs_position
-    initial_position = float(np.clip(initial_position, min_position, max_position))
-
-    if allow_short:
-        scaled = normalized * 2.0 - 1.0
-    else:
-        scaled = normalized
-
-    positions = pd.Series(scaled * max_abs_position, index=lookbacks.index, dtype=float)
-    positions = positions.clip(lower=min_position, upper=max_position)
-    positions = positions.sort_index()
 
     price_returns = prices.sort_index().pct_change().reindex(positions.index)
     if price_returns is None or price_returns.empty:
@@ -427,9 +475,13 @@ def _replay_trading_path(
     if base_returns.empty:
         return None
 
-    positions = positions.reindex(base_returns.index).ffill().fillna(initial_position).astype(float)
-    prev_positions = positions.shift(fill_value=initial_position)
-    trades = (positions - prev_positions).astype(float)
+    positions = positions.reindex(base_returns.index)
+    if positions is None or positions.empty:
+        return None
+    positions = positions.ffill().fillna(bounds.initial_position).astype(float)
+    positions = positions.clip(lower=bounds.min_position, upper=bounds.max_abs_position)
+    trades = positions.diff().fillna(positions.iloc[0] - bounds.initial_position)
+    trades = trades.astype(float)
 
     costs_cfg = cfg.get("costs") or {}
     slippage_cfg = cfg.get("slippage") or {}
