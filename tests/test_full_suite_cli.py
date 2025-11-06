@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
@@ -42,6 +43,8 @@ def _compose_config(tmp_path: Path):
                 "training.windows=1",
                 "hardware.n_envs=1",
                 "training.total_env_steps=100",
+                "costs.fee_bps=25",
+                "slippage.bps=25",
                 f"data.dataset_dir={tmp_path / 'dataset'}",
             ],
         )
@@ -73,6 +76,9 @@ def test_simulate_episode_produces_metrics(tmp_path):
     assert "Sharpe" in metrics_df.columns
     assert "EnvSteps" in metrics_df.columns
     assert metrics_df.loc[0, "EnvSteps"] == simulation["env_steps"]
+    assert simulation["trade_metrics"].costs > 0.0
+    assert metrics_df.loc[0, "Costs"] == pytest.approx(simulation["trade_metrics"].costs)
+    assert metrics_df.loc[0, "Costs"] > 0.0
 
     equity_df = pd.read_csv(equity_path)
     returns_df = pd.read_csv(returns_path)
