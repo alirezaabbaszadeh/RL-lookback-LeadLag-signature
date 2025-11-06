@@ -192,10 +192,15 @@ class LeadLagEnv(gym.Env):
 
         obs = self._make_observation(metrics, extras, lookback)
 
+        normalized_lookback = self._normalise_lookback(lookback)
+        trading_signal = self._signal_from_normalised(normalized_lookback)
+
         current_date = self._dates[self._current_index]
         history_entry = {
             "date": current_date,
             "lookback": lookback,
+            "lookback_normalized": normalized_lookback,
+            "trading_signal": trading_signal,
             "metrics": metrics,
             "matrix": matrix,
             "regime": extras.get("regime"),
@@ -218,6 +223,8 @@ class LeadLagEnv(gym.Env):
         info = {
             "date": current_date,
             "lookback": lookback,
+            "lookback_normalized": normalized_lookback,
+            "trading_signal": trading_signal,
             "reward_components": reward_components,
             "episode_end": self._episode_end_index,
         }
@@ -520,6 +527,16 @@ class LeadLagEnv(gym.Env):
         )
         return obs_values
 
+    def _normalise_lookback(self, lookback: int) -> float:
+        range_span = self.max_lookback - self.min_lookback
+        if range_span <= 0:
+            return 0.0
+        return float(lookback - self.min_lookback) / float(range_span)
+
+    def _signal_from_normalised(self, normalised_value: float) -> float:
+        return float(2.0 * normalised_value - 1.0)
+
+
     def _zero_metrics(self) -> Dict[str, float]:
         return {
             "mean_abs": 0.0,
@@ -574,6 +591,14 @@ class LeadLagEnv(gym.Env):
                 "reward": entry.get("reward", 0.0),
                 "delta_norm": entry.get("delta_norm", 0.0),
             }
+            normalised = entry.get("lookback_normalized")
+            if normalised is None:
+                normalised = self._normalise_lookback(int(entry["lookback"]))
+            row["lookback_normalized"] = float(normalised)
+            trading_signal = entry.get("trading_signal")
+            if trading_signal is None:
+                trading_signal = self._signal_from_normalised(float(normalised))
+            row["trading_signal"] = float(trading_signal)
             metrics = entry.get("metrics", {})
             row.update({f"metric_{k}": v for k, v in metrics.items()})
             regime = entry.get("regime") or {}
