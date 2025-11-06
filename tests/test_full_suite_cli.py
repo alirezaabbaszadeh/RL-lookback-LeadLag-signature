@@ -148,6 +148,7 @@ def test_realized_metrics_follow_trading_path(tmp_path, monkeypatch):
             "lookback": [float(max_lb)] * len(history_index),
             "reward": [0.0] * len(history_index),
             "delta_norm": [0.0] * len(history_index),
+            "position": [1.0] * len(history_index),
         },
         index=history_index,
     )
@@ -156,6 +157,7 @@ def test_realized_metrics_follow_trading_path(tmp_path, monkeypatch):
             "lookback": [float(min_lb)] * len(history_index),
             "reward": [0.0] * len(history_index),
             "delta_norm": [0.0] * len(history_index),
+            "position": [-1.0] * len(history_index),
         },
         index=history_index,
     )
@@ -184,6 +186,32 @@ def test_realized_metrics_follow_trading_path(tmp_path, monkeypatch):
 
     assert pnl_values[0] > pnl_values[1]
     assert sharpe_values[0] > sharpe_values[1]
+
+
+def test_replay_path_ignores_same_bar_shock(tmp_path):
+    cfg = _compose_config(tmp_path)
+    cfg.costs.fee_bps = 0.0
+    cfg.slippage.bps = 0.0
+    cfg.env.initial_position = -1.0
+
+    dates = pd.date_range("2024-03-01", periods=3, freq="D")
+    prices = pd.DataFrame({"AssetA": [100.0, 150.0, 150.0]}, index=dates)
+
+    history = pd.DataFrame(
+        {"position": [-1.0, 1.0, 1.0]},
+        index=dates,
+    )
+
+    realized = run_full_suite._replay_trading_path(cfg, prices, history)
+    assert realized is not None
+
+    expected_return = (prices.iloc[1] / prices.iloc[0] - 1.0).mean()
+    assert realized.positions.iloc[0] == pytest.approx(-1.0)
+    assert realized.positions.iloc[1] == pytest.approx(1.0)
+    assert realized.trades.iloc[0] == pytest.approx(0.0)
+    assert realized.trades.iloc[1] == pytest.approx(2.0)
+    assert realized.returns.iloc[0] == pytest.approx(expected_return * -1.0)
+    assert realized.metrics.pnl == pytest.approx(expected_return * -1.0)
 
 
 def test_build_metadata_row_matches_config(tmp_path):

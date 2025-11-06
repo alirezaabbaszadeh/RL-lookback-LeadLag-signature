@@ -480,7 +480,18 @@ def _replay_trading_path(
         return None
     positions = positions.ffill().fillna(bounds.initial_position).astype(float)
     positions = positions.clip(lower=bounds.min_position, upper=bounds.max_abs_position)
-    trades = positions.diff().fillna(positions.iloc[0] - bounds.initial_position)
+
+    shifted_positions = positions.shift(1).fillna(bounds.initial_position)
+    shifted_positions = shifted_positions.astype(float)
+    shifted_positions = shifted_positions.iloc[1:]
+    base_returns = base_returns.iloc[1:]
+
+    if shifted_positions.empty or base_returns.empty:
+        return None
+
+    trades = shifted_positions.diff().fillna(
+        shifted_positions.iloc[0] - bounds.initial_position
+    )
     trades = trades.astype(float)
 
     costs_cfg = cfg.get("costs") or {}
@@ -490,7 +501,7 @@ def _replay_trading_path(
     cost_rate = (fee_bps + slippage_bps) / 10000.0
 
     costs = trades.abs() * cost_rate
-    realized_returns = positions * base_returns - costs
+    realized_returns = shifted_positions * base_returns - costs
     realized_returns = realized_returns.astype(float)
     costs = costs.astype(float)
 
@@ -498,7 +509,7 @@ def _replay_trading_path(
         return None
 
     turnover = float(trades.abs().mean()) if not trades.empty else 0.0
-    exposure = float(positions.abs().mean()) if not positions.empty else 0.0
+    exposure = float(shifted_positions.abs().mean()) if not shifted_positions.empty else 0.0
     metrics = TradeMetrics(
         pnl=float(realized_returns.sum()),
         turnover=turnover,
@@ -509,7 +520,7 @@ def _replay_trading_path(
 
     return RealizedTradingPath(
         returns=realized_returns,
-        positions=positions,
+        positions=shifted_positions,
         trades=trades,
         costs=costs,
         metrics=metrics,
