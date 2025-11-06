@@ -26,8 +26,12 @@ of producing paper-grade artefacts under strict reproducibility constraints.
 
 ```
 src/leadlag/
+  main.py                     # Dispatcher exposed as the `leadlag` CLI
+  cli/                        # Shared CLI plumbing, formatters, error helpers
+  driver/                     # Scenario discovery, selection, execution
   pipelines/
-    run_full_suite.py
+    run_full_suite.py         # Hydra launcher (exported as `leadlag-full-suite`)
+    run_ablation.py
   env/
     trading_env.py
   features/
@@ -44,6 +48,7 @@ src/leadlag/
     repro.py
 src/leadlag/configs/
   config.yaml
+  scenarios/*.yaml            # Packaged scenario definitions for the CLI
   agent/{ppo,dqn,a2c,sac,td3}.yaml
   features/{base,signature,leadlag,signature_leadlag}.yaml
   data/{sp500_sector,crypto_top,...}.yaml
@@ -52,8 +57,9 @@ src/leadlag/configs/
   hardware/{gpu,auto}.yaml
 ```
 
-This structure already exists in the repository and will remain the single
-supported code path. Any new functionality must plug into this layout.
+This structure already exists in the repository. New functionality must integrate
+with the scenario driver so that packaged YAML configs remain the canonical
+execution surface.
 
 ## Kaggle Notebook Contract
 
@@ -68,9 +74,10 @@ using Hydra overrides to control intensity.
 3. **Configure** – Choose `training=smoke` or `training=paper`, point
    `data.dataset_dir` at the attached dataset, and select `hardware=gpu` for CUDA
    enforcement.
-4. **Run grid** – Execute experiments exclusively through
-   `python -m leadlag.pipelines.run_full_suite ...`. All overrides are handled by
-   Hydra.
+4. **Run grid** – Execute experiments through the `leadlag` CLI. Use `--list`,
+   `--dry-run`, and `--format json` for orchestration-friendly runs. When
+   Hydra-style overrides are required, fall back to the compatibility entry
+   point `leadlag-full-suite -- <overrides>`.
 5. **Collect metrics** – Concatenate every `metrics.csv` into
    `/kaggle/working/paper_outputs/all_metrics_raw.csv`.
 6. **Statistics export** – Invoke `python -m leadlag.eval.stats_cli` to generate
@@ -93,8 +100,8 @@ runs and `/kaggle/working/paper_outputs/` for aggregated artefacts.
 ## Phase Milestones
 
 1. **R0 – Hygiene & Layout** – Formatting, `pre-commit`, README refresh.
-2. **R1 – Single Entry Point** – All runs funnel through
-   `pipelines/run_full_suite.py`.
+2. **R1 – Scenario Driver CLI** – All runs funnel through the `leadlag` CLI,
+   with `leadlag-full-suite` retained for Hydra overrides.
 3. **R2 – Purged CV** – Implement `WalkForwardPurged` and dataset manifests.
 4. **R3 – Trading Realism** – Enforce t→t+1 execution with fees/slippage.
 5. **R4 – Features** – Signature and lead–lag transforms with cache hooks.

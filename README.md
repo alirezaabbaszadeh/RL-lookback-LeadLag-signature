@@ -7,10 +7,13 @@ artefacts.
 
 ## Highlights
 
-- **Single entry point** – `python -m leadlag.pipelines.run_full_suite` orchestrates
-  training, evaluation, and reporting from the Kaggle notebook with Hydra overrides.
-  Startup logs include the Hydra config source order so operators can verify which
-  packages and directories populated the final configuration.
+- **Scenario driver CLI** – The `leadlag` console entry point lists packaged
+  scenarios, validates configs, runs selected workloads, and reports aggregated
+  status. Companion commands such as `leadlag-full-suite`, `leadlag-ablation`,
+  and reporting utilities remain available for scripted automation.
+- **Deterministic output contract** – Every CLI honours `--format text|json`
+  (with `--json` as a temporary alias) and emits a stable envelope containing
+  the command line, parsed arguments, results, and discovered artefacts.
 - **GPU aware** – Defaults to CUDA with AMP enabled; automatically falls back to
   CPU when unavailable.
 - **Leakage-safe CV** – Purged/embargoed walk-forward splits, ready for nested
@@ -30,18 +33,22 @@ full roadmap and governance milestones.
 
 ```
 src/leadlag/
-  pipelines/run_full_suite.py   # Hydra launcher (only supported entry point)
-  env/trading_env.py            # t→t+1 execution with cost modelling
-  features/                     # signature & lead–lag transforms
-  cv/purged.py                  # walk-forward purged/embargoed splits
-  eval/{stats.py,stats_cli.py}  # sharpe/sortino/HAC/SPA/MCS utilities
-  reporting/metrics_writer.py   # canonical metrics.csv writer
-  utils/repro.py                # device selection, seed control, manifests
+  main.py                      # Primary CLI dispatcher (exposed as `leadlag`)
+  cli/                         # Shared CLI plumbing and JSON/text formatters
+  driver/                      # Scenario discovery, filtering, execution
+  pipelines/run_full_suite.py  # Legacy Hydra launcher (still exported)
+  env/                         # t→t+1 execution with cost modelling
+  features/                    # signature & lead–lag transforms
+  cv/                          # walk-forward purged/embargoed splits
+  eval/                        # sharpe/sortino/HAC/SPA/MCS utilities
+  reporting/                   # metrics writers and reporting CLIs
+  utils/repro.py               # device selection, seed control, manifests
 src/leadlag/configs/
-  config.yaml                   # defaults (agent, data, features, hardware)
-  agent/                        # PPO, DQN, A2C, SAC, TD3 presets
-  features/                     # base/signature/leadlag toggles
-  data/                         # universe + dataset directory profiles
+  config.yaml                  # defaults (agent, data, features, hardware)
+  scenarios/*.yaml             # Packaged scenario definitions
+  agent/                       # PPO, DQN, A2C, SAC, TD3 presets
+  features/                    # base/signature/leadlag toggles
+  data/                        # universe + dataset directory profiles
   split/walk_forward_purged.yaml
   training/{smoke,base,paper}.yaml
   hardware/{gpu,auto}.yaml
@@ -72,26 +79,23 @@ Follow this single notebook path on Kaggle (GPU + Internet enabled):
    !pip -q install "git+https://github.com/<owner>/<repo>@<COMMIT_SHA>"
    !pip -q install -r requirements-kaggle.txt
    ```
-3. **Declare the Hydra overrides for your run**
+3. **Inspect packaged scenarios and run identifiers**
    ```python
-   BASE_OVERRIDES = {
-       "agent": "ppo",
-       "training": "smoke",
-       "hardware": "gpu",
-       "data.dataset_dir": "/kaggle/input/your-dataset",
-       "split": "walk_forward_purged",
-       "+logging.run_id": "smoke-ppo-0",
-   }
-
-   # Expand overrides into the CLI-friendly format expected by Hydra.
-   overrides = " ".join(f"{k}={v}" for k, v in BASE_OVERRIDES.items())
-   print("Overrides:", overrides)
+   !leadlag --list
    ```
-4. **Run `leadlag.pipelines.run_full_suite` (canonical cell)**
+4. **Dry-run the scenarios you plan to execute**
    ```python
-   !python -m leadlag.pipelines.run_full_suite {overrides}
+   !leadlag --include fixed --dry-run --format text
    ```
-5. **Inspect consolidated outputs under `/kaggle/working/`**
+5. **Execute the selected scenarios**
+   ```python
+   !leadlag --scenarios fixed_30 rl_ppo --results-root /kaggle/working/results \
+       --runner auto --format text
+   ```
+   Add `--status` to summarise previous runs, `--format json` for
+   automation-friendly envelopes, and `--dry-run` to inspect selections without
+   executing them.
+6. **Inspect consolidated outputs under `/kaggle/working/`**
    ```python
    import glob, os, pandas as pd
 
@@ -103,10 +107,11 @@ Follow this single notebook path on Kaggle (GPU + Internet enabled):
    ]
 
    all_metrics = pd.concat(metrics_frames, ignore_index=True) if metrics_frames else pd.DataFrame()
+   os.makedirs('/kaggle/working/paper_outputs', exist_ok=True)
    all_metrics.to_csv('/kaggle/working/paper_outputs/all_metrics_raw.csv', index=False)
    all_metrics.head()
    ```
-6. **Export paper-grade statistics (optional)**
+7. **Export paper-grade statistics (optional)**
    ```python
    !python -m leadlag.eval.stats_cli \
        --results /kaggle/working/results \
@@ -127,7 +132,7 @@ and random exploration will respect the bound while costs and metrics continue
 to accumulate normally. For example:
 
 ```bash
-python -m leadlag.pipelines.run_full_suite training=smoke env.allow_short=false
+leadlag-full-suite training=smoke env.allow_short=false
 ```
 
 ## Standard Outputs
