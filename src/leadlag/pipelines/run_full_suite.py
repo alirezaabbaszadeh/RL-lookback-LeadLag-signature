@@ -406,6 +406,7 @@ def _summarize_trade_history(
     cfg: DictConfig,
     history: pd.DataFrame,
     returns: pd.Series,
+    prices: Optional[pd.DataFrame] = None,
 ) -> TradeMetrics:
     """Convert environment history into :class:`TradeMetrics`.
 
@@ -447,7 +448,29 @@ def _summarize_trade_history(
     fee_bps = float(costs_cfg.get("fee_bps", 0.0))
     slippage_bps = float(slippage_cfg.get("bps", 0.0))
     cost_rate = (fee_bps + slippage_bps) / 10000.0
-    total_costs = cumulative_turnover * cost_rate
+
+    total_costs: float
+    price_proxy: Optional[pd.Series] = None
+    if prices is not None and positions is not None and not positions.empty:
+        proxy = prices.sort_index().mean(axis=1).astype(float)
+        proxy = proxy.reindex(positions.index)
+        if proxy is not None and not proxy.empty:
+            proxy = proxy.ffill().bfill()
+            if proxy.notna().any():
+                price_proxy = proxy
+
+    if (
+        price_proxy is not None
+        and trades is not None
+        and not trades.empty
+        and not price_proxy.empty
+    ):
+        traded_notional = trades.abs().reindex(price_proxy.index)
+        traded_notional = traded_notional.fillna(0.0)
+        traded_notional = traded_notional * price_proxy
+        total_costs = float(traded_notional.sum() * cost_rate)
+    else:
+        total_costs = float(cumulative_turnover * cost_rate)
 
     return TradeMetrics(
         pnl=pnl,
@@ -571,7 +594,12 @@ def _random_rollout(
     else:
         index = pd.RangeIndex(len(rewards))
         returns = pd.Series(rewards, index=index, dtype=float)
-    trade_metrics = _summarize_trade_history(cfg, history, returns)
+    trade_metrics = _summarize_trade_history(
+        cfg,
+        history,
+        returns,
+        prices=getattr(env, "price_df", None),
+    )
     return returns, trade_metrics, history
 
 
@@ -652,7 +680,7 @@ def _train_sb3_agent(
     else:
         index = pd.RangeIndex(len(rewards))
         returns = pd.Series(rewards, index=index, dtype=float)
-    trade_metrics = _summarize_trade_history(cfg, history, returns)
+    trade_metrics = _summarize_trade_history(cfg, history, returns, prices=prices)
     return (
         returns,
         trade_metrics,
@@ -698,7 +726,12 @@ def _simulate_episode(
         returns_series = reward_returns
         if returns_series.empty:
             returns_series = pd.Series([0.0], dtype=float)
-        trade_metrics = _summarize_trade_history(cfg, history, returns_series)
+        trade_metrics = _summarize_trade_history(
+            cfg,
+            history,
+            returns_series,
+            prices=prices,
+        )
         positions = None
         trades = None
         cost_series = None
@@ -709,7 +742,12 @@ def _simulate_episode(
     )
     equity = stats_mod.compute_equity_curve(summary.returns)
     if trade_metrics.env_steps == 0:
-        trade_metrics = _summarize_trade_history(cfg, history, summary.returns)
+        trade_metrics = _summarize_trade_history(
+            cfg,
+            history,
+            summary.returns,
+            prices=prices,
+        )
     actual_env_steps = trade_metrics.env_steps or int(summary.returns.size)
 
     return {

@@ -1,8 +1,12 @@
 import numpy as np
 import pandas as pd
+import pytest
 from omegaconf import OmegaConf
 
-from leadlag.pipelines.run_full_suite import _replay_trading_path
+from leadlag.pipelines.run_full_suite import (
+    _replay_trading_path,
+    _summarize_trade_history,
+)
 
 
 def _build_prices(base_returns: np.ndarray) -> pd.DataFrame:
@@ -66,3 +70,45 @@ def test_replay_trading_path_uses_recorded_positions():
     np.testing.assert_allclose(metrics.turnover, expected_trades.abs().mean())
     np.testing.assert_allclose(metrics.costs, expected_costs.sum())
     np.testing.assert_allclose(metrics.pnl, expected_returns.sum())
+
+
+def test_summarize_trade_history_scales_costs_with_price():
+    index = pd.date_range("2022-01-01", periods=3, freq="D")
+    history = pd.DataFrame(
+        {
+            "trading_signal": [-1.0, 0.0, 1.0],
+        },
+        index=index,
+    )
+    returns = pd.Series([0.0, 0.0, 0.0], index=index, dtype=float)
+    prices = pd.DataFrame(
+        {
+            "AssetA": [100.0, 102.0, 105.0],
+            "AssetB": [100.0, 102.0, 105.0],
+        },
+        index=index,
+    )
+
+    cfg = OmegaConf.create(
+        {
+            "env": {
+                "max_abs_position": 1.0,
+                "allow_short": True,
+                "initial_position": 0.0,
+            },
+            "costs": {"fee_bps": 25.0},
+            "slippage": {"bps": 5.0},
+        }
+    )
+
+    metrics = _summarize_trade_history(cfg, history, returns, prices=prices)
+
+    initial_position = float(cfg.env.initial_position)
+    signals = history["trading_signal"].astype(float)
+    positions = signals.clip(-1.0, 1.0)
+    trades = positions.diff().fillna(positions.iloc[0] - initial_position)
+    traded_notional = trades.abs() * prices.mean(axis=1)
+    cost_rate = (cfg.costs.fee_bps + cfg.slippage.bps) / 10000.0
+    expected_costs = traded_notional.sum() * cost_rate
+
+    assert metrics.costs == pytest.approx(expected_costs)
