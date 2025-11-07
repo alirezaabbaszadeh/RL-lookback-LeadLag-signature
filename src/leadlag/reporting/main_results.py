@@ -1,4 +1,17 @@
-"""Aggregation utilities for paper-ready result tables."""
+"""Aggregation utilities and CLI for paper-ready result tables.
+
+Examples
+--------
+Aggregate results and emit a JSON summary::
+
+    python -m leadlag.reporting.main_results \
+        --results results/paper_run \
+        --out paper_outputs \
+        --winsor 0.001 \
+        --format json
+
+Use ``--format text`` (the default) for a concise human-readable summary.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +22,13 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 import pandas as pd
+
+from leadlag.cli.errors import emit_exception
+from leadlag.cli.formatters import (
+    add_format_flags,
+    emit_formatted_output,
+    finalize_format_args,
+)
 
 from .metrics_writer import enforce_metrics_schema
 
@@ -134,13 +154,27 @@ def _aggregate(
         if column not in working.columns:
             working[column] = pd.NA
     if working.empty:
-        empty_columns = list(group_columns) + ["n_runs"]
+        empty_columns = list(group_columns) + ["n_runs", "n_seeds", "n_windows"]
         return pd.DataFrame(columns=empty_columns)
 
     grouped = working.groupby(list(group_columns), dropna=False, sort=True)
-    counts = grouped.size().rename("n_runs").reset_index()
+    counts = grouped.size().rename("n_runs")
+    result = counts.to_frame()
 
-    result = counts
+    if "seed" in working.columns:
+        seeds = grouped["seed"].nunique(dropna=True)
+        result["n_seeds"] = seeds.astype("Int64")
+    else:
+        result["n_seeds"] = pd.Series(pd.NA, index=result.index, dtype="Int64")
+
+    if "window_index" in working.columns:
+        windows = grouped["window_index"].nunique(dropna=True)
+        result["n_windows"] = windows.astype("Int64")
+    else:
+        result["n_windows"] = pd.Series(pd.NA, index=result.index, dtype="Int64")
+
+    result.reset_index(inplace=True)
+
     for metric in metrics:
         if metric not in working.columns:
             continue
@@ -148,10 +182,10 @@ def _aggregate(
         summary = summary.unstack()
         summary = summary.rename(
             columns={
-                "mean": f"{metric}_mean",
+                "mean": f"{metric}",
                 "std": f"{metric}_std",
-                "ci_lower": f"{metric}_ci_lower",
-                "ci_upper": f"{metric}_ci_upper",
+                "ci_lower": f"{metric}_lo",
+                "ci_upper": f"{metric}_hi",
             }
         )
         summary = summary.reset_index()
@@ -163,14 +197,14 @@ def _aggregate(
             continue
         metric_columns.extend(
             [
-                f"{metric}_mean",
+                f"{metric}",
                 f"{metric}_std",
-                f"{metric}_ci_lower",
-                f"{metric}_ci_upper",
+                f"{metric}_lo",
+                f"{metric}_hi",
             ]
         )
 
-    ordered_columns = list(group_columns) + ["n_runs"] + metric_columns
+    ordered_columns = list(group_columns) + ["n_runs", "n_seeds", "n_windows"] + metric_columns
     # Ensure all expected columns are present even if entirely missing
     for column in ordered_columns:
         if column not in result.columns:
@@ -225,6 +259,12 @@ def aggregate_main_results(
     else:
         ablations_df["winsor_alpha"] = 0.0
 
+    for column in ("n_runs", "n_seeds", "n_windows"):
+        if column in main_df.columns:
+            main_df[column] = main_df[column].astype("Int64")
+        if column in ablations_df.columns:
+            ablations_df[column] = ablations_df[column].astype("Int64")
+
     main_path = out_dir / "main_results.csv"
     ablations_path = out_dir / "ablations.csv"
     main_df.to_csv(main_path, index=False)
@@ -233,7 +273,7 @@ def aggregate_main_results(
     return AggregateResult(main_df, ablations_df, all_metrics)
 
 
-def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--results",
@@ -259,17 +299,80 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional existing aggregate.csv to reuse.",
     )
+    add_format_flags(parser, default="text")
+    return parser
+
+
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = build_parser()
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    finalize_format_args(args)
+
     winsor_alpha = args.winsor if args.winsor and args.winsor > 0 else None
-    aggregate_main_results(
-        args.results,
-        args.out,
-        winsor_alpha=winsor_alpha,
-        seed_aggregate=args.seed_aggregate,
+
+    try:
+        aggregate = aggregate_main_results(
+            args.results,
+            args.out,
+            winsor_alpha=winsor_alpha,
+            seed_aggregate=args.seed_aggregate,
+        )
+    except Exception as exc:  # pragma: no cover - exercised in CLI tests
+        emit_exception(args, exc, message="Failed to aggregate paper tables.")
+        return 1
+
+    out_dir = Path(args.out).resolve()
+    main_path = out_dir / "main_results.csv"
+    ablations_path = out_dir / "ablations.csv"
+    all_metrics_path = out_dir / "all_metrics_raw.csv"
+
+    text_lines = [
+        f"Output directory: {out_dir}",
+        f"Main results: {main_path} (rows={len(aggregate.main_results)})",
+        f"Ablations: {ablations_path} (rows={len(aggregate.ablations)})",
+    ]
+    message = "Aggregation completed."
+
+    payload = {
+        "results_root": str(Path(args.results).resolve()),
+        "output_dir": str(out_dir),
+        "winsor_alpha": float(winsor_alpha or 0.0),
+        "tables": {
+            "main_results": {
+                "path": str(main_path),
+                "rows": int(len(aggregate.main_results)),
+                "columns": list(aggregate.main_results.columns),
+            },
+            "ablations": {
+                "path": str(ablations_path),
+                "rows": int(len(aggregate.ablations)),
+                "columns": list(aggregate.ablations.columns),
+            },
+            "all_metrics": {
+                "path": str(all_metrics_path),
+                "rows": int(len(aggregate.all_metrics)),
+                "columns": list(aggregate.all_metrics.columns),
+            },
+        },
+    }
+
+    artifacts = {
+        "main_results": str(main_path),
+        "ablations": str(ablations_path),
+        "all_metrics": str(all_metrics_path),
+    }
+
+    emit_formatted_output(
+        args,
+        text="\n".join(text_lines),
+        message=message,
+        data=payload,
+        artifacts=artifacts,
+        pretty=True,
     )
     return 0
 

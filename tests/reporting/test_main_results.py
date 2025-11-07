@@ -1,11 +1,11 @@
-from __future__ import annotations
-
+import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from leadlag.reporting.main_results import aggregate_main_results
+from leadlag.reporting.main_results import main as main_cli
 
 
 def _write_metrics(path: Path, rows: list[dict[str, object]]) -> None:
@@ -81,12 +81,14 @@ def test_aggregate_main_results_produces_confidence_intervals(tmp_path: Path) ->
     assert not main_df.empty
     row = main_df.iloc[0]
     assert row["n_runs"] == 2
+    assert row["n_seeds"] == 2
+    assert row["n_windows"] == 1
     assert row["winsor_alpha"] == pytest.approx(0.0)
-    assert row["Sharpe_mean"] == pytest.approx(1.5)
+    assert row["Sharpe"] == pytest.approx(1.5)
     assert row["Sharpe_std"] == pytest.approx(0.7071067, rel=1e-5)
-    assert row["Sharpe_ci_lower"] == pytest.approx(0.52, rel=1e-6)
-    assert row["Sharpe_ci_upper"] == pytest.approx(2.48, rel=1e-6)
-    assert row["PnL_mean"] == pytest.approx(115.0)
+    assert row["Sharpe_lo"] == pytest.approx(0.52, rel=1e-6)
+    assert row["Sharpe_hi"] == pytest.approx(2.48, rel=1e-6)
+    assert row["PnL"] == pytest.approx(115.0)
 
     ablations_df = result.ablations
     assert not ablations_df.empty
@@ -104,3 +106,63 @@ def test_aggregate_main_results_without_metrics_raises(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError):
         aggregate_main_results(results_root, out_dir)
+
+
+def test_main_results_cli_json_envelope(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    results_root = tmp_path / "results"
+    out_dir = tmp_path / "out"
+    results_root.mkdir()
+    out_dir.mkdir()
+
+    shared = {
+        "agent": "ppo",
+        "policy": "gaussian",
+        "universe": "sp500",
+        "timeframe": "1h",
+        "split_scheme": "walk_forward",
+        "reward": "sharpe",
+        "features_signature": True,
+        "signature_depth": 2,
+        "features_leadlag": True,
+        "time_channel": True,
+        "cost_fee_bps": 0.1,
+        "slippage_bps": 0.0,
+        "experiment_id": "run-0",
+        "seed": 1,
+        "window_index": 0,
+    }
+
+    run_dir = results_root / "run_1"
+    run_dir.mkdir()
+    _write_metrics(
+        run_dir / "metrics.csv",
+        [
+            {
+                **shared,
+                "Sharpe": 1.0,
+                "PnL": 10.0,
+                "EnvSteps": 200,
+            }
+        ],
+    )
+
+    exit_code = main_cli(
+        [
+            "--results",
+            str(results_root),
+            "--out",
+            str(out_dir),
+            "--format",
+            "json",
+        ]
+    )
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["success"] is True
+    data = payload["data"]
+    assert data["winsor_alpha"] == pytest.approx(0.0)
+    tables = data["tables"]
+    assert tables["main_results"]["rows"] == 1
+    assert payload["artifacts"]["main_results"].endswith("main_results.csv")
