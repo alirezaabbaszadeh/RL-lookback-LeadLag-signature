@@ -74,3 +74,49 @@ def test_paper_outputs_ls_cli_json(tmp_path: Path, capsys: pytest.CaptureFixture
     data = payload["data"]
     assert any(entry.endswith("ablations.csv") for entry in data["missing"])
     assert any(entry.endswith("bonus.png") for entry in data["unexpected"])
+
+
+def test_paper_outputs_summarize_cli_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name in REQUIRED_PAPER_ARTIFACTS:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("ok", encoding="utf-8")
+
+    exit_code = paper_outputs_main([
+        "--format",
+        "json",
+        "summarize",
+        "--root",
+        str(tmp_path),
+    ])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["success"] is True
+    assert payload["data"]["present"] == len(REQUIRED_PAPER_ARTIFACTS)
+    assert payload["data"]["missing"] == []
+
+
+def test_paper_outputs_summarize_cli_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "main_results.csv").write_text("ok", encoding="utf-8")
+
+    exit_code = paper_outputs_main([
+        "--format",
+        "json",
+        "summarize",
+        "--root",
+        str(tmp_path),
+    ])
+    assert exit_code == 1
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["success"] is False
+    assert payload["errors"][0]["code"] == "resource_not_found"
+    missing = payload["data"]["missing"]
+    assert any(entry.endswith("ablations.csv") for entry in missing)

@@ -93,7 +93,7 @@ else
     stage_cmd=("${entry_args[@]}")
 fi
 
-TOTAL_STAGES=5
+TOTAL_STAGES=6
 
 echo "[1/${TOTAL_STAGES}] Running leadlag full suite (${EFFECTIVE_OVERRIDES})..."
 stage_start=$(date +%s)
@@ -134,6 +134,14 @@ stage_start=$(date +%s)
 python -m leadlag.reporting.paper_outputs --format text validate --root "${OUT}"
 stage_end=$(date +%s)
 echo "[5/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
+
+echo "[6/${TOTAL_STAGES}] Summarizing paper artifact status..."
+stage_start=$(date +%s)
+summary_line=$(python -m leadlag.reporting.paper_outputs --format text summarize --root "${OUT}")
+stage_end=$(date +%s)
+echo "[6/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
+echo "${summary_line}"
+printf '%s\n' "${summary_line}" > "${OUT}/paper_status.txt"
 
 script_end=$(date +%s)
 script_end_iso=$(date --iso-8601=seconds -d "@${script_end}")

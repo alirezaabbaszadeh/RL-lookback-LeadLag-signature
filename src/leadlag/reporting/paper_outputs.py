@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from leadlag.cli.errors import emit_exception
+from leadlag.cli.errors import ERROR_NOT_FOUND, emit_exception
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 
 REQUIRED_PAPER_ARTIFACTS: Sequence[str] = (
@@ -148,6 +148,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Include unexpected files in the text summary (always returned in JSON).",
     )
 
+    summarize_parser = subparsers.add_parser(
+        "summarize",
+        help="Summarize the canonical paper artefact status in a single line.",
+    )
+    summarize_parser.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Directory containing paper artefacts.",
+    )
+
     return parser
 
 
@@ -226,6 +237,69 @@ def _handle_ls(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_summarize(args: argparse.Namespace) -> int:
+    try:
+        listing = list_paper_artifacts(args.root)
+    except Exception as exc:  # pragma: no cover - error path handled in tests
+        emit_exception(args, exc, message="Failed to summarize paper artefacts.")
+        return 1
+
+    root = Path(args.root).resolve()
+    total_required = len(REQUIRED_PAPER_ARTIFACTS)
+    present_required = len(listing.present)
+    missing_paths = [str(path) for path in listing.missing]
+    unexpected_paths = [str(path) for path in listing.unexpected]
+
+    success = not missing_paths
+    if success:
+        status_text = (
+            f"All required paper artefacts present under {root} "
+            f"({present_required}/{total_required})."
+        )
+        message = "Paper artefact summary generated."
+        errors = None
+    else:
+        formatted_missing = ", ".join(sorted(Path(path).name for path in missing_paths))
+        status_text = (
+            f"Missing required paper artefacts under {root}: {formatted_missing} "
+            f"({present_required}/{total_required} present)."
+        )
+        message = "Missing required paper artefacts detected."
+        errors = [
+            {
+                "code": ERROR_NOT_FOUND,
+                "message": message,
+                "details": {
+                    "missing": missing_paths,
+                    "root": str(root),
+                },
+            }
+        ]
+
+    emit_formatted_output(
+        args,
+        text=status_text,
+        success=success,
+        message=message,
+        data={
+            "root": str(root),
+            "expected": total_required,
+            "present": present_required,
+            "missing": missing_paths,
+            "unexpected": unexpected_paths,
+        },
+        errors=errors,
+        artifacts={
+            "present": [str(path) for path in listing.present],
+            "missing": missing_paths,
+            "unexpected": unexpected_paths,
+        },
+        pretty=True,
+    )
+
+    return 0 if success else 1
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -235,6 +309,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return _handle_validate(args)
     if args.command == "ls":
         return _handle_ls(args)
+    if args.command == "summarize":
+        return _handle_summarize(args)
 
     raise RuntimeError(f"Unknown command: {args.command}")
 
