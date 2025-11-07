@@ -28,6 +28,17 @@ contributor-identifying metadata has been removed.
    !bash /kaggle/working/artifact/scripts/reproduce_all.sh
    ```
 
+   Example log excerpt with the new timestamps:
+
+   ```text
+   [timing] Script start: 2024-02-15T12:00:00+00:00
+   [diagnostics] python version
+   ...
+   [5/5] Completed in 42s
+   [timing] Script completed at 2024-02-15T12:07:32+00:00 (total runtime: 452s)
+   Done. Paper artifacts are available under /kaggle/working/paper_outputs/. Total runtime: 452s.
+   ```
+
 5. Download the contents of `/kaggle/working/paper_outputs/` for submission.
 
 ## Notes
