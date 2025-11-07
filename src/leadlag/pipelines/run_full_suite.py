@@ -768,6 +768,8 @@ def _simulate_episode(
         seed=effective_seed,
     )
 
+    feature_time_meta: Dict[str, object] | None = None
+
     try:
         if not feature_frame.empty:
             decision_times = prices.index[1 : 1 + len(feature_frame)]
@@ -783,10 +785,30 @@ def _simulate_episode(
                 lag_values = decision_view.view("i8") - feature_times.view("i8")
                 if lag_values.size:
                     min_lag = pd.to_timedelta(int(lag_values.min()), unit="ns")
+                    max_lag = pd.to_timedelta(int(lag_values.max()), unit="ns")
+                    checked_rows = int(feature_times.size)
+                    tz_info = feature_times.tz
+                    if tz_info is not None:
+                        tz_name = getattr(tz_info, "key", None) or getattr(tz_info, "zone", None)
+                        tz_value: str | None = str(tz_info) if tz_name is None else str(tz_name)
+                    else:
+                        tz_value = None
+                    try:
+                        freq_hint = feature_times.inferred_freq  # type: ignore[attr-defined]
+                    except (AttributeError, ValueError, TypeError):  # pragma: no cover - pandas quirks
+                        freq_hint = None
+                    feature_time_meta = {
+                        "checked_rows": checked_rows,
+                        "min_lag_ns": int(lag_values.min()),
+                        "max_lag_ns": int(lag_values.max()),
+                        "tz": tz_value,
+                        "freq_hint": freq_hint,
+                    }
                     logger.info(
-                        "Temporal guard inspected %d feature rows (min lag: %s)",
+                        "Temporal guard inspected %d feature rows (min lag: %s, max lag: %s)",
                         len(feature_frame),
                         min_lag,
+                        max_lag,
                     )
         else:
             logger.info("Temporal guard skipped: no feature timestamps available")
@@ -852,6 +874,7 @@ def _simulate_episode(
         "dataset_path": dataset_path,
         "feature_stack": feature_stack,
         "feature_frame": feature_frame,
+        "feature_time_meta": feature_time_meta,
         "agent_info": agent_meta,
         "dataset_length": len(prices),
     }
@@ -875,6 +898,7 @@ def _write_artifacts(
     dataset_path = simulation.get("dataset_path")
     feature_stack = simulation.get("feature_stack", {})
     feature_frame = simulation.get("feature_frame")
+    feature_time_meta = simulation.get("feature_time_meta") or {}
     agent_info = simulation.get("agent_info")
 
     stats_mod.export_returns(run_dir / "returns.csv", returns_series)
@@ -908,6 +932,8 @@ def _write_artifacts(
         "metrics": metrics_row,
         "requested_env_steps": int(simulation.get("requested_env_steps", env_steps)),
         "actual_env_steps": env_steps,
+        "env_steps_reported": int(simulation.get("requested_env_steps", env_steps)),
+        "env_steps_actual": env_steps,
         "vectorised_envs": int(simulation.get("n_envs", 1)),
         "agent": agent_info,
         "feature_stack": {
@@ -915,18 +941,46 @@ def _write_artifacts(
             for key, value in feature_stack.items()
         },
     }
+    feature_time_payload: Dict[str, object] = {
+        "checked_rows": int(feature_time_meta.get("checked_rows", 0)),
+        "min_lag_ns": feature_time_meta.get("min_lag_ns"),
+        "max_lag_ns": feature_time_meta.get("max_lag_ns"),
+        "tz": feature_time_meta.get("tz"),
+        "freq_hint": feature_time_meta.get("freq_hint"),
+    }
     if isinstance(feature_frame, pd.DataFrame) and "t_feat" in feature_frame:
-        manifest_payload["feature_times"] = {
-            "column": "t_feat",
-            "rows": int(feature_frame.shape[0]),
-        }
+        feature_time_payload.update(
+            {
+                "column": "t_feat",
+                "rows": int(feature_frame.shape[0]),
+            }
+        )
         if not feature_frame.empty:
-            manifest_payload["feature_times"].update(
-                {
-                    "first": feature_frame["t_feat"].iloc[0].isoformat(),
-                    "last": feature_frame["t_feat"].iloc[-1].isoformat(),
-                }
-            )
+            times = pd.DatetimeIndex(feature_frame["t_feat"].dropna())
+            if not times.empty:
+                first_ts = times[0]
+                last_ts = times[-1]
+                feature_time_payload.update(
+                    {
+                        "first": first_ts.isoformat(),
+                        "last": last_ts.isoformat(),
+                    }
+                )
+                feature_time_payload.setdefault("tz", str(times.tz) if times.tz else None)
+                try:
+                    inferred = times.inferred_freq  # type: ignore[attr-defined]
+                except (AttributeError, ValueError, TypeError):  # pragma: no cover - pandas quirks
+                    inferred = None
+                feature_time_payload.setdefault("freq_hint", inferred)
+    else:
+        feature_time_payload.setdefault("column", None)
+        feature_time_payload.setdefault("rows", 0)
+
+    manifest_payload["feature_time"] = feature_time_payload
+    if isinstance(feature_frame, pd.DataFrame) and "t_feat" in feature_frame:
+        manifest_payload["feature_times"] = dict(feature_time_payload)
+
+    manifest_payload["config_sources"] = _collect_config_sources(cfg)
     manifest_payload["presets"] = {
         "training": OmegaConf.select(cfg, "training.preset_name"),
         "hardware": OmegaConf.select(cfg, "hardware.preset_name"),

@@ -99,6 +99,14 @@ def test_simulate_episode_produces_metrics(tmp_path):
     assert manifest_payload.get("agent")
     feature_meta = manifest_payload.get("feature_stack", {})
     assert "returns" in feature_meta
+    feature_time = manifest_payload.get("feature_time", {})
+    assert feature_time.get("checked_rows", 0) >= 0
+    assert "min_lag_ns" in feature_time
+    assert "max_lag_ns" in feature_time
+    assert "freq_hint" in feature_time
+    assert "config_sources" in manifest_payload
+    assert manifest_payload.get("env_steps_reported") == manifest_payload.get("requested_env_steps")
+    assert manifest_payload.get("env_steps_actual") == manifest_payload.get("actual_env_steps")
 
     data_manifest = json.loads(data_manifest_path.read_text(encoding="utf-8"))
     assert data_manifest.get("dataset_dir") == str(tmp_path / "dataset")
