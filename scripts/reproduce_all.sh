@@ -55,6 +55,10 @@ if [[ -n "${PROFILE_OVERRIDES}" ]]; then
 fi
 EFFECTIVE_OVERRIDES=$(echo "${EFFECTIVE_OVERRIDES}" | xargs)
 
+script_start=$(date +%s)
+script_start_iso=$(date --iso-8601=seconds -d "@${script_start}")
+echo "[timing] Script start: ${script_start_iso}"
+
 echo "[diagnostics] python version"
 python -V || true
 echo "[diagnostics] pip snapshot"
@@ -131,4 +135,8 @@ python -m leadlag.reporting.paper_outputs --format text validate --root "${OUT}"
 stage_end=$(date +%s)
 echo "[5/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 
-echo "Done. Paper artifacts are available under ${OUT}."
+script_end=$(date +%s)
+script_end_iso=$(date --iso-8601=seconds -d "@${script_end}")
+total_runtime=$((script_end - script_start))
+echo "[timing] Script completed at ${script_end_iso} (total runtime: ${total_runtime}s)"
+echo "Done. Paper artifacts are available under ${OUT}. Total runtime: ${total_runtime}s."
