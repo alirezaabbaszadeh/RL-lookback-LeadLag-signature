@@ -191,6 +191,49 @@ jobs:
           mkdir -p .ci
           rm -rf "$RES" "$OUT"
           RES="$RES" OUT="$OUT" bash scripts/reproduce_all.sh
+      - name: Package OpenReview artifact
+        id: pack-openreview
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p .ci
+          LOG=.ci/openreview_pack.log
+          bash scripts/pack_openreview.sh --verify | tee "$LOG"
+          SIZE_MB=$(du -m artifact_anonymous.zip | awk '{print $1}')
+          echo "size_mb=$SIZE_MB" >> "$GITHUB_OUTPUT"
+      - name: Smoke reproduce from packaged artifact
+        if: ${{ steps.pack-openreview.outcome == 'success' }}
+        env:
+          RES: .ci/archive_results
+          OUT: .ci/archive_paper_outputs
+        run: |
+          set -euo pipefail
+          rm -rf "$RES" "$OUT" .ci/openreview_unpack
+          mkdir -p .ci/openreview_unpack
+          unzip -q artifact_anonymous.zip -d .ci/openreview_unpack
+          pushd .ci/openreview_unpack/artifact >/dev/null
+          pip install -e .
+          RES="$RES" OUT="$OUT" bash scripts/reproduce_all.sh --skip-stats --profiles "training=smoke"
+          popd >/dev/null
+          if [ ! -d "$OUT" ] || [ -z "$(ls -A "$OUT")" ]; then
+            echo "paper_outputs missing from smoke reproduction" >&2
+            exit 1
+          fi
+      - name: Upload OpenReview package artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openreview-package-${{ matrix.python-version }}
+          path: |
+            artifact_anonymous.zip
+            .ci/openreview_pack.log
+            .ci/archive_paper_outputs
+          if-no-files-found: warn
+      - name: Enforce packaging success
+        if: ${{ steps.pack-openreview.outcome == 'failure' }}
+        run: |
+          echo "OpenReview packaging failed" >&2
+          exit 1
       - name: Validate manifest with CLI
         run: |
           RUNDIR=$(ls -1 .ci/results | head -n1)
