@@ -127,16 +127,7 @@ echo "[4/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 
 echo "[5/${TOTAL_STAGES}] Validating paper artifact set..."
 stage_start=$(date +%s)
-python - <<'EOF'
-import os
-from pathlib import Path
-
-from leadlag.reporting.paper_outputs import validate_paper_artifact_set
-
-out_dir = Path(os.environ["OUT"]).resolve()
-validated = validate_paper_artifact_set(out_dir)
-print(f"Validated {len(validated)} paper artefacts.")
-EOF
+python -m leadlag.reporting.paper_outputs --format text validate --root "${OUT}"
 stage_end=$(date +%s)
 echo "[5/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 

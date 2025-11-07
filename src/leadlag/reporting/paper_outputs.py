@@ -1,9 +1,25 @@
-"""Helpers for validating the paper artefact set."""
+"""Helpers and CLI utilities for validating paper artefacts.
+
+Examples
+--------
+Validate that the canonical artefact set exists::
+
+    python -m leadlag.reporting.paper_outputs validate --root paper_outputs --format json
+
+List present and missing artefacts with a readable summary::
+
+    python -m leadlag.reporting.paper_outputs ls --root paper_outputs
+"""
 
 from __future__ import annotations
 
+import argparse
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from leadlag.cli.errors import emit_exception
+from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 
 REQUIRED_PAPER_ARTIFACTS: Sequence[str] = (
     "main_results.csv",
@@ -17,6 +33,15 @@ REQUIRED_PAPER_ARTIFACTS: Sequence[str] = (
     "pnl.png",
     "report.html",
 )
+
+
+@dataclass(frozen=True)
+class ArtifactListing:
+    """Lists the artefact status under a paper output directory."""
+
+    present: list[Path]
+    missing: list[Path]
+    unexpected: list[Path]
 
 
 def validate_paper_artifact_set(
@@ -59,4 +84,168 @@ def validate_paper_artifact_set(
     return resolved
 
 
-__all__ = ["REQUIRED_PAPER_ARTIFACTS", "validate_paper_artifact_set"]
+def list_paper_artifacts(
+    out_dir: Path | str,
+    *,
+    required: Iterable[str] | None = None,
+) -> ArtifactListing:
+    """Return present, missing, and unexpected artefacts under ``out_dir``."""
+
+    directory = Path(out_dir)
+    if not directory.exists():
+        raise FileNotFoundError(f"Paper artefact directory {directory} does not exist")
+
+    expected = list(required) if required is not None else list(REQUIRED_PAPER_ARTIFACTS)
+    expected_set = set(expected)
+
+    present: list[Path] = []
+    unexpected: list[Path] = []
+
+    for path in sorted(directory.iterdir()):
+        if path.is_dir():
+            continue
+        if path.name in expected_set:
+            present.append(path)
+        else:
+            unexpected.append(path)
+
+    present_names = {path.name for path in present}
+    missing = [directory / name for name in expected if name not in present_names]
+
+    return ArtifactListing(present=present, missing=missing, unexpected=unexpected)
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_format_flags(parser, default="text")
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.required = True
+
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate that the canonical paper artefact set is complete.",
+    )
+    validate_parser.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Directory containing paper artefacts.",
+    )
+
+    ls_parser = subparsers.add_parser(
+        "ls",
+        help="List present, missing, and unexpected artefacts.",
+    )
+    ls_parser.add_argument(
+        "--root",
+        type=Path,
+        required=True,
+        help="Directory containing paper artefacts.",
+    )
+    ls_parser.add_argument(
+        "--include-unexpected",
+        action="store_true",
+        help="Include unexpected files in the text summary (always returned in JSON).",
+    )
+
+    return parser
+
+
+def _handle_validate(args: argparse.Namespace) -> int:
+    try:
+        validated = validate_paper_artifact_set(args.root)
+    except Exception as exc:  # pragma: no cover - error path handled in tests
+        emit_exception(args, exc, message="Paper artefact validation failed.")
+        return 1
+
+    root = Path(args.root).resolve()
+    artifacts = [str(path) for path in validated]
+    text = [f"Validated {len(validated)} artefact(s) under {root}:"]
+    text.extend(f"  - {path}" for path in artifacts)
+
+    emit_formatted_output(
+        args,
+        text="\n".join(text),
+        message="Paper artefact set validated.",
+        data={"root": str(root), "artifacts": artifacts},
+        artifacts={"validated": artifacts},
+        pretty=True,
+    )
+    return 0
+
+
+def _handle_ls(args: argparse.Namespace) -> int:
+    try:
+        listing = list_paper_artifacts(args.root)
+    except Exception as exc:  # pragma: no cover - error path handled in tests
+        emit_exception(args, exc, message="Failed to list paper artefacts.")
+        return 1
+
+    root = Path(args.root).resolve()
+    present = [str(path) for path in listing.present]
+    missing = [str(path) for path in listing.missing]
+    unexpected = [str(path) for path in listing.unexpected]
+
+    summary = [f"Paper artefacts under {root}:"]
+    if present:
+        summary.append("  present:")
+        summary.extend(f"    - {path}" for path in present)
+    else:
+        summary.append("  present: (none)")
+
+    if missing:
+        summary.append("  missing:")
+        summary.extend(f"    - {path}" for path in missing)
+    else:
+        summary.append("  missing: (none)")
+
+    if args.include_unexpected:
+        if unexpected:
+            summary.append("  unexpected:")
+            summary.extend(f"    - {path}" for path in unexpected)
+        else:
+            summary.append("  unexpected: (none)")
+
+    emit_formatted_output(
+        args,
+        text="\n".join(summary),
+        message="Paper artefact listing generated.",
+        data={
+            "root": str(root),
+            "present": present,
+            "missing": missing,
+            "unexpected": unexpected,
+        },
+        artifacts={
+            "present": present,
+            "missing": missing,
+            "unexpected": unexpected,
+        },
+        pretty=True,
+    )
+    return 0
+
+
+def main(argv: Iterable[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    finalize_format_args(args)
+
+    if args.command == "validate":
+        return _handle_validate(args)
+    if args.command == "ls":
+        return _handle_ls(args)
+
+    raise RuntimeError(f"Unknown command: {args.command}")
+
+
+__all__ = [
+    "ArtifactListing",
+    "REQUIRED_PAPER_ARTIFACTS",
+    "list_paper_artifacts",
+    "validate_paper_artifact_set",
+]
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
