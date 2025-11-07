@@ -18,8 +18,10 @@ artefacts.
   CPU when unavailable.
 - **Leakage-safe CV** – Purged/embargoed walk-forward splits, ready for nested
   tuning.
-- **Standard outputs** – Canonical `metrics.csv`, equity curves, trade summaries,
-  and JSON manifests under `/kaggle/working/results/<run_id>/`.
+- **Journal-ready bundles** – The Kaggle orchestrator creates
+  `multi_stage_artifacts/` and `multi_stage_artifacts.zip` with stage manifests,
+  audit logs, and paper outputs that match TMLR reviewer expectations out of the
+  box.
 - **Paper-grade statistics** – HAC confidence intervals, PSR/DSR, SPA-lite, and a
   model confidence set automatically exported to `paper_outputs_root` after each
   run.
@@ -61,11 +63,12 @@ Support files:
 - `notebooks/` – Jupyter notebooks mirroring the Kaggle flow for offline
   exploration.
 
-## Quick Start (Kaggle Notebook)
+## Kaggle Notebook Workflow (Journal Submission)
 
-Follow this single notebook path on Kaggle (GPU + Internet enabled):
+Use this notebook outline when preparing reviewer artefacts for **TMLR**. All
+steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
 
-1. **Verify the GPU runtime**
+1. **Verify the runtime**
    ```python
    import torch
 
@@ -74,55 +77,55 @@ Follow this single notebook path on Kaggle (GPU + Internet enabled):
        print(torch.cuda.get_device_name(0))
    !nvidia-smi -L
    ```
-2. **Install the pinned commit and requirements**
-   ```python
-   !pip -q install "git+https://github.com/<owner>/<repo>@<COMMIT_SHA>"
-   !pip -q install -r requirements-kaggle.txt
-   ```
-3. **Inspect packaged scenarios and run identifiers**
-   ```python
-   !leadlag --list
-   ```
-4. **Dry-run the scenarios you plan to execute**
-   ```python
-   !leadlag --include fixed --dry-run --format text
-   ```
-5. **Execute the selected scenarios**
-   ```python
-   !leadlag --scenarios fixed_30 rl_ppo --results-root /kaggle/working/results \
-       --runner auto --format text
-   ```
-   Add `--status` to summarise previous runs, `--format json` for
-   automation-friendly envelopes, and `--dry-run` to inspect selections without
-   executing them.
-6. **Inspect consolidated outputs under `/kaggle/working/`**
-   ```python
-   import glob, os, pandas as pd
+2. **Prime the environment and prefetch wheels** – copy/paste this cell (adjust
+   the dataset name if you attached the repo under a different alias):
+   ```bash
+   %%bash
+   set -e
+   WORK=/kaggle/working
+   cd "$WORK"
 
-   result_dirs = sorted(glob.glob('/kaggle/working/results/*'))
-   metrics_frames = [
-       pd.read_csv(os.path.join(run_dir, 'metrics.csv'))
-       for run_dir in result_dirs
-       if os.path.exists(os.path.join(run_dir, 'metrics.csv'))
-   ]
+   if [ ! -f kaggle/run_all.py ]; then
+     cp -r /kaggle/input/leadlag-signature/* "$WORK"/
+   fi
 
-   all_metrics = pd.concat(metrics_frames, ignore_index=True) if metrics_frames else pd.DataFrame()
-   os.makedirs('/kaggle/working/paper_outputs', exist_ok=True)
-   all_metrics.to_csv('/kaggle/working/paper_outputs/all_metrics_raw.csv', index=False)
-   all_metrics.head()
+   python -m pip install --upgrade pip
+   mkdir -p wheelhouse .cache/pip
+   python -m pip download -d wheelhouse -r requirements-kaggle.txt
+   python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+   python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
+
+   export PIP_CACHE_DIR=/kaggle/working/.cache/pip
+   export PIP_FIND_LINKS=/kaggle/working/wheelhouse
+   export PIP_NO_INDEX=1
    ```
-7. **Export paper-grade statistics (optional)**
+3. **Run the grand orchestrator** – builds virtualenvs per stage and bundles the
+   artefacts reviewers will download:
    ```python
-   !python -m leadlag.eval.stats_cli \
-       --results /kaggle/working/results \
-       --out /kaggle/working/paper_outputs \
-       --spa-iterations 500 \
-       --block-length 5
+   !python kaggle/run_all.py
    ```
+   Use `--no-prefetch` to skip the wheel download step or `--artifacts-root` to
+   change the output location.
+4. **Surface the paper outputs** – the orchestrator already copies
+   `paper_outputs/` inside `multi_stage_artifacts/full_suite/`, but you can
+   mirror them into the top level notebook directory for quick inspection:
+   ```python
+   import shutil, pathlib
 
-Every cell writes to `/kaggle/working/`, producing per-run directories under
-`/kaggle/working/results/<run_id>/` and aggregated summaries inside
-`/kaggle/working/paper_outputs/`.
+   src = pathlib.Path("/kaggle/working/multi_stage_artifacts/full_suite/paper_outputs")
+   dst = pathlib.Path("/kaggle/working/paper_outputs")
+   if src.exists():
+       shutil.copytree(src, dst, dirs_exist_ok=True)
+       print("Paper outputs copied to", dst)
+   else:
+       print("paper_outputs missing – inspect stage logs")
+   ```
+5. **Download submission artefacts** – from the Kaggle sidebar, download
+   `/kaggle/working/multi_stage_artifacts.zip` (reviewers unpack this file) and
+   optionally `/kaggle/working/paper_outputs/` if you mirrored the tables.
+
+The zipped bundle contains all stage manifests, logs, metrics, anonymised data
+cards, and status summaries required by the journal.
 
 ### Long-only experiments
 
@@ -135,22 +138,27 @@ to accumulate normally. For example:
 leadlag-full-suite training=smoke env.allow_short=false
 ```
 
-## Standard Outputs
+## Submission Bundle Layout
 
-Per-run directory (`/kaggle/working/results/<run_id>/`):
-- `metrics.csv` – canonical schema for aggregation (includes `EnvSteps` for
-  auditing equal interaction budgets).
-- `equity.csv` – equity curve per timestamp.
-- `returns.csv` – per-step returns.
-- `splits.csv` – walk-forward split audit trail (train/test indices, window
-  bounds, and embargo for every fold).
-- `run_manifest.json` – seeds, device info, package versions, and resolved config.
+`multi_stage_artifacts/` mirrors what the orchestrator zips for reviewers:
 
-Aggregate directory (`/kaggle/working/paper_outputs/`):
+- `summary.json` – stage-level status, durations, and log pointers.
+- `full_suite/` – Hydra pipeline outputs including `results/`,
+  `paper_outputs/`, audit scans, and generated reports.
+- `sb3_leadlag/` – production Stable-Baselines3 runs on the LeadLag
+  environment (`metrics_timeseries.csv`, `summary.csv`, `model.zip`, manifests).
+- `dopamine/` – Gymnasium 1.x sanity checks with iteration statistics and logs.
+
+Within `full_suite/paper_outputs/` you will find the canonical statistics:
+
 - `all_metrics_raw.csv` – concatenated metrics for every run.
-- `psr_dsr_pvalues.csv`, `hac_sharpe_confidence_intervals.csv`, SPA result tables
-  (per-strategy and supremum p-values), forest/heatmap PNGs, and
-  `paper_results.md`.
+- `psr_dsr_pvalues.csv`, `hac_sharpe_confidence_intervals.csv`, SPA tables,
+  plots, and `paper_results.md`.
+- `paper_status.txt` – single-line readiness summary copied into reviewer notes.
+
+If you run `scripts/reproduce_all.sh` locally (the command executed inside the
+`full_suite` stage), the same directories appear under your configured
+`RES`/`OUT` paths.
 
 ## Testing
 
