@@ -30,6 +30,8 @@ from leadlag.cli.formatters import (
     finalize_format_args,
 )
 
+from .latex import to_latex
+
 from .metrics_writer import enforce_metrics_schema
 
 KEY_METRICS: Sequence[str] = (
@@ -270,6 +272,11 @@ def aggregate_main_results(
     main_df.to_csv(main_path, index=False)
     ablations_df.to_csv(ablations_path, index=False)
 
+    main_tex_path = out_dir / "main_results.tex"
+    ablations_tex_path = out_dir / "ablations.tex"
+    to_latex(main_path, main_tex_path, metrics=KEY_METRICS)
+    to_latex(ablations_path, ablations_tex_path, metrics=KEY_METRICS)
+
     return AggregateResult(main_df, ablations_df, all_metrics)
 
 
@@ -285,7 +292,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--out",
         type=Path,
         required=True,
-        help="Directory to write aggregated paper tables.",
+        help=(
+            "Directory to write aggregated paper tables (CSV and LaTeX)."
+        ),
     )
     parser.add_argument(
         "--winsor",
@@ -329,11 +338,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     main_path = out_dir / "main_results.csv"
     ablations_path = out_dir / "ablations.csv"
     all_metrics_path = out_dir / "all_metrics_raw.csv"
+    main_tex_path = out_dir / "main_results.tex"
+    ablations_tex_path = out_dir / "ablations.tex"
 
     text_lines = [
         f"Output directory: {out_dir}",
         f"Main results: {main_path} (rows={len(aggregate.main_results)})",
+        f"Main results (LaTeX): {main_tex_path}",
         f"Ablations: {ablations_path} (rows={len(aggregate.ablations)})",
+        f"Ablations (LaTeX): {ablations_tex_path}",
     ]
     message = "Aggregation completed."
 
@@ -346,11 +359,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "path": str(main_path),
                 "rows": int(len(aggregate.main_results)),
                 "columns": list(aggregate.main_results.columns),
+                "latex_path": str(main_tex_path),
             },
             "ablations": {
                 "path": str(ablations_path),
                 "rows": int(len(aggregate.ablations)),
                 "columns": list(aggregate.ablations.columns),
+                "latex_path": str(ablations_tex_path),
             },
             "all_metrics": {
                 "path": str(all_metrics_path),
@@ -362,7 +377,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     artifacts = {
         "main_results": str(main_path),
+        "main_results_tex": str(main_tex_path),
         "ablations": str(ablations_path),
+        "ablations_tex": str(ablations_tex_path),
         "all_metrics": str(all_metrics_path),
     }
 
