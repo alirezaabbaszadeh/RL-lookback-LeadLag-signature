@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from leadlag.reporting.main_results import aggregate_main_results
+from leadlag.reporting.main_results import build_parser
 from leadlag.reporting.main_results import main as main_cli
 
 
@@ -92,8 +93,22 @@ def test_aggregate_main_results_produces_confidence_intervals(tmp_path: Path) ->
 
     ablations_df = result.ablations
     assert not ablations_df.empty
-    assert (out_dir / "main_results.csv").exists()
-    assert (out_dir / "ablations.csv").exists()
+    main_csv = out_dir / "main_results.csv"
+    ablations_csv = out_dir / "ablations.csv"
+    main_tex = out_dir / "main_results.tex"
+    ablations_tex = out_dir / "ablations.tex"
+
+    assert main_csv.exists()
+    assert ablations_csv.exists()
+    assert main_tex.exists()
+    assert ablations_tex.exists()
+
+    fixtures = Path(__file__).parent / "fixtures"
+    expected_main = (fixtures / "main_results.tex").read_text(encoding="utf-8").strip()
+    expected_ablations = (fixtures / "ablations.tex").read_text(encoding="utf-8").strip()
+
+    assert main_tex.read_text(encoding="utf-8").strip() == expected_main
+    assert ablations_tex.read_text(encoding="utf-8").strip() == expected_ablations
     assert (out_dir / "all_metrics_raw.csv").exists()
     assert len(result.all_metrics) == 2
 
@@ -165,4 +180,12 @@ def test_main_results_cli_json_envelope(tmp_path: Path, capsys: pytest.CaptureFi
     assert data["winsor_alpha"] == pytest.approx(0.0)
     tables = data["tables"]
     assert tables["main_results"]["rows"] == 1
+    assert tables["main_results"]["latex_path"].endswith("main_results.tex")
     assert payload["artifacts"]["main_results"].endswith("main_results.csv")
+    assert payload["artifacts"]["main_results_tex"].endswith("main_results.tex")
+
+
+def test_cli_help_mentions_latex() -> None:
+    parser = build_parser()
+    help_text = parser.format_help()
+    assert "LaTeX" in help_text
