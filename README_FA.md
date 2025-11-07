@@ -16,56 +16,69 @@
 
 ---
 
-## اجرای همه آزمایش‌ها با یک فرمان
+## مسیر نوت‌بوک Kaggle (ویژه ارسال مجله)
 
-1. **نصب پیش‌نیازها**
+تنظیمات نوت‌بوک: اینترنت **روشن** و شتاب‌دهنده **GPU** (T4 به بالا). تمام مسیرها در `/kaggle/working` ساخته می‌شوند.
+
+1. **بررسی GPU و محیط**
+
+   ```python
+   import torch
+
+   print("CUDA available:", torch.cuda.is_available())
+   if torch.cuda.is_available():
+       print(torch.cuda.get_device_name(0))
+   !nvidia-smi -L
+   ```
+
+2. **آماده‌سازی محیط و پیش‌دریافت wheel** – اگر مخزن را با نام دیگری متصل کرده‌اید، مسیر را مطابق نیاز عوض کنید.
 
    ```bash
-   !pip install -r /kaggle/input/<dataset>/requirements-kaggle.txt
-   # در صورت نیاز به سناریوهای RL
-   !pip install -q stable-baselines3 torch sb3-contrib
+   %%bash
+   set -e
+   WORK=/kaggle/working
+   cd "$WORK"
+
+   if [ ! -f kaggle/run_all.py ]; then
+     cp -r /kaggle/input/leadlag-signature/* "$WORK"/
+   fi
+
+   python -m pip install --upgrade pip
+   mkdir -p wheelhouse .cache/pip
+   python -m pip download -d wheelhouse -r requirements-kaggle.txt
+   python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+   python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
+
+   export PIP_CACHE_DIR=/kaggle/working/.cache/pip
+   export PIP_FIND_LINKS=/kaggle/working/wheelhouse
+   export PIP_NO_INDEX=1
    ```
 
-2. **فهرست سناریوهای آماده**
+3. **اجرای ارکستریتور چندمرحله‌ای** – هر مرحله در یک virtualenv جدا اجرا شده و خروجی نهایی فشرده می‌شود.
 
-   ```bash
-   leadlag --list
+   ```python
+   !python kaggle/run_all.py
    ```
 
-3. **Dry-run قبل از اجرا**
+   فلگ‌های مهم: `--no-prefetch` برای رد کردن مرحلهٔ دانلود wheel و `--artifacts-root` برای تغییر مسیر خروجی.
 
-   ```bash
-   leadlag --include fixed --dry-run --format text
+4. **نمایش خروجی مقاله** – این قطعه خروجی‌های `paper_outputs/` را به سطح بالای نوت‌بوک کپی می‌کند تا سریع بررسی شوند.
+
+   ```python
+   import shutil, pathlib
+
+   src = pathlib.Path("/kaggle/working/multi_stage_artifacts/full_suite/paper_outputs")
+   dst = pathlib.Path("/kaggle/working/paper_outputs")
+   if src.exists():
+       shutil.copytree(src, dst, dirs_exist_ok=True)
+       print("Paper outputs copied to", dst)
+   else:
+       print("paper_outputs missing – inspect stage logs")
    ```
 
-   خروجی Dry-run نشان می‌دهد کدام سناریوها انتخاب شده‌اند، چه رانری استفاده می‌شود و نتایج در کدام مسیر ذخیره خواهند شد.
+5. **دانلود بستهٔ نهایی برای داوران** – فایل `multi_stage_artifacts.zip` آمادهٔ بارگیری از پانل سمت راست Kaggle است. در صورت نیاز، پوشهٔ `paper_outputs/` کپی‌شده را نیز جداگانه بارگیری کنید.
 
-4. **اجرای سناریوها**
-
-   ```bash
-   leadlag --scenarios fixed_30 rl_ppo --results-root /kaggle/working/results --format text
-   ```
-
-   نکات مهم:
-   - از `--format json` برای گرفتن خروجی ماشینی استاندارد استفاده کنید.
-   - `--status` خلاصه وضعیت اجراهای قبلی را زیر نتایج فعلی چاپ می‌کند.
-   - برای سفارشی‌سازی مبتنی بر Hydra، اسکریپت سازگار `leadlag-full-suite` هنوز قابل استفاده است.
-
-   گام‌های پشت پرده عبارتند از:
-   - بارگذاری و اعتبارسنجی سناریو (`training/scenario_config.py`)
-   - انتخاب رانر مناسب (scenario/dynamic/rl) بر اساس پیکربندی
-   - اجرای سناریو و ثبت خروجی در `/kaggle/working/results/<run_id>/`
-   - تجمیع نتایج و ثبت گزارش در JSON قراردادی CLI
-
-5. **بررسی خروجی‌ها**
-
-   ساختار معمول خروجی‌ها پس از اجرا:
-   ```
-   results/<scenario>/<timestamp>/metrics.csv   # شاخص‌های پایه و EnvSteps
-   results/<scenario>/<timestamp>/equity.csv    # منحنی موجودی
-   results/<scenario>/<timestamp>/run_manifest.json
-   results/aggregate.json                       # خلاصه تجمیع (در صورت فعال بودن)
-   ```
+تمام موارد مورد نیاز داوران (لاگ‌ها، مانفیست‌ها، جداول مقاله و آمار) در همین زیپ وجود دارد.
 
 ---
 
@@ -114,6 +127,22 @@
 | `scripts/audit/validate_artifacts.py` | اسکن یک پوشهٔ خروجی و تولید گزارش وجود فایل‌های استاندارد. |
 
 ---
+
+## ساختار بستهٔ ارسال
+
+`multi_stage_artifacts/` همان دایرکتوری است که برای داوران زیپ می‌شود:
+
+- `summary.json` – وضعیت هر مرحله، مدت اجرا و مسیر لاگ.
+- `full_suite/` – خروجی پایپلاین Hydra شامل `results/`، پوشهٔ `paper_outputs/`، ممیزی‌ها و گزارش‌های نهایی.
+- `sb3_leadlag/` – نتایج آموزش Stable-Baselines3 روی محیط LeadLag (فایل‌های `metrics_timeseries.csv`، `summary.csv`، `model.zip` و مانفیست‌ها).
+- `dopamine/` – آزمون سلامت Gymnasium 1.x به همراه لاگ‌ها و آمار تکرار.
+
+در `full_suite/paper_outputs/` آمار مقاله قرار دارد:
+
+- `all_metrics_raw.csv`، `psr_dsr_pvalues.csv`، `hac_sharpe_confidence_intervals.csv`، خروجی‌های SPA و نمودارها.
+- `paper_results.md` و `paper_status.txt` برای گزارش مستقیم به هیئت داوران.
+
+اگر `scripts/reproduce_all.sh` را محلی اجرا کنید همان ساختار زیر مسیرهای `RES` و `OUT` تولید می‌شود.
 
 ## ساختار مخزن
 
