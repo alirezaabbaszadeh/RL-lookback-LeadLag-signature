@@ -9,34 +9,82 @@ from typing import Dict, Iterable, Mapping
 
 import pandas as pd
 
-CANONICAL_COLUMNS = [
-    "experiment_id",
-    "agent",
-    "action_space",
-    "policy",
-    "features_signature",
-    "signature_depth",
-    "features_leadlag",
-    "time_channel",
-    "lookback",
-    "horizon",
-    "universe",
-    "timeframe",
-    "split_scheme",
-    "cost_fee_bps",
-    "slippage_bps",
-    "reward",
-    "seed",
-    "window_index",
-    "Sharpe",
-    "Sortino",
-    "MaxDD",
-    "Turnover",
-    "PnL",
-    "Costs",
-    "Exposure",
-    "EnvSteps",
+SCHEMA: list[tuple[str, str]] = [
+    ("experiment_id", "string"),
+    ("agent", "string"),
+    ("action_space", "string"),
+    ("policy", "string"),
+    ("features_signature", "boolean"),
+    ("signature_depth", "Int64"),
+    ("features_leadlag", "boolean"),
+    ("time_channel", "boolean"),
+    ("lookback", "Int64"),
+    ("horizon", "Int64"),
+    ("universe", "string"),
+    ("timeframe", "string"),
+    ("split_scheme", "string"),
+    ("cost_fee_bps", "float64"),
+    ("slippage_bps", "float64"),
+    ("reward", "string"),
+    ("seed", "Int64"),
+    ("window_index", "Int64"),
+    ("Sharpe", "float64"),
+    ("Sortino", "float64"),
+    ("MaxDD", "float64"),
+    ("Turnover", "float64"),
+    ("PnL", "float64"),
+    ("Costs", "float64"),
+    ("Exposure", "float64"),
+    ("EnvSteps", "Int64"),
 ]
+
+METRICS_COLUMNS = [name for name, _ in SCHEMA]
+METRICS_DTYPES = {name: dtype for name, dtype in SCHEMA}
+# Backwards compatibility for legacy imports
+CANONICAL_COLUMNS = METRICS_COLUMNS
+
+
+def _coerce_series_dtype(series: pd.Series, dtype: str) -> pd.Series:
+    if dtype == "string":
+        return series.astype("string")
+    if dtype == "Int64":
+        numeric = pd.to_numeric(series, errors="coerce")
+        return numeric.astype("Int64")
+    if dtype == "float64":
+        numeric = pd.to_numeric(series, errors="coerce")
+        return numeric.astype("float64")
+    if dtype == "boolean":
+        return series.astype("boolean")
+    raise ValueError(f"Unsupported metrics dtype: {dtype}")
+
+
+def enforce_metrics_schema(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of ``frame`` coerced to the canonical metrics schema."""
+
+    if frame.empty:
+        return pd.DataFrame(columns=METRICS_COLUMNS).astype({col: dtype for col, dtype in METRICS_DTYPES.items()})
+
+    working = frame.copy()
+    for name in METRICS_COLUMNS:
+        if name not in working.columns:
+            working[name] = pd.NA
+
+    coerced = working.loc[:, METRICS_COLUMNS].copy()
+    for name, dtype in METRICS_DTYPES.items():
+        coerced[name] = _coerce_series_dtype(coerced[name], dtype)
+    return coerced
+
+
+def _serialise_scalar(value: object, dtype: str) -> object:
+    if pd.isna(value):
+        return None
+    if dtype == "Int64":
+        return int(value)
+    if dtype == "float64":
+        return float(value)
+    if dtype == "boolean":
+        return bool(value)
+    return str(value)
 
 
 @dataclass
@@ -50,18 +98,28 @@ class MetricsWriter:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=CANONICAL_COLUMNS)
+            writer = csv.DictWriter(handle, fieldnames=METRICS_COLUMNS)
             writer.writeheader()
+
+    def _prepare_row(self, row: Mapping[str, object]) -> Dict[str, object]:
+        frame = pd.DataFrame([row])
+        coerced = enforce_metrics_schema(frame)
+        serialised = {}
+        series = coerced.iloc[0]
+        for name in METRICS_COLUMNS:
+            serialised[name] = _serialise_scalar(series[name], METRICS_DTYPES[name])
+        return serialised
 
     def write_row(self, path: Path, row: Mapping[str, object]) -> None:
         self._ensure_header(path)
-        filtered = {key: row.get(key, None) for key in CANONICAL_COLUMNS}
+        filtered = self._prepare_row(row)
         with path.open("a", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=CANONICAL_COLUMNS)
+            writer = csv.DictWriter(handle, fieldnames=METRICS_COLUMNS)
             writer.writerow(filtered)
 
     def dataframe(self, rows: Iterable[Mapping[str, object]]) -> pd.DataFrame:
-        return pd.DataFrame(list(rows), columns=CANONICAL_COLUMNS)
+        frame = pd.DataFrame(list(rows))
+        return enforce_metrics_schema(frame)
 
 
 def build_metadata_row(

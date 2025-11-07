@@ -37,8 +37,8 @@ from leadlag.models.config import LeadLagConfig, SIGNATURE_AVAILABLE
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 from leadlag.utils import (
     NoPeekError,
-    assert_no_peek,
     collect_determinism_settings,
+    inspect_feature_frame,
     select_device,
     set_all_seeds,
     write_run_manifest,
@@ -46,6 +46,8 @@ from leadlag.utils import (
 
 
 logger = logging.getLogger(__name__)
+
+ENV_STEP_TOLERANCE = 1
 
 
 @dataclass
@@ -354,6 +356,13 @@ def _construct_feature_frame(
     returns: pd.DataFrame,
     stack: Dict[str, np.ndarray],
 ) -> pd.DataFrame:
+    """Return the canonical wide feature frame indexed by feature timestamps.
+
+    The resulting ``DataFrame`` uses a :class:`~pandas.DatetimeIndex` with one row
+    per feature timestamp. Columns follow a wide naming convention such as
+    ``returns::asset`` or ``leadlag::k`` and the ``t_feat`` column mirrors the
+    index so downstream validators can assert alignment.
+    """
     if not isinstance(price_index, pd.DatetimeIndex) or len(price_index) < 2:
         return pd.DataFrame()
 
@@ -769,44 +778,35 @@ def _simulate_episode(
     )
 
     feature_time_meta: Dict[str, object] | None = None
+    allow_irregular = False
+    if features_cfg:
+        try:
+            allow_irregular = bool(features_cfg.get("allow_irregular_timestamps", False))
+        except AttributeError:  # pragma: no cover - DictConfig attribute access
+            allow_irregular = bool(getattr(features_cfg, "allow_irregular_timestamps", False))
 
     try:
         if not feature_frame.empty:
             decision_times = prices.index[1 : 1 + len(feature_frame)]
-            assert_no_peek(
-                feature_frame,
-                decision_times,
-                feature_time_col="t_feat",
-                min_gap=pd.Timedelta("1ns"),
+            feature_time_meta = dict(
+                inspect_feature_frame(
+                    feature_frame,
+                    decision_times=decision_times,
+                    feature_time_col="t_feat",
+                    min_gap=pd.Timedelta("1ns"),
+                    allow_irregular=allow_irregular,
+                )
             )
-            feature_times = pd.DatetimeIndex(feature_frame["t_feat"].iloc[: len(decision_times)])
-            decision_view = pd.DatetimeIndex(decision_times[: len(feature_times)])
-            if not feature_times.empty and not decision_view.empty:
-                lag_values = decision_view.view("i8") - feature_times.view("i8")
-                if lag_values.size:
-                    min_lag = pd.to_timedelta(int(lag_values.min()), unit="ns")
-                    max_lag = pd.to_timedelta(int(lag_values.max()), unit="ns")
-                    checked_rows = int(feature_times.size)
-                    tz_info = feature_times.tz
-                    if tz_info is not None:
-                        tz_name = getattr(tz_info, "key", None) or getattr(tz_info, "zone", None)
-                        tz_value: str | None = str(tz_info) if tz_name is None else str(tz_name)
-                    else:
-                        tz_value = None
-                    try:
-                        freq_hint = feature_times.inferred_freq  # type: ignore[attr-defined]
-                    except (AttributeError, ValueError, TypeError):  # pragma: no cover - pandas quirks
-                        freq_hint = None
-                    feature_time_meta = {
-                        "checked_rows": checked_rows,
-                        "min_lag_ns": int(lag_values.min()),
-                        "max_lag_ns": int(lag_values.max()),
-                        "tz": tz_value,
-                        "freq_hint": freq_hint,
-                    }
+            checked = int(feature_time_meta.get("checked_rows", 0) or 0)
+            if checked:
+                min_ns = feature_time_meta.get("min_lag_ns")
+                max_ns = feature_time_meta.get("max_lag_ns")
+                if min_ns is not None and max_ns is not None:
+                    min_lag = pd.to_timedelta(int(min_ns), unit="ns")
+                    max_lag = pd.to_timedelta(int(max_ns), unit="ns")
                     logger.info(
                         "Temporal guard inspected %d feature rows (min lag: %s, max lag: %s)",
-                        len(feature_frame),
+                        checked,
                         min_lag,
                         max_lag,
                     )
@@ -894,6 +894,14 @@ def _write_artifacts(
     summary = simulation["summary"]
     trade_metrics = simulation["trade_metrics"]
     env_steps = int(simulation.get("env_steps", len(returns_series)))
+    requested_steps = int(simulation.get("requested_env_steps", env_steps))
+    if abs(env_steps - requested_steps) > ENV_STEP_TOLERANCE:
+        logger.warning(
+            "Env step mismatch detected for %s (reported=%d actual=%d)",
+            run_id,
+            requested_steps,
+            env_steps,
+        )
     prices = simulation.pop("prices", None)
     dataset_path = simulation.get("dataset_path")
     feature_stack = simulation.get("feature_stack", {})
@@ -930,9 +938,9 @@ def _write_artifacts(
         "window_index": window_idx,
         "config": OmegaConf.to_container(cfg, resolve=True),
         "metrics": metrics_row,
-        "requested_env_steps": int(simulation.get("requested_env_steps", env_steps)),
+        "requested_env_steps": requested_steps,
         "actual_env_steps": env_steps,
-        "env_steps_reported": int(simulation.get("requested_env_steps", env_steps)),
+        "env_steps_reported": requested_steps,
         "env_steps_actual": env_steps,
         "vectorised_envs": int(simulation.get("n_envs", 1)),
         "agent": agent_info,
