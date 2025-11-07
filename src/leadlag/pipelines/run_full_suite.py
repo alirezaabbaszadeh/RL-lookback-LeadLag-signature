@@ -36,6 +36,8 @@ from leadlag.eval.stats_cli import run_workflow as run_stats_workflow
 from leadlag.models.config import LeadLagConfig, SIGNATURE_AVAILABLE
 from leadlag.reporting.metrics_writer import MetricsWriter, build_metadata_row
 from leadlag.utils import (
+    NoPeekError,
+    assert_no_peek,
     collect_determinism_settings,
     select_device,
     set_all_seeds,
@@ -710,6 +712,18 @@ def _simulate_episode(
         lookback=int(getattr(window_cfg, "lookback", len(prices))) if window_cfg else len(prices),
         seed=effective_seed,
     )
+
+    try:
+        if isinstance(prices.index, pd.DatetimeIndex) and len(prices.index) >= 2:
+            assert_no_peek(
+                prices.index[:-1],
+                prices.index[1:],
+                min_gap=pd.Timedelta(0),
+            )
+    except NoPeekError as exc:
+        raise NoPeekError(
+            "Detected feature/decision timestamp misalignment (potential peek)"
+        ) from exc
 
     reward_returns, reward_metrics, agent_meta, history = _train_sb3_agent(
         cfg, prices, total_steps, seed=effective_seed
