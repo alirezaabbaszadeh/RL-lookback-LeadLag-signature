@@ -9,6 +9,7 @@ from .repro import (
     update_run_manifest,
     write_run_manifest,
 )
+from .timeguards import assert_no_peek, ensure_strictly_increasing, NoPeekError
 
 __all__ = [
     "DeviceInfo",
@@ -18,4 +19,7 @@ __all__ = [
     "set_all_seeds",
     "update_run_manifest",
     "write_run_manifest",
+    "assert_no_peek",
+    "ensure_strictly_increasing",
+    "NoPeekError",
 ]
