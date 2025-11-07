@@ -9,6 +9,8 @@ contributor-identifying metadata has been removed.
 - `src/leadlag/`: Lead-lag/signature training and evaluation package
 - `scripts/reproduce_all.sh`: One-click pipeline for Kaggle/CI
 - `pyproject.toml` + `requirements*.txt`: Build and dependency metadata
+- `docs/DATA_CARD.md`: Dataset provenance, licensing, and split policy
+- `docs/MODEL_CARD.md`: Model assumptions, limitations, and compute profile
 - `README_ANON.md`: This document (safe to include in anonymous submissions)
 
 ## Kaggle Notebook Workflow
@@ -41,5 +43,7 @@ reviewers should execute. Follow this sequence on Kaggle (GPU + Internet ON):
   proprietary datasets are required.
 - Random seeds and device manifests are recorded automatically in each run
   directory to facilitate auditability.
+- Refer to the data and model cards (`docs/DATA_CARD.md`, `docs/MODEL_CARD.md`) when summarising resources in
+  supplementary materials or reviewer questionnaires.
 - When publishing the Kaggle Dataset, ensure its description does not include
   author names, affiliations, or non-anonymised repository URLs.

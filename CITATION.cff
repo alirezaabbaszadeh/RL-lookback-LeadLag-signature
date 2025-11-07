@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as follows."
+title: "Anonymous Lead-Lag Signature Reinforcement Learning Submission"
+year: 2025
+authors:
+  - name: Anonymous Collaboration
+repository-code: "https://example.com/anonymous/repo"
+abstract: "An anonymous submission describing reinforcement learning agents over lead-lag signature features."
