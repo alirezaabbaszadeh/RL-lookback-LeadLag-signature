@@ -13,33 +13,27 @@ contributor-identifying metadata has been removed.
 
 ## Kaggle Notebook Workflow
 
-1. Upload the generated `artifact_anonymous.zip` as a Kaggle Dataset.
-2. Start a new Kaggle Notebook with **GPU** and **Internet** enabled.
-3. In the first cell, unpack the archive and install it in editable mode:
+The repository ships `docs/kaggle_camera_ready.ipynb` with the exact cells that
+reviewers should execute. Follow this sequence on Kaggle (GPU + Internet ON):
 
-   ```bash
-   !unzip /kaggle/input/<dataset-name>/artifact_anonymous.zip -d /kaggle/working/artifact
-   !pip install -e /kaggle/working/artifact
-   ```
-
-4. Run the one-click pipeline (writes to `/kaggle/working/paper_outputs/`):
-
-   ```bash
-   !bash /kaggle/working/artifact/scripts/reproduce_all.sh
-   ```
-
-   Example log excerpt with the new timestamps:
-
-   ```text
-   [timing] Script start: 2024-02-15T12:00:00+00:00
-   [diagnostics] python version
-   ...
-   [5/5] Completed in 42s
-   [timing] Script completed at 2024-02-15T12:07:32+00:00 (total runtime: 452s)
-   Done. Paper artifacts are available under /kaggle/working/paper_outputs/. Total runtime: 452s.
-   ```
-
-5. Download the contents of `/kaggle/working/paper_outputs/` for submission.
+1. Upload the generated `artifact_anonymous.zip` as a Kaggle Dataset and attach
+   it to the notebook.
+2. Open `docs/kaggle_camera_ready.ipynb` from the archive (either upload it as a
+   Kaggle notebook file or copy the cells into a new notebook).
+3. Run each cell in order:
+   - **Cell 1 – Unpack `artifact_anonymous.zip`**: automatically discovers the
+     uploaded dataset and extracts the repository into
+     `/kaggle/working/artifact`.
+   - **Cell 2 – Install the package**: executes `pip install -e
+     /kaggle/working/artifact`.
+   - **Cell 3 – Capture environment versions**: prints Python, platform,
+     `leadlag-signature-rl`, and Torch diagnostics for the run log.
+   - **Cell 4 – Run the camera-ready pipeline**: invokes
+     `scripts/reproduce_all.sh` with its defaults (`RES=/kaggle/working/results`
+     and `OUT=/kaggle/working/paper_outputs`).
+   - **Cell 5 – Preview paper outputs**: lists
+     `/kaggle/working/paper_outputs` and prints `paper_status.txt`.
+4. Download the contents of `/kaggle/working/paper_outputs/` for submission.
 
 ## Notes
 
