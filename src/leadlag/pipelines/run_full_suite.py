@@ -6,7 +6,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import hydra
 import numpy as np
@@ -285,7 +285,7 @@ def _build_feature_stack(
     timeframe: Optional[str],
     lookback: int,
     seed: int,
-) -> Dict[str, np.ndarray]:
+) -> Tuple[Dict[str, np.ndarray], pd.DataFrame]:
     cache_cfg = features_cfg.get("cache") if features_cfg else None
     cache_enabled = bool(cache_cfg.get("enabled")) if cache_cfg else False
     cache_dir = None
@@ -295,6 +295,10 @@ def _build_feature_stack(
     leadlag_cfg = features_cfg.get("leadlag") if features_cfg else None
     leadlag_enabled = bool(leadlag_cfg and leadlag_cfg.get("enabled"))
     time_channel_enabled = bool(features_cfg.get("time_channel")) if features_cfg else False
+
+    returns = prices.pct_change().dropna()
+
+    stack: Dict[str, np.ndarray]
 
     if cache_enabled:
         cache_dir = Path(cache_cfg.get("dir", ".cache/features")).expanduser()
@@ -311,29 +315,80 @@ def _build_feature_stack(
         cached = load_feature_stack(cache_dir, key)
         if cached is not None:
             logger.info("Loaded feature stack from cache: %s", cache_dir / key.filename())
-            return cached
+            stack = cached
+        else:
+            stack = {}
+    else:
+        stack = {}
 
-    stack: Dict[str, np.ndarray] = {}
-    returns = prices.pct_change().dropna()
-    stack["returns"] = returns.to_numpy(dtype=float)
+    if not stack:
+        stack["returns"] = returns.to_numpy(dtype=float)
 
-    if signature_enabled:
-        depth = int(signature_cfg.get("depth", 2))
-        flattened = returns.to_numpy(dtype=float).ravel()
-        stack["signature"] = compute_signature_features(flattened, depth)
+        if signature_enabled:
+            depth = int(signature_cfg.get("depth", 2))
+            flattened = returns.to_numpy(dtype=float).ravel()
+            stack["signature"] = compute_signature_features(flattened, depth)
 
-    if leadlag_enabled:
-        reference_series = returns.mean(axis=1).to_numpy(dtype=float)
-        stack["leadlag"] = compute_lead_lag(reference_series)
+        if leadlag_enabled:
+            reference_series = returns.mean(axis=1).to_numpy(dtype=float)
+            stack["leadlag"] = compute_lead_lag(reference_series)
 
-    if time_channel_enabled:
-        stack["time_channel"] = np.linspace(0.0, 1.0, num=len(returns), dtype=float)
+        if time_channel_enabled:
+            stack["time_channel"] = np.linspace(0.0, 1.0, num=len(returns), dtype=float)
 
-    if cache_enabled and cache_dir is not None:
-        save_feature_stack(cache_dir, key, stack)
-        logger.info("Saved feature stack to cache: %s", cache_dir / key.filename())
+        if cache_enabled and cache_dir is not None:
+            save_feature_stack(cache_dir, key, stack)
+            logger.info("Saved feature stack to cache: %s", cache_dir / key.filename())
 
-    return stack
+    feature_frame = _construct_feature_frame(
+        prices.index,
+        returns,
+        stack,
+    )
+
+    return stack, feature_frame
+
+
+def _construct_feature_frame(
+    price_index: pd.Index,
+    returns: pd.DataFrame,
+    stack: Dict[str, np.ndarray],
+) -> pd.DataFrame:
+    if not isinstance(price_index, pd.DatetimeIndex) or len(price_index) < 2:
+        return pd.DataFrame()
+
+    feature_times = price_index[:-1]
+    frame = pd.DataFrame(index=feature_times)
+    frame["t_feat"] = feature_times
+
+    if not returns.empty:
+        aligned_returns = returns.iloc[: len(feature_times)].copy()
+        aligned_returns.index = feature_times[: len(aligned_returns)]
+        aligned_returns.columns = [
+            f"returns::{name}" for name in aligned_returns.columns
+        ]
+        frame = frame.join(aligned_returns, how="left")
+
+    time_channel = stack.get("time_channel")
+    if time_channel is not None and time_channel.ndim == 1:
+        length = min(len(feature_times), time_channel.shape[0])
+        channel_series = pd.Series(
+            time_channel[:length], index=feature_times[:length], dtype=float
+        )
+        frame = frame.join(channel_series.rename("time_channel"), how="left")
+
+    leadlag = stack.get("leadlag")
+    if leadlag is not None and leadlag.ndim == 2:
+        length = min(len(feature_times), leadlag.shape[1])
+        if length > 0:
+            leadlag_df = pd.DataFrame(
+                leadlag[:, :length].T,
+                index=feature_times[:length],
+                columns=[f"leadlag::{idx}" for idx in range(leadlag.shape[0])],
+            )
+            frame = frame.join(leadlag_df, how="left")
+
+    return frame
 
 
 def _leadlag_config(features_cfg: DictConfig, lookback: int) -> LeadLagConfig:
@@ -704,7 +759,7 @@ def _simulate_episode(
     features_cfg = cfg.get("features") or {}
     data_cfg = cfg.get("data")
     window_cfg = cfg.get("window")
-    feature_stack = _build_feature_stack(
+    feature_stack, feature_frame = _build_feature_stack(
         prices,
         features_cfg,
         universe=getattr(data_cfg, "universe", None) if data_cfg else None,
@@ -714,12 +769,27 @@ def _simulate_episode(
     )
 
     try:
-        if isinstance(prices.index, pd.DatetimeIndex) and len(prices.index) >= 2:
+        if not feature_frame.empty:
+            decision_times = prices.index[1 : 1 + len(feature_frame)]
             assert_no_peek(
-                prices.index[:-1],
-                prices.index[1:],
-                min_gap=pd.Timedelta(0),
+                feature_frame,
+                decision_times,
+                feature_time_col="t_feat",
+                min_gap=pd.Timedelta("1ns"),
             )
+            feature_times = pd.DatetimeIndex(feature_frame["t_feat"].iloc[: len(decision_times)])
+            decision_view = pd.DatetimeIndex(decision_times[: len(feature_times)])
+            if not feature_times.empty and not decision_view.empty:
+                lag_values = decision_view.view("i8") - feature_times.view("i8")
+                if lag_values.size:
+                    min_lag = pd.to_timedelta(int(lag_values.min()), unit="ns")
+                    logger.info(
+                        "Temporal guard inspected %d feature rows (min lag: %s)",
+                        len(feature_frame),
+                        min_lag,
+                    )
+        else:
+            logger.info("Temporal guard skipped: no feature timestamps available")
     except NoPeekError as exc:
         raise NoPeekError(
             "Detected feature/decision timestamp misalignment (potential peek)"
@@ -781,6 +851,7 @@ def _simulate_episode(
         "prices": prices,
         "dataset_path": dataset_path,
         "feature_stack": feature_stack,
+        "feature_frame": feature_frame,
         "agent_info": agent_meta,
         "dataset_length": len(prices),
     }
@@ -803,6 +874,7 @@ def _write_artifacts(
     prices = simulation.pop("prices", None)
     dataset_path = simulation.get("dataset_path")
     feature_stack = simulation.get("feature_stack", {})
+    feature_frame = simulation.get("feature_frame")
     agent_info = simulation.get("agent_info")
 
     stats_mod.export_returns(run_dir / "returns.csv", returns_series)
@@ -843,6 +915,18 @@ def _write_artifacts(
             for key, value in feature_stack.items()
         },
     }
+    if isinstance(feature_frame, pd.DataFrame) and "t_feat" in feature_frame:
+        manifest_payload["feature_times"] = {
+            "column": "t_feat",
+            "rows": int(feature_frame.shape[0]),
+        }
+        if not feature_frame.empty:
+            manifest_payload["feature_times"].update(
+                {
+                    "first": feature_frame["t_feat"].iloc[0].isoformat(),
+                    "last": feature_frame["t_feat"].iloc[-1].isoformat(),
+                }
+            )
     manifest_payload["presets"] = {
         "training": OmegaConf.select(cfg, "training.preset_name"),
         "hardware": OmegaConf.select(cfg, "hardware.preset_name"),

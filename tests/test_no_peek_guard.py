@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 from omegaconf import OmegaConf
@@ -42,6 +43,38 @@ def test_simulate_episode_raises_when_prices_peek(monkeypatch):
         "_load_price_data",
         lambda _cfg, _seed: (misordered, None),
     )
+
+    with pytest.raises(NoPeekError):
+        run_full_suite._simulate_episode(cfg, seed=123, window_idx=0)
+
+
+def test_simulate_episode_raises_when_feature_times_peek(monkeypatch):
+    cfg = _minimal_cfg()
+
+    ordered = pd.DataFrame(
+        {"AssetA": [1.0, 1.1, 1.2, 1.3]},
+        index=pd.to_datetime(
+            ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04"]
+        ),
+    )
+
+    monkeypatch.setattr(
+        run_full_suite,
+        "_load_price_data",
+        lambda _cfg, _seed: (ordered, None),
+    )
+
+    def fake_feature_stack(*_args, **_kwargs):
+        stack = {"returns": np.zeros((len(ordered.index) - 1, 1), dtype=float)}
+        frame = pd.DataFrame(
+            {
+                "t_feat": ordered.index[1:],
+            },
+            index=ordered.index[1:],
+        )
+        return stack, frame
+
+    monkeypatch.setattr(run_full_suite, "_build_feature_stack", fake_feature_stack)
 
     with pytest.raises(NoPeekError):
         run_full_suite._simulate_episode(cfg, seed=123, window_idx=0)
