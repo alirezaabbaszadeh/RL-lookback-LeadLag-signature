@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -150,6 +149,31 @@ def _plot_sharpe_heatmap(metrics: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
+def _plot_pnl_bars(metrics: pd.DataFrame, out_path: Path) -> None:
+    if metrics.empty or "PnL" not in metrics.columns:
+        return
+    subset = metrics.dropna(subset=["PnL"]).copy()
+    if subset.empty:
+        return
+    labels = subset.get("experiment_id")
+    if labels is None or labels.isna().all():
+        resolved_labels = pd.Index(subset.index.astype(str))
+    else:
+        string_labels = labels.astype("string")
+        fallback = pd.Series(subset.index.astype(str), index=string_labels.index)
+        resolved_labels = string_labels.where(string_labels.notna(), fallback)
+    subset["label"] = resolved_labels.astype(str)
+    ordered = subset.sort_values("PnL", ascending=False).head(20)
+    fig, ax = plt.subplots(figsize=(10, max(3, 0.35 * len(ordered))))
+    ax.barh(ordered["label"].iloc[::-1], ordered["PnL"].iloc[::-1].to_numpy(dtype=float))
+    ax.set_xlabel("PnL")
+    ax.set_ylabel("Run")
+    ax.set_title("Top PnL by Run (Top 20)")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
 def run_workflow(
     results_root: Path,
     out_dir: Path,
@@ -177,6 +201,9 @@ def run_workflow(
         all_metrics = pd.concat(metrics_frames, ignore_index=True)
     else:
         all_metrics = pd.DataFrame()
+
+    if not returns_map:
+        raise RuntimeError(f"No returns series discovered under {results_root}")
 
     artifact_paths: Dict[str, Path] = {}
 
@@ -240,13 +267,13 @@ def run_workflow(
         advanced_df[["run_id", "psr", "dsr"]].to_csv(psr_path, index=False)
         artifact_paths["psr_dsr"] = psr_path
 
-        hac_path = out_dir / "hac_sharpe_confidence_intervals.csv"
+        hac_path = out_dir / "hac_sharpe_ci.csv"
         advanced_df[["run_id", "hac_sharpe_lower", "hac_sharpe_upper"]].to_csv(
             hac_path, index=False
         )
-        artifact_paths["hac_confidence_intervals"] = hac_path
+        artifact_paths["hac_sharpe_ci"] = hac_path
 
-        forest_path = out_dir / "forest_hac_ci.png"
+        forest_path = out_dir / "forest.png"
         _plot_hac_forest(advanced_df, forest_path)
         artifact_paths["forest_plot"] = forest_path
 
@@ -257,7 +284,7 @@ def run_workflow(
         block_length=block_length,
         seed=seed,
     )
-    spa_path = out_dir / "spa_results.csv"
+    spa_path = out_dir / "spa_table.csv"
     spa_df.to_csv(spa_path, index=False)
     artifact_paths["spa_results"] = spa_path
     if not spa_df.empty:
@@ -272,17 +299,39 @@ def run_workflow(
         block_length=block_length,
         seed=seed,
     )
-    mcs_path = out_dir / "mcs.json"
-    with mcs_path.open("w", encoding="utf-8") as handle:
-        json.dump({"members": mcs_members}, handle, indent=2)
-    artifact_paths["mcs"] = mcs_path
+    mcs_path = out_dir / "mcs_table.csv"
+    mcs_frame = pd.DataFrame({"run_id": mcs_members})
+    mcs_frame.to_csv(mcs_path, index=False)
+    artifact_paths["mcs_table"] = mcs_path
 
-    heatmap_path = out_dir / "heatmap_agent_timeframe.png"
+    heatmap_path = out_dir / "heatmap.png"
     _plot_sharpe_heatmap(all_metrics, heatmap_path)
     artifact_paths["heatmap"] = heatmap_path
 
+    pnl_path = out_dir / "pnl.png"
+    _plot_pnl_bars(all_metrics, pnl_path)
+    artifact_paths["pnl_plot"] = pnl_path
+
     summary_lines = ["# Paper Results", ""]
+    summary_lines.append("## Artifacts")
+    for label, filename in [
+        ("All metrics", "all_metrics_raw.csv"),
+        ("Summary table", "summary_table.csv"),
+        ("Best per agent", "best_per_agent.csv"),
+        ("Advanced metrics", "advanced_metrics.csv"),
+        ("HAC Sharpe CI", "hac_sharpe_ci.csv"),
+        ("PSR/DSR p-values", "psr_dsr_pvalues.csv"),
+        ("SPA table", "spa_table.csv"),
+        ("MCS members", "mcs_table.csv"),
+        ("Forest plot", "forest.png"),
+        ("Heatmap", "heatmap.png"),
+        ("PnL plot", "pnl.png"),
+    ]:
+        if (out_dir / filename).exists():
+            summary_lines.append(f"- [{label}]({filename})")
+
     if not all_metrics.empty:
+        summary_lines.append("\n## Dataset")
         summary_lines.append(f"Total runs: {len(all_metrics)}")
     if not summary.empty:
         summary_lines.append("\n## Agent Summary")

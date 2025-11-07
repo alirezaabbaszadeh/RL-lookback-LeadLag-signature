@@ -9,6 +9,7 @@ from .repro import (
     update_run_manifest,
     write_run_manifest,
 )
+from .feature_frame_guard import inspect_feature_frame
 from .timeguards import assert_no_peek, ensure_strictly_increasing, NoPeekError
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "assert_no_peek",
     "ensure_strictly_increasing",
     "NoPeekError",
+    "inspect_feature_frame",
 ]

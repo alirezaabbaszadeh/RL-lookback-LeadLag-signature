@@ -157,3 +157,54 @@ jobs:
           else
             pytest -m 'not kaggle'
           fi
+
+  wheel-e2e:
+    runs-on: ubuntu-latest
+    needs:
+      - build-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+      - name: Install wheel
+        run: |
+          pip install -U dist/*.whl
+      - name: Smoke run (entry point)
+        run: |
+          python -m leadlag.pipelines.run_full_suite --cfg job
+      - name: One-click paper flow
+        env:
+          RES: .ci/results
+          OUT: .ci/paper_outputs
+        run: |
+          mkdir -p .ci
+          bash scripts/reproduce_all.sh
+      - name: Validate manifest with CLI
+        run: |
+          RUNDIR=$(ls -1 .ci/results | head -n1)
+          python -m leadlag.utils.print_manifest --root ".ci/results/${RUNDIR}" --format json > .ci/manifest.json
+          python - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path('.ci/manifest.json').read_text(encoding='utf-8'))
+data = payload.get('data', {})
+required = ('feature_time', 'config_sources', 'env_steps_reported', 'env_steps_actual')
+missing = [key for key in required if key not in data]
+if missing:
+    raise SystemExit(f"manifest missing: {missing}")
+ft = data['feature_time']
+for key in ('min_lag_ns', 'max_lag_ns', 'checked_rows'):
+    if ft.get(key) in (None, 0):
+        raise SystemExit(f"feature_time missing {key} metadata: {ft}")
+PY
+      - name: Check stats artifacts
+        run: |
+          ls -1 .ci/paper_outputs | grep -E '(psr_dsr|hac_sharpe_ci|spa_table|mcs_table|forest|heatmap|pnl)' >/dev/null
