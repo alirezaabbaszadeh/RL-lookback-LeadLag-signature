@@ -89,11 +89,13 @@ else
     stage_cmd=("${entry_args[@]}")
 fi
 
-echo "[1/3] Running leadlag full suite (${EFFECTIVE_OVERRIDES})..."
+TOTAL_STAGES=5
+
+echo "[1/${TOTAL_STAGES}] Running leadlag full suite (${EFFECTIVE_OVERRIDES})..."
 stage_start=$(date +%s)
 "${stage_cmd[@]}"
 stage_end=$(date +%s)
-echo "[1/3] Completed in $((stage_end - stage_start))s"
+echo "[1/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 
 metrics_count=$(find "${RES}" -maxdepth 2 -name "metrics.csv" | wc -l | tr -d ' ')
 if [[ ${metrics_count} -eq 0 ]]; then
@@ -102,44 +104,40 @@ if [[ ${metrics_count} -eq 0 ]]; then
 fi
 
 if [[ ${SKIP_STATS} -eq 0 ]]; then
-    echo "[2/3] Computing paper-grade statistics..."
+    echo "[2/${TOTAL_STAGES}] Computing paper-grade statistics..."
     stage_start=$(date +%s)
     python -m leadlag.eval.stats_cli --results "${RES}" --out "${OUT}" --alpha 0.05
     stage_end=$(date +%s)
-    echo "[2/3] Completed in $((stage_end - stage_start))s"
+    echo "[2/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 else
-    echo "[2/3] Skipped statistics step"
+    echo "[2/${TOTAL_STAGES}] Skipped statistics step"
 fi
 
-echo "[3/3] Aggregating metrics to ${OUT}/all_metrics_raw.csv..."
+echo "[3/${TOTAL_STAGES}] Aggregating metrics and paper tables..."
+stage_start=$(date +%s)
+python -m leadlag.reporting.main_results --results "${RES}" --out "${OUT}" ${AGGREGATE_WINSOR:+--winsor ${AGGREGATE_WINSOR}}
+stage_end=$(date +%s)
+echo "[3/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
+
+echo "[4/${TOTAL_STAGES}] Building HTML report..."
+stage_start=$(date +%s)
+python -m leadlag.reporting.html_report --out "${OUT}" --title "LeadLag Paper Report"
+stage_end=$(date +%s)
+echo "[4/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
+
+echo "[5/${TOTAL_STAGES}] Validating paper artifact set..."
 stage_start=$(date +%s)
 python - <<'EOF'
 import os
 from pathlib import Path
 
-import pandas as pd
+from leadlag.reporting.paper_outputs import validate_paper_artifact_set
 
-results_root = Path(os.environ["RES"]).resolve()
-out_root = Path(os.environ["OUT"]).resolve()
-out_root.mkdir(parents=True, exist_ok=True)
-records = []
-for metrics_path in results_root.glob("*/metrics.csv"):
-    try:
-        frame = pd.read_csv(metrics_path)
-    except Exception as exc:  # pragma: no cover - defensive read
-        print(f"Failed to load {metrics_path}: {exc}")
-        continue
-    frame["run_dir"] = metrics_path.parent.name
-    records.append(frame)
-
-if not records:
-    raise SystemExit("No metrics.csv files discovered during aggregation")
-
-combined = pd.concat(records, ignore_index=True)
-combined.to_csv(out_root / "all_metrics_raw.csv", index=False)
-print(f"Aggregated {len(records)} metrics files.")
+out_dir = Path(os.environ["OUT"]).resolve()
+validated = validate_paper_artifact_set(out_dir)
+print(f"Validated {len(validated)} paper artefacts.")
 EOF
 stage_end=$(date +%s)
-echo "[3/3] Completed in $((stage_end - stage_start))s"
+echo "[5/${TOTAL_STAGES}] Completed in $((stage_end - stage_start))s"
 
 echo "Done. Paper artifacts are available under ${OUT}."

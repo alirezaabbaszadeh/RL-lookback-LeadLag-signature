@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+from leadlag.reporting.main_results import aggregate_main_results
+
+
+def _write_metrics(path: Path, rows: list[dict[str, object]]) -> None:
+    frame = pd.DataFrame(rows)
+    frame.to_csv(path, index=False)
+
+
+def test_aggregate_main_results_produces_confidence_intervals(tmp_path: Path) -> None:
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    shared = {
+        "agent": "ppo",
+        "policy": "gaussian",
+        "universe": "sp500",
+        "timeframe": "1h",
+        "split_scheme": "walk_forward",
+        "reward": "sharpe",
+        "features_signature": True,
+        "signature_depth": 2,
+        "features_leadlag": True,
+        "time_channel": True,
+        "cost_fee_bps": 0.1,
+        "slippage_bps": 0.0,
+        "experiment_id": "run-0",
+        "seed": 1,
+        "window_index": 0,
+    }
+
+    run1 = results_root / "run_1"
+    run1.mkdir()
+    _write_metrics(
+        run1 / "metrics.csv",
+        [
+            {
+                **shared,
+                "Sharpe": 1.0,
+                "Sortino": 1.2,
+                "MaxDD": -0.2,
+                "PnL": 100.0,
+                "Turnover": 0.5,
+                "Exposure": 0.8,
+                "EnvSteps": 200,
+            }
+        ],
+    )
+
+    run2 = results_root / "run_2"
+    run2.mkdir()
+    _write_metrics(
+        run2 / "metrics.csv",
+        [
+            {
+                **shared,
+                "experiment_id": "run-1",
+                "seed": 2,
+                "Sharpe": 2.0,
+                "Sortino": 1.5,
+                "MaxDD": -0.1,
+                "PnL": 130.0,
+                "Turnover": 0.6,
+                "Exposure": 0.9,
+                "EnvSteps": 220,
+            }
+        ],
+    )
+
+    result = aggregate_main_results(results_root, out_dir)
+
+    main_df = result.main_results
+    assert not main_df.empty
+    row = main_df.iloc[0]
+    assert row["n_runs"] == 2
+    assert row["winsor_alpha"] == pytest.approx(0.0)
+    assert row["Sharpe_mean"] == pytest.approx(1.5)
+    assert row["Sharpe_std"] == pytest.approx(0.7071067, rel=1e-5)
+    assert row["Sharpe_ci_lower"] == pytest.approx(0.52, rel=1e-6)
+    assert row["Sharpe_ci_upper"] == pytest.approx(2.48, rel=1e-6)
+    assert row["PnL_mean"] == pytest.approx(115.0)
+
+    ablations_df = result.ablations
+    assert not ablations_df.empty
+    assert (out_dir / "main_results.csv").exists()
+    assert (out_dir / "ablations.csv").exists()
+    assert (out_dir / "all_metrics_raw.csv").exists()
+    assert len(result.all_metrics) == 2
+
+
+def test_aggregate_main_results_without_metrics_raises(tmp_path: Path) -> None:
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    with pytest.raises(RuntimeError):
+        aggregate_main_results(results_root, out_dir)
