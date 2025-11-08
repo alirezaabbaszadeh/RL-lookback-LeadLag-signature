@@ -70,6 +70,8 @@ Key flags:
 - `--runner {auto,scenario,dynamic,rl}` overrides automatic runner selection.
 - `--status` reports run status for an existing results directory without re-executing scenarios.
 - `--skip-existing` avoids re-running scenarios that already succeeded under the current results root.
+- `--validate <scenario>` validates a descriptor (name or path) and exits without writing into the results root.
+- `--log-path` changes the log destination from the default `<results-root>/main.log` when you need centralised logging.
 
 ### Hydra module entry point
 

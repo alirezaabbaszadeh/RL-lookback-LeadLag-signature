@@ -148,4 +148,11 @@ leadlag --dry-run --include rl
 leadlag --results-root runs/2024-10-22 --stop-on-error --log-level DEBUG
 ```
 
-The CLI writes structured logs to `<results-root>/main.log` and renders JSON envelopes when `--format json` is set, making it suitable for automation in CI or Kaggle notebooks.
+Key operational flags that interact with `--results-root`:
+
+- `--status` inspects the resolved results directory (either from `--results-root` or `LEADLAG_RESULTS_ROOT`) and summarises existing runs without launching new work. Point it at historical artefacts to verify reproducibility before re-running anything.
+- `--skip-existing` checks the same results root for successful scenario folders and skips them during execution. Use a new `--results-root` when you need a clean rerun from scratch.
+- `--validate <scenario>` performs schema validation for the specified descriptor (name or path) and exits. It does not create output under the results root but helps confirm that a configuration is runnable before scheduling it.
+- `--log-path` overrides where the driver writes its structured log. By default the file lives at `<results-root>/main.log`, so changing `--results-root` automatically relocates the log unless you pin an explicit path.
+
+The CLI writes structured logs to `<results-root>/main.log` (unless `--log-path` is provided) and renders JSON envelopes when `--format json` is set, making it suitable for automation in CI or Kaggle notebooks.
