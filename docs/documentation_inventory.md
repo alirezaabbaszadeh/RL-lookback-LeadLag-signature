@@ -6,10 +6,11 @@ The table below summarizes the current documentation assets, their owners (where
 
 | Path | Owner | Purpose | Status |
 | --- | --- | --- | --- |
-| `README.md` | — | Primary overview covering capabilities, repo layout, quickstart commands, CLI entry points, and Kaggle orchestration tips. | Current. Comprehensive orientation for new users. |
-| `README_FA.md` | — | Farsi translation of the main README with the same onboarding and Kaggle deployment guidance for Persian speakers. | Current. Mirrors English guidance. |
+| `README.md` | — | Primary overview covering capabilities, repo layout, quickstart commands, CLI entry points, and Kaggle orchestration tips. | Current. Highlights JSON status snapshots and repository hygiene commands. |
+| `README_FA.md` | — | Farsi translation of the main README with the same onboarding and Kaggle deployment guidance for Persian speakers. | Current. Synced with latest Kaggle workflow and cleanup steps. |
+| `README_ANON.md` | — | Anonymous submission instructions, Kaggle cell ordering, and packaging guidance for reviewers. | Current. Includes status snapshot capture and pre-archive cleanup reminder. |
 | `CONTRIBUTING.md` | — | Contributor setup, coding standards, quality checks, and release expectations. | Current. Clear workflow for contributors. |
-| `CHANGELOG.md` | — | Historical release notes and current “Unreleased” changes. | Needs formatting cleanup—the final bullet includes a literal `\n` join. |
+| `CHANGELOG.md` | — | Historical release notes and current “Unreleased” changes. | Current; multiline bullets capture documentation refresh notes without escaped joins. |
 | `docs/ablation_guide.md` | — | How-to for the three ablation presets plus recommended study grids. | Current. Focused scenario reference. |
 | `docs/audit/` | — | README and task index describing the multi-phase audit programme and phase catalog. | Current. Organises extensive audit workflow. |
 | `docs/adr/ADR-001-hydra-config.md` | — | Architecture decision record adopting Hydra for configuration, with context and consequences. | Current. Captures rationale for config system. |
@@ -17,7 +18,7 @@ The table below summarizes the current documentation assets, their owners (where
 | `docs/config_reference.md` | — | Reference for Hydra config keys, scenario descriptors, and preset CLI usage (with bilingual notes). | Current. Helpful when editing configs. |
 | `docs/data_preprocessing.md` | — | Describes data sourcing, cleaning, manifests, and governance tooling. | Current. Matches observed pipeline behaviour. |
 | `docs/DATA_CARD.md` | — | Data card covering dataset provenance, licensing, splits, and quality checks. | New. Aligns with anonymised review package. |
-| `docs/deployment/kaggle_setup.md` | — | Detailed Kaggle “one-command” orchestration guide, notebook cell, and troubleshooting advice. | Current, though overlaps with README’s Kaggle section. |
+| `docs/deployment/kaggle_setup.md` | — | Detailed Kaggle “one-command” orchestration guide, notebook cell, and troubleshooting advice. | Current. Emits `run_status.json`, references cleanup commands, mirrors README. |
 | `docs/evaluation_visuals.md` | — | Defines required evaluation plots, tables, and aggregate artifacts. | Current. Aligns with reporting outputs. |
 | `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` | `roadmap_bot` (per metadata) | Formal roadmap with quality gates, module owners, initiatives, and status tracker. | Archived 2025-10-19. Retained for historical reference. |
 | `docs/kaggle_artifacts.md` | — | Inventory of files produced by `kaggle/run_all.py`, annotated by artifact type. | Current. Matches deployment outputs. |

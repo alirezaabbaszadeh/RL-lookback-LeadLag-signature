@@ -78,7 +78,10 @@ steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
    !nvidia-smi -L
    ```
 2. **Prime the environment and prefetch wheels** – copy/paste this cell (adjust
-   the dataset name if you attached the repo under a different alias):
+   the dataset name if you attached the repo under a different alias). The
+   `requirements-rl.txt` extras cover Stable-Baselines3, while the Gymnasium
+   1.x + Dopamine stack is only needed when the optional sanity stage is
+   enabled:
    ```bash
    %%bash
    set -e
@@ -92,7 +95,7 @@ steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
    python -m pip install --upgrade pip
    mkdir -p wheelhouse .cache/pip
    python -m pip download -d wheelhouse -r requirements-kaggle.txt
-   python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+   python -m pip download -d wheelhouse -r requirements-rl.txt
    python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
 
    export PIP_CACHE_DIR=/kaggle/working/.cache/pip
@@ -106,7 +109,17 @@ steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
    ```
    Use `--no-prefetch` to skip the wheel download step or `--artifacts-root` to
    change the output location.
-4. **Surface the paper outputs** – the orchestrator already copies
+4. **Inspect the aggregated status** – every CLI exposes the JSON envelope
+   contract. After the orchestrator finishes, capture the overall status to aid
+   reviewer notes or debugging:
+   ```python
+   !leadlag --status --results-root /kaggle/working/results --format json
+   ```
+   The `success` flag and `errors` list reflect the pipeline outcome and match
+   what CI validates in this repository. Redirect the command to
+   `/kaggle/working/run_status.json` if you want to bundle the envelope with
+   submission artefacts.
+5. **Surface the paper outputs** – the orchestrator already copies
    `paper_outputs/` inside `multi_stage_artifacts/full_suite/`, but you can
    mirror them into the top level notebook directory for quick inspection:
    ```python
@@ -120,7 +133,7 @@ steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
    else:
        print("paper_outputs missing – inspect stage logs")
    ```
-5. **Download submission artefacts** – from the Kaggle sidebar, download
+6. **Download submission artefacts** – from the Kaggle sidebar, download
    `/kaggle/working/multi_stage_artifacts.zip` (reviewers unpack this file) and
    optionally `/kaggle/working/paper_outputs/` if you mirrored the tables.
 
@@ -160,6 +173,21 @@ If you run `scripts/reproduce_all.sh` locally (the command executed inside the
 `full_suite` stage), the same directories appear under your configured
 `RES`/`OUT` paths.
 
+## Repository Hygiene
+
+Cleaning local artefacts keeps the repository lightweight and helps CI mirrors
+stay reproducible:
+
+- `make clean` – remove Python caches, Ruff/Mypy state, and the JSON-formatted
+  smoke artefacts under `tmp_cli_json_run/`.
+- `make distclean` – perform `make clean` plus delete the virtual environment,
+  build outputs, and any cached smoke results or `results/` directories.
+- `rm -rf results multi_stage_artifacts wheelhouse paper_outputs` – optional
+  manual sweep for local experiment artefacts. Ensure anything you need is
+  archived before running this command.
+- `leadlag --status --format json` – confirm that `results_root` no longer
+  contains stale runs once the cleanup is complete.
+
 ## Testing
 
 Run the lightweight smoke suite:
@@ -169,4 +197,6 @@ pytest
 ```
 
 For CI environments without CUDA, override `hardware=auto` and `training=smoke`
-to keep runtimes bounded.
+to keep runtimes bounded. A quick contract check such as `leadlag --status
+--format json --dry-run` verifies that CLI output continues to conform to the
+shared envelope.

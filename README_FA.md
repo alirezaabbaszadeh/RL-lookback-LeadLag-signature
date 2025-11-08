@@ -31,7 +31,9 @@
    !nvidia-smi -L
    ```
 
-2. **آماده‌سازی محیط و پیش‌دریافت wheel** – اگر مخزن را با نام دیگری متصل کرده‌اید، مسیر را مطابق نیاز عوض کنید.
+2. **آماده‌سازی محیط و پیش‌دریافت wheel** – اگر مخزن را با نام دیگری متصل کرده‌اید، مسیر را مطابق نیاز عوض کنید. بسته‌های
+   Stable-Baselines3 در `requirements-rl.txt` فهرست شده‌اند و پشتهٔ اختیاری
+   Gymnasium 1.x + Dopamine فقط هنگام فعال بودن مرحلهٔ sanity لازم است.
 
    ```bash
    %%bash
@@ -46,7 +48,7 @@
    python -m pip install --upgrade pip
    mkdir -p wheelhouse .cache/pip
    python -m pip download -d wheelhouse -r requirements-kaggle.txt
-   python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+   python -m pip download -d wheelhouse -r requirements-rl.txt
    python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
 
    export PIP_CACHE_DIR=/kaggle/working/.cache/pip
@@ -62,7 +64,17 @@
 
    فلگ‌های مهم: `--no-prefetch` برای رد کردن مرحلهٔ دانلود wheel و `--artifacts-root` برای تغییر مسیر خروجی.
 
-4. **نمایش خروجی مقاله** – این قطعه خروجی‌های `paper_outputs/` را به سطح بالای نوت‌بوک کپی می‌کند تا سریع بررسی شوند.
+4. **گزارش وضعیت تجمیعی** – پس از پایان ارکستریتور، فرمان زیر را اجرا کنید تا خروجی JSON استاندارد در لاگ ذخیره شود و با اعتبارسنجی CI هماهنگ بماند.
+
+   ```python
+   !leadlag --status --results-root /kaggle/working/results --format json
+   ```
+
+   مقدار `success` و فهرست `errors` وضعیت نهایی اجرای مراحل را نشان می‌دهند.
+
+   برای آرشیو کردن می‌توانید خروجی را با `> /kaggle/working/run_status.json` ذخیره کنید تا به بسته اضافه شود.
+
+5. **نمایش خروجی مقاله** – این قطعه خروجی‌های `paper_outputs/` را به سطح بالای نوت‌بوک کپی می‌کند تا سریع بررسی شوند.
 
    ```python
    import shutil, pathlib
@@ -76,7 +88,7 @@
        print("paper_outputs missing – inspect stage logs")
    ```
 
-5. **دانلود بستهٔ نهایی برای داوران** – فایل `multi_stage_artifacts.zip` آمادهٔ بارگیری از پانل سمت راست Kaggle است. در صورت نیاز، پوشهٔ `paper_outputs/` کپی‌شده را نیز جداگانه بارگیری کنید.
+6. **دانلود بستهٔ نهایی برای داوران** – فایل `multi_stage_artifacts.zip` آمادهٔ بارگیری از پانل سمت راست Kaggle است. در صورت نیاز، پوشهٔ `paper_outputs/` کپی‌شده را نیز جداگانه بارگیری کنید.
 
 تمام موارد مورد نیاز داوران (لاگ‌ها، مانفیست‌ها، جداول مقاله و آمار) در همین زیپ وجود دارد.
 
@@ -118,7 +130,7 @@
 
 | فایل/فرمان | توضیح |
 |-------------|-------|
-| `leadlag` | CLI اصلی برای فهرست، Dry-run، اجرا و گزارش وضعیت سناریوها با خروجی متنی یا JSON. |
+| `leadlag` | CLI اصلی برای فهرست، Dry-run، اجرا و گزارش وضعیت سناریوها با خروجی متنی یا JSON. پس از پاک‌سازی می‌توانید با `leadlag --status --format json` از خالی بودن `results_root` مطمئن شوید. |
 | `leadlag-full-suite` | مسیر سازگار با Hydra برای زمانی که به overrideهای مستقیم نیاز دارید (`-- env.allow_short=false`). |
 | `pipelines/run_ablation.py` | فقط آزمایش‌های حذفی (signature/ccf/dynamic/RL/random) را اجرا می‌کند؛ با فلگ `--skip-missing-deps` وابستگی‌های RL را نادیده می‌گیرد. |
 | `kaggle/starter.py` | برای نوت‌بوک‌های ساده: اجرای یک سناریو + (اختیاری) Meta-RL و RL آفلاین. |
@@ -167,7 +179,8 @@
 1. قبل از قطع اینترنت، نسخهٔ CPU از Torch و بسته‌های RL را نصب کنید یا با فلگ `--skip-optional-deps` سناریوهای RL را کنار بگذارید.
 2. برای کاهش زمان اجرا، از `--include` یا `--max-scenarios` استفاده کنید و فقط سناریوهای دلخواه را روی GPU اجرا کنید.
 3. خروجی‌ها (به‌ویژه `/reports` و `aggregate.json`) را بررسی کنید؛ در صورت حجیم بودن، فایل‌های میانی را فشرده یا حذف کنید.
-4. گزارش نهایی PDF/Markdown در `/reports` تولید می‌شود؛ آن را همراه با گزارش ممیزی `audit/scan_report.md` آرشیو کنید.
+4. پیش از بسته‌بندی مجدد آرشیو یا به‌اشتراک‌گذاری خروجی‌ها، `make clean` یا `make distclean` را اجرا کنید تا کش‌ها، نتایج موقت و دایرکتوری‌های آزمایشی حذف شوند.
+5. گزارش نهایی PDF/Markdown در `/reports` تولید می‌شود؛ آن را همراه با گزارش ممیزی `audit/scan_report.md` آرشیو کنید.
 
 با این چارچوب، تنها یک فرمان CLI کافی است تا کل آزمایش‌ها، ممیزی‌ها و گزارش‌ها در محیط Kaggle ساخته شوند و برای تحلیل نهایی آماده باشند. موفق باشید! 🎯
 

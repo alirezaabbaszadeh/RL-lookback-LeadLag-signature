@@ -30,11 +30,15 @@ reviewers should execute. Follow this sequence on Kaggle (GPU + Internet ON):
      /kaggle/working/artifact`.
    - **Cell 3 – Capture environment versions**: prints Python, platform,
      `leadlag-signature-rl`, and Torch diagnostics for the run log.
-   - **Cell 4 – Run the camera-ready pipeline**: invokes
-     `scripts/reproduce_all.sh` with its defaults (`RES=/kaggle/working/results`
-     and `OUT=/kaggle/working/paper_outputs`).
-   - **Cell 5 – Preview paper outputs**: lists
-     `/kaggle/working/paper_outputs` and prints `paper_status.txt`.
+    - **Cell 4 – Run the camera-ready pipeline**: invokes
+      `scripts/reproduce_all.sh` with its defaults (`RES=/kaggle/working/results`
+      and `OUT=/kaggle/working/paper_outputs`).
+    - **Cell 5 – Capture a status snapshot**: runs
+      `leadlag --status --results-root /kaggle/working/results --format json` (or
+      redirects it to `/kaggle/working/run_status.json`) to record the envelope
+      in the run log. The structure mirrors the CI validation contract.
+    - **Cell 6 – Preview paper outputs**: lists
+      `/kaggle/working/paper_outputs` and prints `paper_status.txt`.
 4. Download the contents of `/kaggle/working/paper_outputs/` for submission.
 
 ## Notes
@@ -47,3 +51,6 @@ reviewers should execute. Follow this sequence on Kaggle (GPU + Internet ON):
   supplementary materials or reviewer questionnaires.
 - When publishing the Kaggle Dataset, ensure its description does not include
   author names, affiliations, or non-anonymised repository URLs.
+- Use `make clean` or `make distclean` before creating a fresh archive to strip
+  caches, temporary JSON summaries, and local experiment directories from the
+  bundle.
