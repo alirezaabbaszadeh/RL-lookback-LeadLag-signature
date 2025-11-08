@@ -8,6 +8,7 @@ This guide explains how to keep the documentation set healthy between releases a
 2. **Review merged PRs.** Scan recent commits for doc-impacting changes (new CLIs, renamed configs) and ensure they are captured in the docs backlog.
 3. **Check automation.** Verify the "docs-quality" workflow ran on the default branch. Fix or triage any markdownlint or link-check failures promptly.
 4. **Groom examples and notebooks.** Open the most frequently referenced notebooks to confirm that cells still execute with the pinned environment.
+5. **Envelope spot-check.** After pruning stale results, run `leadlag --status --format json` against a smoke directory to ensure the documented output contract still matches the emitted envelope.
 
 ## Pre-release checklist
 

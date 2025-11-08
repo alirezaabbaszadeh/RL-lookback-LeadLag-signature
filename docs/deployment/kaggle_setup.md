@@ -62,9 +62,9 @@ fi
 python -m pip install --upgrade pip
 mkdir -p wheelhouse .cache/pip
 
-# Prefetch wheels for speed (requirements core + SB3 2.x + Gymnasium + Dopamine stack)
+# Prefetch wheels for speed (core requirements + SB3 extras + optional Dopamine stage)
 python -m pip download -d wheelhouse -r requirements-kaggle.txt
-python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+python -m pip download -d wheelhouse -r requirements-rl.txt
 python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
 
 export PIP_CACHE_DIR=/kaggle/working/.cache/pip
@@ -75,6 +75,7 @@ export SB3_DEVICE=auto
 export SB3_TIMESTEPS=300000
 
 python kaggle/run_all.py
+leadlag --status --results-root /kaggle/working/results --format json > run_status.json
 zip -r multi_stage_artifacts.zip multi_stage_artifacts
 ```
 
@@ -92,6 +93,7 @@ captures meta/offline artefacts with deterministic seeds.
     --keep-meta-rl \
     --keep-offline
 !leadlag --list --format json --results-root /kaggle/working/kaggle_smoke/results | head
+!leadlag --status --format json --results-root /kaggle/working/kaggle_smoke/results
 !zip -r kaggle_smoke_artifacts.zip /kaggle/working/kaggle_smoke
 ```
 
@@ -109,6 +111,19 @@ Outputs
   - `dopamine/…` – Gymnasium 1.x sanity stage.
   - `summary.json` – stage status, duration, log paths.
 - `/kaggle/working/multi_stage_artifacts.zip` – ready for download.
+- `/kaggle/working/run_status.json` – JSON envelope emitted by `leadlag --status`,
+  mirroring the CI contract.
+
+Cleanup Between Runs
+--------------------
+- `make clean` – remove Python caches, Ruff/Mypy artefacts, and smoke-run JSON
+  summaries under `tmp_cli_json_run/`.
+- `make distclean` – perform `make clean` plus delete the virtual environment,
+  build outputs, and any cached `results/` directories.
+- `rm -rf results multi_stage_artifacts wheelhouse paper_outputs` – optional
+  manual sweep for heavy artefacts when you are regenerating datasets.
+- `leadlag --status --results-root /kaggle/working/results --format json` –
+  confirm no stale runs remain after cleanup.
 
 Environment Overrides (advanced)
 --------------------------------

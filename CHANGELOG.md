@@ -5,12 +5,15 @@
 All notable changes will be documented in this file. Dates follow YYYY-MM-DD.
 
 ## Unreleased
-- CI hardened with JSON envelope validator for `leadlag --status` and `leadlag-full-suite --dry-run`, extras matrix now installs combined optional dependencies, and documentation reflects the `--format json` contract.
+- CI hardened with JSON envelope validator for `leadlag --status` and `leadlag-full-suite --dry-run`.
+  - Extras matrix now installs combined optional dependencies.
+  - Documentation reflects the `--format json` contract and cleanup workflow.
 - Initial GitHub packaging: cleaned README, added Kaggle deployment guide, smoke tests, and governance docs.
 - Provide `requirements-kaggle.txt`, `kaggle/starter.py`, and `scripts/smoke_kaggle.py` for lean deployments.
 - Added end-to-end orchestration pipelines (`pipelines/run_ablation.py`, `pipelines/run_full_suite.py`) to cover ablations, audits, meta/offline baselines, and reporting in a single run.
 - Hardened Kaggle pipeline: dependency preflight, dataset quality thresholds, optional RL fallbacks, offline dataset moved to CSV, artifact validation/report timing, and automated balance-history charts.
 - Documented anonymised submission artefacts with new data/model cards and a repository `CITATION.cff` entry.
+- Refreshed documentation set: README variants now highlight JSON status snapshots and repository hygiene; Kaggle setup guide captures `run_status.json`; maintenance checklist calls out envelope spot-checks.
 
 ## 2025-10-18
 - Completed Observability initiative: structured logging context, metrics dictionary refresh, CLI dashboard.
