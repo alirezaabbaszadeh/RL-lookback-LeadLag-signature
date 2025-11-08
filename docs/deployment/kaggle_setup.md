@@ -23,8 +23,8 @@ What happens:
 1. Prefetches wheels into `/kaggle/working/wheelhouse` (for fast installs).
 2. Configures pip to read from the wheelhouse/cache.
 3. Runs the orchestrator stages in order:
-   - `sb3_leadlag`  production SB3 v2.1.0 + Gymnasium 0.29.x training on the LeadLag environment (PPO, PPO-LSTM, attention policy). Defaults: `SB3_DEVICE=auto`, `SB3_TIMESTEPS=300000` (override via env vars if required).
-python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
+   - `full_suite` – baselines, ablations, audits, and reports.
+   - `sb3_leadlag` – production SB3 v2.1.0 + Gymnasium 0.29.x training on the LeadLag environment (PPO, PPO-LSTM, attention policy). Defaults: `SB3_DEVICE=auto`, `SB3_TIMESTEPS=300000` (override via env vars if required).
    - `dopamine` – Gymnasium 1.x stack (`gymnasium==1.0.0`, `dopamine-rl==4.1.2`) sanity check.
 4. Bundles outputs as `/kaggle/working/multi_stage_artifacts.zip`.
 
@@ -64,7 +64,7 @@ mkdir -p wheelhouse .cache/pip
 
 # Prefetch wheels for speed (requirements core + SB3 2.x + Gymnasium + Dopamine stack)
 python -m pip download -d wheelhouse -r requirements-kaggle.txt
-python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.0"
+python -m pip download -d wheelhouse "gymnasium==0.29.1" "stable-baselines3==2.1.0" "sb3-contrib==2.1.0" "torch>=2.1,<2.7"
 python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
 
 export PIP_CACHE_DIR=/kaggle/working/.cache/pip
