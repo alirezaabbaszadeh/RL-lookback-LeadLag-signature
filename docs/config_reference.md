@@ -73,6 +73,21 @@ Key flags:
 - `--validate <scenario>` validates a descriptor (name or path) and exits without writing into the results root.
 - `--log-path` changes the log destination from the default `<results-root>/main.log` when you need centralised logging.
 
+#### Output formatting contract
+
+All CLIs use the helpers in [`src/leadlag/cli/formatters.py`](../src/leadlag/cli/formatters.py) to guarantee consistent output. Pass `--format text|json` (or the temporary alias `--json`) to select the transport. In JSON mode the command prints a deterministic envelope with:
+
+- `success`: boolean success flag matching the process exit status.
+- `command`: the invocation string (useful for auditing or reproductions).
+- `args`: a serialised view of the parsed namespace with paths rendered as strings.
+- `format`: the resolved format (`text` or `json`).
+- `message`: optional human-readable summary.
+- `data`: command-specific payload.
+- `errors`: structured error entries containing `code`, `message`, and optional `details` keys.
+- `artifacts`: optional dictionary of generated file paths.
+
+Use `leadlag --status --format json --pretty 2` for automation-friendly diagnostics; downstream tools can rely on the envelope fields remaining stable across CLIs that integrate the formatter utilities.
+
 ### Hydra module entry point
 
 When you need Hydra overrides or inline compositions, call the module entry point directly:
