@@ -16,9 +16,17 @@ cd RL-lookback-LeadLag-signature
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e .
-python -m pip install -r requirements-kaggle.txt
 python -m pip install -r requirements-dev.txt
+python -m pip install -e .
+```
+
+The development requirements file includes the runtime stack defined in
+`requirements.txt`, so a single install covers both runtime and tooling. Install
+extra stacks only when needed:
+
+```bash
+python -m pip install -r requirements-rl.txt        # reinforcement learning stack
+python -m pip install -r requirements-kaggle.txt    # Kaggle orchestration helpers
 ```
 
 `pyproject.toml` defines optional extras for reinforcement learning, signature
@@ -29,9 +37,9 @@ python -m pip install -e '.[rl,signature]'
 python -m pip install -e '.[mlflow]'
 ```
 
-The requirements files in the root directory (`requirements.txt`,
-`requirements-rl.txt`) mirror the combinations used by CI pipelines and Kaggle
-notebooks.
+The requirement files in the root directory (`requirements.txt`,
+`requirements-dev.txt`, `requirements-rl.txt`, `requirements-kaggle.txt`)
+mirror the combinations used by CI pipelines and Kaggle notebooks.
 
 ### CLI smoke check
 
@@ -67,13 +75,22 @@ python scripts/smoke_kaggle.py --output-root dist/kaggle_smoke            # add 
 pytest -q
 ```
 
+The repository standardises tooling through `lint_config.toml`, which references
+`ruff.toml` for linting/formatting and `pytest.ini` for tests. Prefer the
+Makefile shortcuts so local runs match CI defaults:
+
+```bash
+make format   # Ruff formatter using ruff.toml
+make lint     # Ruff lint pass using ruff.toml
+make test     # Pytest with pytest.ini defaults
+```
+
 Ensure generated artifacts (`results/`, `dist/`) are excluded from commits.
 
 ## 5. Documentation
 - Update `README.md`, `CHANGELOG.md`, or relevant docs (`docs/`) when introducing new features.
-- Coordinate roadmap updates (see
-  `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` for the last
-  snapshot) if new scenarios or datasets affect planning.
+- Coordinate roadmap updates by attaching superseded materials to a tagged
+  release and noting the release inside `archive/` if breadcrumbs are needed.
 
 ## 6. Submitting Changes
 1. Create a feature branch: `git checkout -b feat/<short-description>`.

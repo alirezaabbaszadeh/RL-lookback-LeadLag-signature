@@ -3,18 +3,10 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
-  - numpy
-  - pandas
-  - pyyaml
-  - matplotlib
-  - scipy
   - pip
   - pip:
-      # Install base Python requirements
-      - -r requirements.txt
+      - -r requirements-dev.txt
       # Optional integrations (uncomment as needed)
+      # - -r requirements-rl.txt
+      # - -r requirements-kaggle.txt
       # - mlflow
-      # Optional RL dependencies (prefer requirements-rl.txt or Kaggle orchestrator)
-      # - stable-baselines3==2.1.0
-      # - sb3-contrib==2.1.0
-      # - torch>=2.1,<2.7

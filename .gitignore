@@ -34,6 +34,7 @@ kaggle/working/
 multi_stage_artifacts/
 kaggle_output/
 multi_stage_artifacts.zip
+tmp_cli_json_run/
 .stage_venvs/
 *.h5
 *-aggregate/

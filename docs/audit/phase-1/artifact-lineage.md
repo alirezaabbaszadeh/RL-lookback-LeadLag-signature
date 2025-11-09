@@ -33,7 +33,7 @@ Source data → Per‑run outputs → Multi‑seed aggregates → Reporting
 - reporting/generate_report.py
   - Input: */*_aggregate/{stats,significance,welch}.csv, runs.json
   - Output: reports/final_report.md, reports/final_report.pdf, reports/appendix.md (2025
-    campaign outputs archived at `archive/2025-10-17-research-report/reports/`)
+    campaign outputs archived in the 2025-10 release bundle referenced from `archive/README.md`)
 
 Notes
 - welch.csv only appears when multiple scenarios are aggregated in one pass; otherwise, cross‑scenario Welch is produced by evaluation/aggregate.py or can be added to reporting.

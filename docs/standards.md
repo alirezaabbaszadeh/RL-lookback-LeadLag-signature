@@ -119,7 +119,7 @@ docs/
 ├── deployment/
 ├── documentation_inventory.md
 ├── evaluation_visuals.md
-├── (archived) future_roadmap.pseudo → see `archive/2025-10-19-roadmap/docs/`
+├── (archived) future_roadmap.pseudo → see `archive/README.md` (2025-10 roadmap release bundle)
 ├── kaggle_artifacts.md
 ├── metrics_dictionary.md
 ├── repro.md
@@ -136,13 +136,13 @@ reports/
 | ------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------- | ----- |
 | `docs/guides/`           | Step-by-step guides, runbooks, and onboarding material.                | `ablation_guide.md`, `repro.md`, `data_preprocessing.md` | Create index page `docs/guides/README.md` summarising available guides. |
 | `docs/reference/`        | Configuration and terminology references.                              | `config_reference.md`, `metrics_dictionary.md`        | Ensure tables align with reference formatting guidelines. |
-| `docs/roadmap/`          | Forward-looking plans and decision records.                            | Archived snapshot `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo`, `advanced_research_plan.md`, contents of `docs/adr/` | Convert the archived pseudo-file to Markdown before reintroducing. |
+| `docs/roadmap/`          | Forward-looking plans and decision records.                            | Archived snapshot from the 2025-10 roadmap release bundle (see `archive/README.md`), `advanced_research_plan.md`, contents of `docs/adr/` | Convert the archived pseudo-file to Markdown before reintroducing. |
 | `docs/audit/`            | (Retained) Phase-by-phase audit records.                               | Existing `docs/audit/phase-*` directories             | Introduce index file with navigation between phases. |
 | `docs/deployment/`       | (Retained) Environment-specific deployment guides.                     | Existing deployment subfolders                        | No structural change required; ensure metadata conforms. |
 | `docs/inventory/`        | Meta-documentation, inventories, standards, and governance material.   | `documentation_inventory.md`, `standards.md`, `standards_feedback_request.md` | Consider renaming `documentation_inventory.md` to `index.md` for clarity. |
 | `docs/archives/`         | Deprecated or superseded documents kept for historical context.        | Stale versions flagged during audit reviews           | Apply `Status: Deprecated` metadata upon relocation. |
-| `reports/current/`       | Active campaign reports and appendices.                                | `reports/README.md` (directory now empty; prior outputs archived)  | Add README detailing campaign identifiers and data vintage. |
-| `reports/archives/`      | Prior campaign reports and supporting materials.                       | `archive/2025-10-17-research-report/reports/`         | Naming convention `YYYY-QX-<descriptor>.md` recommended. |
+| `reports/current/`       | Active campaign reports and appendices.                                | `reports/README.md` (directory now empty; prior outputs archived in 2025-10 release bundle)  | Add README detailing campaign identifiers and data vintage. |
+| `reports/archives/`      | Prior campaign reports and supporting materials.                       | 2025 campaign bundle attached to the 2025-10 release (see `archive/README.md`)         | Naming convention `YYYY-QX-<descriptor>.md` recommended. |
 
 ### Migration and rename checklist
 
@@ -151,7 +151,7 @@ reports/
 - Move configuration/terminology references into `docs/reference/`, adjusting cross-links from other
   documents (e.g., deployment guides) accordingly.
 - Consolidate planning artefacts under `docs/roadmap/` and, when reactivating the roadmap,
-  convert `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` into
+  convert the snapshot from the 2025-10 release bundle (see `archive/README.md`) into
   `future_roadmap.md`, ensuring metadata and heading format compliance.
 - Group governance and standards documentation under `docs/inventory/`, renaming
   `documentation_inventory.md` to `index.md` to serve as the folder landing page.
