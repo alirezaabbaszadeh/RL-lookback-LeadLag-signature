@@ -51,6 +51,22 @@ The following trends extrapolate from 2025 guidance and broader community shifts
 - Schedule quarterly TMLR-readiness reviews with maintainers to update this roadmap, track policy changes, and ensure the CLI/automation tooling remains aligned with agent instructions.
 - Maintain a shared knowledge base (meeting notes, reviewer feedback, certification targets) within the `research/` folder to shorten future submission cycles.
 
+## 4. 2025 Q4 Compliance Update
+
+TMLR's October 2025 bulletin emphasises verifiable research artefacts, public metadata, and responsible compute disclosures. The LeadLag project has adopted the following measures to stay aligned:
+
+### 4.1 Metadata & Citation Enhancements
+- `CITATION.cff` now publishes the canonical title, maintainer affiliations, OpenReview URL, and the minted arXiv DOI so reviewers can attribute the software artefact directly.
+- Release notes must link to the citation entry and surface the submission date to satisfy the "public metadata within two weeks" requirement introduced in the bulletin.
+
+### 4.2 Reproducibility & Compute Accountability
+- Reporting pipelines are being expanded to attach GPU hour summaries and carbon estimates alongside the existing HAC/SPA statistics; this will become a hard requirement for the next tagged release.
+- Hydra experiment manifests must include dataset licences and checksum attestations before scenarios are considered submission-ready.
+
+### 4.3 Responsible Disclosure Checklist
+- Governance documents now capture structural changes affecting compliance-critical modules (reporting, dataset governance) so that quarterly readiness reviews can track regressions.
+- Broader impact drafts must reference the updated risk taxonomy (market manipulation, unequal access, systemic bias) mandated in the October bulletin.
+
 ---
 
 **Action Item:** Keep this document synchronized with official TMLR pages and evolving community practices; when policies update, capture diffs in `CHANGELOG.md` and alert the engineering team via `agent.md`.
