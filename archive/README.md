@@ -1,18 +1,13 @@
 # Archive
 
-This folder stores documentation and generated artifacts that are no longer
-considered active. Each subdirectory is prefixed with the date (UTC) when the
-artifact set was archived, followed by a short label for quick reference.
+This folder exists solely as a pointer for historical material that has been
+archived outside the Git repository. Large artifacts that previously lived in
+the tree are now attached to release bundles and can be retrieved from the
+project's GitHub Releases page.
 
-Current entries:
-
-- `2025-10-19-roadmap/` – snapshot of the pseudo-roadmap that previously lived
-  under `docs/`.
-- `2025-10-17-research-report/` – generated research report and appendix from
-  the 2025 campaign.
-- `2025-10-22-cli-dry-run/` – CLI dry-run outputs that were formerly committed
-  for reference.
-
-Active documentation should live outside this tree. When new materials become
-obsolete, move them here and update related indexes with the archival date.
+When you need to retire documentation or generated outputs, create a dated
+subdirectory (e.g. `2025-12-05-new-benchmark/`) and upload the associated files
+to the relevant release. Keep the Git repository free of heavyweight artifacts
+and record the release tag inside the new subdirectory's README so future
+contributors know where to find the data.
 

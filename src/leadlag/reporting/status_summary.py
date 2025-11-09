@@ -98,8 +98,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--roadmap",
         type=Path,
-        default=Path("archive/2025-10-19-roadmap/docs/future_roadmap.pseudo"),
-        help="Path to archived roadmap pseudo-document.",
+        help="Path to a roadmap pseudo-document (see archive/README.md for release bundles).",
     )
     add_format_flags(parser, default="text")
     parser.add_argument(
@@ -118,6 +117,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: Iterable[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+    if args.roadmap is None:
+        parser.error(
+            "--roadmap is required; fetch the latest roadmap snapshot from the release bundles listed in archive/README.md."
+        )
     finalize_format_args(args, remove_in="0.2.0")
 
     log_path = args.log_path or Path("status_summary.log")

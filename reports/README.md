@@ -1,7 +1,7 @@
 # Reports
 
-The active reports directory is intentionally empty. Previously generated campaign materials from 2025 now live under
-`archive/2025-10-17-research-report/reports/`.
+The active reports directory is intentionally empty. Previously generated campaign materials from 2025 are attached to the
+`2025-10` release on GitHub; see `archive/README.md` for pointers.
 
 ## Generating a fresh report
 

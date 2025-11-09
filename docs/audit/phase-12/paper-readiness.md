@@ -1,7 +1,7 @@
 # Phase 12 - Paper Readiness and Packaging (Completed 2025-10-19)
 
 ## Rebuild Pipeline
-- `reporting/generate_report.py` produces `reports/final_report.md`, `reports/final_report.pdf`, and `reports/appendix.md` in one invocation. The script consumes aggregated metrics, plots, and manifests to guarantee consistency (the 2025 outputs now live in `archive/2025-10-17-research-report/reports/`).
+- `reporting/generate_report.py` produces `reports/final_report.md`, `reports/final_report.pdf`, and `reports/appendix.md` in one invocation. The script consumes aggregated metrics, plots, and manifests to guarantee consistency (the 2025 outputs now live in the 2025-10 release bundle referenced from `archive/README.md`).
 - `scripts/smoke_kaggle.py` + `kaggle/starter.py` replicate the minimal scenario, meta-RL baseline, and offline RL baseline with deterministic seeds, ensuring figures/tables can be regenerated in cloud notebooks as well as locally.
 
 ## Determinism

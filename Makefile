@@ -57,11 +57,12 @@ $(VENV_STAMP):
 venv: $(VENV_STAMP) ## Create the virtual environment
 
 install: venv ## Install project dependencies
-	@if [ -f $(REQS) ]; then $(VENV_PIP) install -r $(REQS); fi
-	$(VENV_PIP) install -e .
+        @if [ -f $(REQS) ]; then $(VENV_PIP) install -r $(REQS); fi
+        $(VENV_PIP) install -e .
 
-dev-install: install ## Install project + development tooling
-	@if [ -f $(DEV_REQS) ]; then $(VENV_PIP) install -r $(DEV_REQS); fi
+dev-install: venv ## Install project + development tooling
+        @if [ -f $(DEV_REQS) ]; then $(VENV_PIP) install -r $(DEV_REQS); fi
+        $(VENV_PIP) install -e .
 
 sync: dev-install ## Install optional extras (RL/Kaggle)
 	@if [ -f requirements-rl.txt ]; then $(VENV_PIP) install -r requirements-rl.txt; fi
@@ -89,7 +90,8 @@ precommit: ## Run pre-commit on all files
 
 smoke: RESULTS_ROOT := $(SMOKE_ROOT)
 smoke: ## Run a quick smoke test scenario
-	$(PYTHON_RUN) -m leadlag.main --results-root $(RESULTS_ROOT) --include $(SMOKE_SCENARIO) --max-scenarios 1 --stop-on-error $(RUN_ARGS)
+        mkdir -p $(RESULTS_ROOT)
+        $(PYTHON_RUN) -m leadlag.main --results-root $(RESULTS_ROOT) --include $(SMOKE_SCENARIO) --max-scenarios 1 --stop-on-error $(RUN_ARGS)
 
 run: ## Run leadlag driver (set RUN_ARGS='--include fixed_30')
 	$(PYTHON_RUN) -m leadlag.main --results-root $(RESULTS_ROOT) $(RUN_ARGS)

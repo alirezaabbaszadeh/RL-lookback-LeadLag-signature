@@ -1,5 +1,6 @@
 line-length = 100
 target-version = "py310"
+src = ["src", "tests", "scripts"]
 exclude = [
   ".git",
   "__pycache__",
@@ -8,10 +9,19 @@ exclude = [
   "notebooks",
 ]
 
+[format]
+docstring-code-format = true
+indent-style = "space"
+line-ending = "lf"
+quote-style = "double"
+
 [lint]
 select = ["E", "F", "I"]
 # Ignore import-at-top (for sys.path hacks in scripts/tests)
 ignore = ["E402"]
+
+[lint.isort]
+known-first-party = ["leadlag"]
 
 [lint.per-file-ignores]
 "tests/*" = ["E501"]
