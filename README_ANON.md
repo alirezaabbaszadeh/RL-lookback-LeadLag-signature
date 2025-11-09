@@ -13,6 +13,17 @@ contributor-identifying metadata has been removed.
 - `docs/MODEL_CARD.md`: Model assumptions, limitations, and compute profile
 - `README_ANON.md`: This document (safe to include in anonymous submissions)
 
+Installations rely on [`pyproject.toml`](pyproject.toml) and the curated
+`requirements*.txt` files bundled with the archive. Editable installs are
+recommended when iterating locally:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip install -r requirements-rl.txt  # RL extras used in PPO/TD3 scenarios
+python -m pip install -r requirements-dev.txt  # formatters, pytest, build tools
+```
+
 ## Kaggle Notebook Workflow
 
 The repository ships `docs/kaggle_camera_ready.ipynb` with the exact cells that
@@ -40,6 +51,28 @@ reviewers should execute. Follow this sequence on Kaggle (GPU + Internet ON):
     - **Cell 6 – Preview paper outputs**: lists
       `/kaggle/working/paper_outputs` and prints `paper_status.txt`.
 4. Download the contents of `/kaggle/working/paper_outputs/` for submission.
+
+### CLI quickstart (outside Kaggle)
+
+The package exposes the same entry points used in CI:
+
+```bash
+# list scenarios and capture the JSON envelope
+leadlag --list --format json
+
+# run a focused batch and record aggregated status
+leadlag --scenarios fixed_30 fast_smoke --results-root results --format json
+
+# compatibility shims for legacy notebooks
+python main.py --status --results-root results --format text
+python hydra_main.py --scenario fixed_30 --output_root results
+
+# pipeline helpers (leadlag-full-suite / leadlag-ablation)
+leadlag-full-suite results_root=results/full_suite training=smoke
+```
+
+Refer to [`docs/repro.md`](docs/repro.md) for full reproduction guidance and the
+[`reporting/`](reporting) directory for utilities that post-process results.
 
 ## Notes
 
