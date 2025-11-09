@@ -16,9 +16,11 @@ The table below summarizes the current documentation assets, their owners (where
 | `docs/adr/ADR-001-hydra-config.md` | — | Architecture decision record adopting Hydra for configuration, with context and consequences. | Current. Captures rationale for config system. |
 | `docs/advanced_research_plan.md` | — | Execution plan for Meta-RL and offline RL initiatives with objectives, validation metrics, and next steps. | Current. Tracks research backlog completion. |
 | `docs/config_reference.md` | — | Reference for Hydra config keys, scenario descriptors, and preset CLI usage (with bilingual notes). | Current. Helpful when editing configs. |
+| `docs/observability.md` | Reliability Working Group | Overview of logging configuration, Kaggle shim behaviour, and dashboard integration points. | Draft. Needs validation against future handler additions. |
 | `docs/data_preprocessing.md` | — | Describes data sourcing, cleaning, manifests, and governance tooling. | Current. Matches observed pipeline behaviour. |
 | `docs/DATA_CARD.md` | — | Data card covering dataset provenance, licensing, splits, and quality checks. | New. Aligns with anonymised review package. |
 | `docs/deployment/kaggle_setup.md` | — | Detailed Kaggle “one-command” orchestration guide, notebook cell, and troubleshooting advice. | Current. Emits `run_status.json`, references cleanup commands, mirrors README. |
+| `docs/deployment/pipeline_runbook.md` | Reliability Working Group | Monitoring and troubleshooting guide for core pipelines, highlighting log surfaces and failure patterns. | Draft. First cut; expand with per-environment SOPs. |
 | `docs/evaluation_visuals.md` | — | Defines required evaluation plots, tables, and aggregate artifacts. | Current. Aligns with reporting outputs. |
 | `archive/2025-10-19-roadmap/docs/future_roadmap.pseudo` | `roadmap_bot` (per metadata) | Formal roadmap with quality gates, module owners, initiatives, and status tracker. | Archived 2025-10-19. Retained for historical reference. |
 | `docs/kaggle_artifacts.md` | — | Inventory of files produced by `kaggle/run_all.py`, annotated by artifact type. | Current. Matches deployment outputs. |
