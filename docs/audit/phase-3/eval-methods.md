@@ -16,7 +16,8 @@ Implementation
 Artifacts
 - Per-scenario aggregates: `*_aggregate/stats.csv`, `*_aggregate/significance.csv` (bootstrap CI summary).
 - Cross-scenario significance: `results/aggregate/significance_<metric>.csv` and `significance_<metric>_pairs.csv`.
-- Comparison table/plots: `evaluation/aggregate_comparison.csv` and `evaluation/plots/*` when available.
+- Comparison table: `results/aggregate/comparison_summary.csv` plus `comparison_table.tex` (or `.csv` fallback when LaTeX
+  support is missing).
 
 Acceptance criteria
 - CIs present; raw p-values and q-values reported; effect sizes (Cohen's d) included in pairwise outputs.
