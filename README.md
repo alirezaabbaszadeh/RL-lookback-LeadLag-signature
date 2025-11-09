@@ -31,6 +31,47 @@ artefacts.
 See [`docs/reactor_v3_refactor_plan.md`](docs/reactor_v3_refactor_plan.md) for the
 full roadmap and governance milestones.
 
+## Installation
+
+The project is packaged via `pyproject.toml`. Install it in editable mode for
+local development or scripts:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Optional extras expose the RL stack, signature methods, and MLflow exporters
+defined in [`pyproject.toml`](pyproject.toml):
+
+```bash
+# enable Stable-Baselines3 + signature features during local research
+python -m pip install -e '.[rl,signature]'
+
+# append MLflow utilities when experiment tracking is required
+python -m pip install -e '.[mlflow]'
+```
+
+When mirroring the CI/Kaggle environment, reuse the curated lockfiles:
+
+```bash
+# base research stack (no RL extras)
+python -m pip install -r requirements.txt
+
+# Kaggle-ready bundle with notebook-friendly pins
+python -m pip install -r requirements-kaggle.txt
+
+# Reinforcement learning agents and dependencies used in pipelines
+python -m pip install -r requirements-rl.txt
+
+# Developer tooling (formatters, linters, pytest, build helpers)
+python -m pip install -r requirements-dev.txt
+```
+
+See [`docs/kaggle_artifacts.md`](docs/kaggle_artifacts.md) for notebook-specific
+pinning strategies and [`docs/config_reference.md`](docs/config_reference.md)
+for configuration conventions shared across environments.
+
 ## Repository Layout
 
 ```
@@ -62,6 +103,65 @@ Support files:
 - `tests/` – unit coverage for CV, stats, features, and reporting utilities.
 - `notebooks/` – Jupyter notebooks mirroring the Kaggle flow for offline
   exploration.
+
+## Command-Line Quickstart
+
+The [`leadlag`](src/leadlag/main.py) console script is the canonical entry
+point. It provides scenario discovery, validation, execution, and status
+reporting with consistent text/JSON envelopes:
+
+```bash
+# inspect packaged scenarios and metadata
+leadlag --list
+
+# preview the scenarios that would run without executing workloads
+leadlag --dry-run --include dynamic --max-scenarios 2 --format text
+
+# execute specific scenarios and capture a JSON status envelope
+leadlag --scenarios dynamic_adaptive rl_ppo --results-root results --format json
+
+# report run status (works for orchestrated pipelines too)
+leadlag --status --results-root results --format json
+```
+
+Compatibility shims remain available for legacy scripts:
+
+```bash
+# mirrors `leadlag` (deprecated wrapper kept for older notebooks)
+python main.py --status --results-root results --format text
+```
+
+Hydra-centric experiments can be launched directly through
+[`hydra_main.py`](hydra_main.py) or the underlying module:
+
+```bash
+# run a packaged scenario with optional multi-seed execution
+python -m leadlag.hydra_main --scenario fixed_30 --output_root results
+
+# or when Hydra is installed, leverage the native launcher
+python hydra_main.py --scenario dynamic_adaptive --multi_seed_enabled --seeds 11 21 31
+```
+
+Pipeline entry points under [`pipelines/`](pipelines) expose higher-level
+workflows used in CI and Kaggle submissions:
+
+```bash
+# full suite orchestration (Hydra overrides accepted)
+leadlag-full-suite results_root=results/full_suite training=smoke
+
+# targeted ablations defined in pipelines/run_ablation.py
+leadlag-ablation --output-root results/ablations --single-seed
+
+# module form for custom schedulers
+python -m pipelines.run_full_suite results_root=results/full_suite training=smoke
+```
+
+Reporting utilities live in [`reporting/`](reporting) and include commands such
+as `leadlag-report`, `leadlag-compare`, and `leadlag-plot-balance`. Detailed
+guides for datasets, configuration, metrics, ablations, and governance live in
+[`docs/`](docs/), e.g. [`docs/ablation_guide.md`](docs/ablation_guide.md),
+[`docs/metrics_dictionary.md`](docs/metrics_dictionary.md), and
+[`docs/repro.md`](docs/repro.md).
 
 ## Kaggle Notebook Workflow (Journal Submission)
 

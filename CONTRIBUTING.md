@@ -15,10 +15,39 @@ git clone <repo-url>
 cd RL-lookback-LeadLag-signature
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements-kaggle.txt
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip install -r requirements-kaggle.txt
+python -m pip install -r requirements-dev.txt
 ```
 
-If you need optional integrations (Stable-Baselines3, MLflow, PyTorch), install them from `requirements.txt` or append extras manually.
+`pyproject.toml` defines optional extras for reinforcement learning, signature
+features, and MLflow exporters. Install them on-demand:
+
+```bash
+python -m pip install -e '.[rl,signature]'
+python -m pip install -e '.[mlflow]'
+```
+
+The requirements files in the root directory (`requirements.txt`,
+`requirements-rl.txt`) mirror the combinations used by CI pipelines and Kaggle
+notebooks.
+
+### CLI smoke check
+
+After installing, verify the primary entry points to ensure the environment is
+wired correctly:
+
+```bash
+leadlag --list --format json
+python main.py --status --results-root results --format text
+python hydra_main.py --scenario fixed_30 --output_root results
+leadlag-full-suite results_root=results/full_suite training=smoke
+```
+
+See [`docs/config_reference.md`](docs/config_reference.md) and
+[`reporting/`](reporting) for deeper usage patterns, including ablation helpers
+and reporting CLIs.
 
 ## 3. Coding Standards
 - Follow existing code patterns; prefer explicit logging via `reporting/logging_utils.get_logger`.
