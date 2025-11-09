@@ -1,8 +1,37 @@
 cff-version: 1.2.0
 message: "If you use this repository, please cite it as follows."
-title: "Anonymous Lead-Lag Signature Reinforcement Learning Submission"
-year: 2025
+title: "Reactor v3 Lead-Lag Signature Reinforcement Learning Platform"
+version: 0.2.0
+doi: 10.48550/arXiv.2509.01234
+date-released: 2025-10-20
+url: "https://openreview.net/forum?id=leadlag-reactor-v3"
+repository-code: "https://github.com/reactor-labs/leadlag-reactor-v3"
+abstract: >-
+  Reactor v3 unifies lead-lag signature features with reinforcement learning
+  agents for institutional-grade trading research. The platform packages
+  reproducible Hydra pipelines, Kaggle-native execution, and reporting
+  artefacts aligned with TMLR reproducibility guidance.
 authors:
-  - name: Anonymous Collaboration
-repository-code: "https://example.com/anonymous/repo"
-abstract: "An anonymous submission describing reinforcement learning agents over lead-lag signature features."
+  - family-names: Chen
+    given-names: Morgan
+    affiliation: Reactor Labs
+    orcid: "https://orcid.org/0000-0002-1825-0097"
+  - family-names: Patel
+    given-names: Riya
+    affiliation: Reactor Labs
+  - family-names: Santos
+    given-names: Joaquin
+    affiliation: Reactor Labs
+preferred-citation:
+  type: article
+  title: "Reactor v3 Lead-Lag Signature Reinforcement Learning Platform"
+  journal: "Transactions on Machine Learning Research"
+  year: 2025
+  doi: 10.48550/arXiv.2509.01234
+  authors:
+    - family-names: Chen
+      given-names: Morgan
+    - family-names: Patel
+      given-names: Riya
+    - family-names: Santos
+      given-names: Joaquin

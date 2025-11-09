@@ -14,6 +14,7 @@ All notable changes will be documented in this file. Dates follow YYYY-MM-DD.
 - Hardened Kaggle pipeline: dependency preflight, dataset quality thresholds, optional RL fallbacks, offline dataset moved to CSV, artifact validation/report timing, and automated balance-history charts.
 - Documented anonymised submission artefacts with new data/model cards and a repository `CITATION.cff` entry.
 - Refreshed documentation set: README variants now highlight JSON status snapshots and repository hygiene; Kaggle setup guide captures `run_status.json`; maintenance checklist calls out envelope spot-checks.
+- Documentation and governance refresh: minted the Reactor v3 citation metadata, captured the October 2025 TMLR compliance bulletin in `docs/tmlr_preparation.md`, and introduced reporting structural change tags for the next release.
 
 ## 2025-10-18
 - Completed Observability initiative: structured logging context, metrics dictionary refresh, CLI dashboard.
