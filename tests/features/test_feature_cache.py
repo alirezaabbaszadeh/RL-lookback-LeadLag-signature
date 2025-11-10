@@ -45,22 +45,24 @@ def test_feature_cache_hits_for_repeated_runs(monkeypatch, tmp_path):
 
     stack_args = dict(universe="demo", timeframe="1h", lookback=8, seed=101)
 
-    first = run_full_suite._build_feature_stack(prices, features_cfg, **stack_args)
+    first_stack, _ = run_full_suite._build_feature_stack(prices, features_cfg, **stack_args)
     assert counters == {"signature": 1, "leadlag": 1}
 
-    second = run_full_suite._build_feature_stack(prices, features_cfg, **stack_args)
+    second_stack, _ = run_full_suite._build_feature_stack(prices, features_cfg, **stack_args)
     assert counters == {"signature": 1, "leadlag": 1}
 
-    for key in first:
-        assert key in second
-        assert_array_equal(first[key], second[key])
+    for key in first_stack:
+        assert key in second_stack
+        assert_array_equal(first_stack[key], second_stack[key])
 
-    third = run_full_suite._build_feature_stack(prices, features_cfg, **{**stack_args, "seed": 202})
+    third_stack, _ = run_full_suite._build_feature_stack(
+        prices, features_cfg, **{**stack_args, "seed": 202}
+    )
     assert counters == {"signature": 2, "leadlag": 2}
 
-    for key in third:
-        assert key in first
-        assert_array_equal(third[key], first[key])
+    for key in third_stack:
+        assert key in first_stack
+        assert_array_equal(third_stack[key], first_stack[key])
 
 
 def test_feature_cache_respects_feature_toggles(monkeypatch, tmp_path):
@@ -85,7 +87,7 @@ def test_feature_cache_respects_feature_toggles(monkeypatch, tmp_path):
         }
     )
 
-    base_stack = run_full_suite._build_feature_stack(prices, base_features_cfg, **stack_args)
+    base_stack, _ = run_full_suite._build_feature_stack(prices, base_features_cfg, **stack_args)
     assert counters == {"leadlag": 0}
     assert set(base_stack) == {"returns"}
 
@@ -97,7 +99,7 @@ def test_feature_cache_respects_feature_toggles(monkeypatch, tmp_path):
         }
     )
 
-    toggled_stack = run_full_suite._build_feature_stack(prices, toggled_cfg, **stack_args)
+    toggled_stack, _ = run_full_suite._build_feature_stack(prices, toggled_cfg, **stack_args)
     assert counters == {"leadlag": 1}
     assert "returns" in toggled_stack
     assert "leadlag" in toggled_stack
