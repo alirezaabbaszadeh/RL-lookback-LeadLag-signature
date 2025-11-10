@@ -65,6 +65,8 @@ def test_pipeline_coordinates_analysis_and_hooks(tmp_path: Path) -> None:
     )
 
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    run_manifest_path = tmp_path / "run_manifest.json"
+    run_manifest_path.write_text("{}", encoding="utf-8")
     preparation = RunPreparation(
         out_dir=tmp_path,
         logger=logging.getLogger("test"),
@@ -74,6 +76,8 @@ def test_pipeline_coordinates_analysis_and_hooks(tmp_path: Path) -> None:
         seed=123,
         run_name="stub",
         resolved_price_path=None,
+        run_manifest_path=run_manifest_path,
+        requested_env_steps=None,
     )
 
     pipeline = ScenarioPipeline(

@@ -30,6 +30,32 @@ from leadlag.utils.resources import resolve_path
 PriceLoader = Callable[[Dict[str, Any]], Tuple[pd.DataFrame, Optional[Path]]]
 
 
+def _set_seed(seed: int) -> int:
+    """Compat wrapper returning the normalised seed value.
+
+    The offline research utilities historically imported ``_set_seed`` from this
+    module.  During the refactor that introduced :func:`set_all_seeds` the helper
+    disappeared which now breaks those imports.  Re-introducing the thin wrapper
+    keeps the research scripts working while ensuring the behaviour funnels
+    through :func:`set_all_seeds` so determinism stays centralised in
+    ``leadlag.utils``.
+
+    Parameters
+    ----------
+    seed:
+        Any integer-like value provided by the caller.
+
+    Returns
+    -------
+    int
+        The normalised integer seed that was applied.
+    """
+
+    normalised_seed = int(seed)
+    set_all_seeds(normalised_seed)
+    return normalised_seed
+
+
 @dataclass
 class RunPreparation:
     """Container for shared run artefacts."""
