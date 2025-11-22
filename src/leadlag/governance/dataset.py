@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -29,7 +29,9 @@ def build_manifest(
     """Construct a manifest describing the dataset that powered a run."""
     tzinfo = getattr(prices.index, "tz", None)
     manifest: Dict[str, Any] = {
-        "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "created_at": datetime.now(UTC)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z"),
         "row_count": int(len(prices)),
         "asset_count": int(prices.shape[1]),
         "columns": list(map(str, prices.columns)),
