@@ -18,7 +18,6 @@ def main() -> int:
         default=Path("dist/kaggle_smoke"),
         help="Directory to store smoke test artifacts.",
     )
-    parser.add_argument("--keep-meta-rl", action="store_true", help="Include meta-RL smoke run.")
     parser.add_argument("--keep-offline", action="store_true", help="Include offline RL smoke run.")
     args = parser.parse_args()
 
@@ -30,27 +29,14 @@ def main() -> int:
     _run(
         [
             "python",
-            "hydra_main.py",
+            "-m",
+            "leadlag.hydra_main",
             "--scenario",
             "fast_smoke",
             "--output_root",
             str(scenario_dir),
         ]
     )
-
-    if args.keep_meta_rl:
-        meta_dir = root / "meta_rl"
-        meta_dir.mkdir(parents=True, exist_ok=True)
-        _run(
-            [
-                "python",
-                "research/meta_rl/run_meta_rl.py",
-                "--output-root",
-                str(meta_dir),
-                "--samples",
-                "120",
-            ]
-        )
 
     if args.keep_offline:
         offline_dir = root / "offline"
@@ -59,7 +45,8 @@ def main() -> int:
         _run(
             [
                 "python",
-                "research/offline_rl/log_trajectories.py",
+                "-m",
+                "leadlag.research.offline_rl.log_trajectories",
                 "--episodes",
                 "1",
                 "--output",
@@ -69,7 +56,8 @@ def main() -> int:
         _run(
             [
                 "python",
-                "research/offline_rl/train_offline.py",
+                "-m",
+                "leadlag.research.offline_rl.train_offline",
                 "--dataset",
                 str(dataset_path),
                 "--output-root",
