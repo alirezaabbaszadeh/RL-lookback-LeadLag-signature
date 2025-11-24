@@ -25,17 +25,6 @@ def main() -> int:
         help="Directory where results/meta artifacts are written.",
     )
     parser.add_argument(
-        "--run-meta-rl",
-        action="store_true",
-        help="Generate synthetic regimes and meta-RL transfer report under <output-root>/meta_rl.",
-    )
-    parser.add_argument(
-        "--meta-samples",
-        type=int,
-        default=300,
-        help="Samples per regime when --run-meta-rl is enabled.",
-    )
-    parser.add_argument(
         "--run-offline",
         action="store_true",
         help=(
@@ -59,27 +48,14 @@ def main() -> int:
     _run(
         [
             "python",
-            "hydra_main.py",
+            "-m",
+            "leadlag.hydra_main",
             "--scenario",
             args.scenario,
             "--output_root",
             str(scenario_dir),
         ]
     )
-
-    if args.run_meta_rl:
-        meta_dir = output_root / "meta_rl"
-        meta_dir.mkdir(parents=True, exist_ok=True)
-        _run(
-            [
-                "python",
-                "research/meta_rl/run_meta_rl.py",
-                "--output-root",
-                str(meta_dir),
-                "--samples",
-                str(args.meta_samples),
-            ]
-        )
 
     if args.run_offline:
         offline_dir = output_root / "offline"
@@ -88,7 +64,8 @@ def main() -> int:
         _run(
             [
                 "python",
-                "research/offline_rl/log_trajectories.py",
+                "-m",
+                "leadlag.research.offline_rl.log_trajectories",
                 "--episodes",
                 str(args.offline_episodes),
                 "--output",
@@ -98,7 +75,8 @@ def main() -> int:
         _run(
             [
                 "python",
-                "research/offline_rl/train_offline.py",
+                "-m",
+                "leadlag.research.offline_rl.train_offline",
                 "--dataset",
                 str(dataset_path),
                 "--output-root",
