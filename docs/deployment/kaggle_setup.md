@@ -19,6 +19,13 @@ From the repository root (inside `/kaggle/working/...`):
 !python kaggle/run_all.py
 ```
 
+**Prefer a single-cell entrypoint?** The helper below copies the attached
+dataset (if needed) and delegates to `run_all` with sensible defaults:
+
+```
+!python kaggle/notebook_entrypoint.py
+```
+
 What happens:
 1. Prefetches wheels into `/kaggle/working/wheelhouse` (for fast installs).
 2. Configures pip to read from the wheelhouse/cache.
