@@ -202,6 +202,31 @@ steps assume **GPU + Internet ON** and run entirely inside `/kaggle/working`.
    export PIP_FIND_LINKS=/kaggle/working/wheelhouse
    export PIP_NO_INDEX=1
    ```
+   When you start from a blank notebook without attaching the repository as a
+   Kaggle dataset, clone the project first and then run the same wheel
+   prefetching steps:
+   ```bash
+   %%bash
+   set -e
+   WORK=/kaggle/working
+   cd "$WORK"
+
+   if [ ! -d RL-lookback-LeadLag-signature ]; then
+     git clone https://github.com/<your-org>/RL-lookback-LeadLag-signature.git
+   fi
+
+   cd RL-lookback-LeadLag-signature
+
+   python -m pip install --upgrade pip
+   mkdir -p wheelhouse .cache/pip
+   python -m pip download -d wheelhouse -r requirements-kaggle.txt
+   python -m pip download -d wheelhouse -r requirements-rl.txt
+   python -m pip download -d wheelhouse "dopamine-rl==4.1.2" "gymnasium==1.0.0"
+
+   export PIP_CACHE_DIR=/kaggle/working/.cache/pip
+   export PIP_FIND_LINKS=/kaggle/working/wheelhouse
+   export PIP_NO_INDEX=1
+   ```
 3. **Run the grand orchestrator** – builds virtualenvs per stage and bundles the
    artefacts reviewers will download:
    ```python
