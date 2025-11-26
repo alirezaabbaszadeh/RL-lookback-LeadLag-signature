@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +13,7 @@ from leadlag.driver.logging import (
     render_execution_summary,
     render_status_summary,
 )
-from leadlag.cli.errors import ERROR_UNKNOWN, emit_error
+from leadlag.cli.errors import ERROR_DEPENDENCY, ERROR_UNKNOWN, emit_error
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.cli import commands as cli_commands
 from leadlag.cli.dependencies import DriverService, build_driver_service
@@ -133,6 +134,40 @@ class LeadLagCLI:
         )
 
 
+def ensure_iisignature(args: argparse.Namespace, *, required: str = "0.24") -> bool:
+    """Verify that the ``iisignature`` dependency is importable.
+
+    When missing, emit a structured error payload with install guidance tailored
+    for both Kaggle and local environments and skip scenario execution.
+    """
+
+    spec = importlib.util.find_spec("iisignature")
+    if spec is None:
+        install_command = f"pip install --no-binary iisignature iisignature=={required}"
+        emit_error(
+            args,
+            code=ERROR_DEPENDENCY,
+            message="iisignature is not installed",
+            details={
+                "package": "iisignature",
+                "required": f">={required}",
+                "install_commands": {
+                    "kaggle": f"PIP_NO_BUILD_ISOLATION=1 {install_command}",
+                    "local": install_command,
+                },
+                "notes": (
+                    "Use --no-binary to build from source; Kaggle often requires "
+                    "PIP_NO_BUILD_ISOLATION=1 to compile the numpy extension."
+                ),
+            },
+        )
+        return False
+
+    module = importlib.import_module("iisignature")
+    setattr(args, "iisignature_version", getattr(module, "__version__", None))
+    return True
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run configured LeadLag scenarios and aggregate results.",
@@ -251,6 +286,8 @@ def main(
     parser = build_parser()
     raw_argv = list(argv) if argv is not None else None
     args = parse_args(raw_argv, parser=parser)
+    if not ensure_iisignature(args):
+        return 1
     cli = LeadLagCLI(args, build_driver_service=build_driver_service)
     registry = cli.build_registry()
     result = cli.dispatch(registry)
