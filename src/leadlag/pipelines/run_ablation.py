@@ -6,7 +6,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 if __package__ in {None, ""}:
     _SRC_ROOT = Path(__file__).resolve().parents[2]
@@ -16,8 +16,91 @@ if __package__ in {None, ""}:
 from leadlag import hydra_main  # type: ignore
 from leadlag.cli.formatters import add_format_flags, emit_formatted_output, finalize_format_args
 from leadlag.reporting.logging_utils import get_logger, setup_logging
+from leadlag.training.scenario_config import _merge_extends
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+CANONICAL_RL_SCENARIOS: tuple[str, ...] = (
+    "rl_ppo",
+    "rl_ppo_sharpe",
+    "rl_ppo_drawdown",
+    "rl_ppo_lstm",
+)
+
+
+def _load_effective_cfg(name: str) -> Dict[str, Any]:
+    cfg = hydra_main._load_scenario_cfg(name)  # pylint: disable=protected-access
+    merged_cfg: Dict[str, Any] = {}
+    path_value = cfg.get("path")
+    if path_value:
+        try:
+            merged_cfg = _merge_extends(Path(path_value))
+        except Exception:
+            merged_cfg = {}
+
+    effective = dict(merged_cfg)
+    if "runner" in cfg:
+        effective["runner"] = cfg["runner"]
+    analysis_cfg = merged_cfg.get("analysis") if isinstance(merged_cfg, dict) else None
+    if not isinstance(analysis_cfg, dict):
+        analysis_cfg = cfg.get("analysis") if isinstance(cfg, dict) else None
+    if isinstance(analysis_cfg, dict):
+        effective["analysis"] = analysis_cfg
+    return effective
+
+
+def _validate_canonical_rl_configs(args: argparse.Namespace, *, command: str) -> bool:
+    invalid: List[Dict[str, object]] = []
+    for scenario in CANONICAL_RL_SCENARIOS:
+        try:
+            effective_cfg = _load_effective_cfg(scenario)
+            runner = effective_cfg.get("runner")
+            analysis_cfg = effective_cfg.get("analysis") if isinstance(effective_cfg, dict) else {}
+            method = analysis_cfg.get("method") if isinstance(analysis_cfg, dict) else None
+            if runner != "rl" or method != "signature":
+                invalid.append({"scenario": scenario, "runner": runner, "method": method})
+        except Exception as exc:  # pragma: no cover - defensive guard
+            invalid.append(
+                {
+                    "scenario": scenario,
+                    "runner": None,
+                    "method": None,
+                    "error": str(exc),
+                }
+            )
+
+    if not invalid:
+        return True
+
+    summary = (
+        "Canonical RL scenarios must declare runner='rl' and analysis.method='signature'."
+    )
+    text_lines = [summary]
+    for entry in invalid:
+        line = (
+            f"  - {entry['scenario']}: runner={entry.get('runner')}, method={entry.get('method')}"
+        )
+        if entry.get("error"):
+            line += f" (error={entry['error']})"
+        text_lines.append(line)
+
+    emit_formatted_output(
+        args,
+        success=False,
+        message=summary,
+        text="\n".join(text_lines),
+        data={"invalid_scenarios": invalid},
+        errors=[
+            {
+                "code": "invalid_config",
+                "message": summary,
+                "details": {"invalid_scenarios": invalid},
+            }
+        ],
+        pretty=True,
+        command=command,
+    )
+    return False
 
 
 @dataclass
@@ -219,6 +302,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = "leadlag-ablation"
     if argv:
         command = "leadlag-ablation " + " ".join(argv)
+    if not _validate_canonical_rl_configs(args, command=command):
+        return 1
     output_root: Path = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
 
