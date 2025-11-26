@@ -63,6 +63,7 @@ leadlag-plot-balance = "leadlag.reporting.plot_balance_history:main"
 leadlag-report = "leadlag.reporting.generate_report:main"
 leadlag-log-trajectories = "leadlag.research.offline_rl.log_trajectories:main"
 leadlag-train-offline = "leadlag.research.offline_rl.train_offline:main"
+leadlag-rl-signature = "leadlag.pipelines.rl_signature:main"
 
 [tool.setuptools]
 include-package-data = true
