@@ -77,6 +77,15 @@ class RunRecord:
     plots: Dict[str, str] = field(default_factory=dict)
 
 
+@dataclass
+class ScenarioOutcome:
+    name: str
+    duration_seconds: float
+    attempted: bool
+    failed: bool
+    log_path: Path | None = None
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run RL + signature training bundle with standardized outputs.",
@@ -351,12 +360,15 @@ def _execute_runs(
     bundle_dirs: Mapping[str, Path],
     log_level: str,
     logger,
-) -> List[RunRecord]:
+) -> tuple[List[RunRecord], Dict[str, ScenarioOutcome]]:
     records: List[RunRecord] = []
+    outcomes: Dict[str, ScenarioOutcome] = {}
     abort_execution = False
     for plan in plans:
+        scenario_start = time.perf_counter()
         scenario_root = results_root / plan.name
         scenario_root.mkdir(parents=True, exist_ok=True)
+        scenario_log_path = bundle_dirs["logs"] / f"{plan.name}.log"
         scenario_logger = _scenario_logger(bundle_dirs["logs"], plan.name, log_level)
         scenario_logger.info(
             "Executing scenario",
@@ -366,7 +378,10 @@ def _execute_runs(
             "Scenario started",
             context={"scenario": plan.name, "config": str(plan.config_path), "seeds": plan.seeds},
         )
+        scenario_attempted = False
+        scenario_failed = False
         for seed in plan.seeds:
+            scenario_attempted = True
             overrides = _prepare_run_overrides(plan, seed)
             scenario_logger.info(
                 "Launching RL runner",
@@ -381,7 +396,7 @@ def _execute_runs(
                     run_dir=Path(run_dir),
                     metrics_path=Path(run_dir) / "metrics_timeseries.csv",
                     summary_path=Path(run_dir) / "summary.csv",
-                    scenario_log=Path(bundle_dirs["logs"]) / f"{plan.name}.log",
+                    scenario_log=scenario_log_path,
                 )
                 records.append(record)
                 scenario_logger.info(
@@ -390,13 +405,14 @@ def _execute_runs(
                 )
             except Exception as exc:  # pragma: no cover - defensive runtime guard
                 scenario_logger.exception("Scenario run failed", context={"seed": seed})
+                scenario_failed = True
                 records.append(
                     RunRecord(
                         scenario=plan.name,
                         seed=int(seed),
                         status="error",
                         error=str(exc),
-                        scenario_log=Path(bundle_dirs["logs"]) / f"{plan.name}.log",
+                        scenario_log=scenario_log_path,
                     )
                 )
                 abort_execution = True
@@ -406,11 +422,27 @@ def _execute_runs(
             "Scenario completed",
             context={"scenario": plan.name, "runs": len(plan.seeds), "successes": scenario_successes},
         )
+        outcomes[plan.name] = ScenarioOutcome(
+            name=plan.name,
+            duration_seconds=time.perf_counter() - scenario_start,
+            attempted=scenario_attempted,
+            failed=scenario_failed,
+            log_path=scenario_log_path,
+        )
         if abort_execution:
             logger.warning("Aborting suite after failure", context={"scenario": plan.name})
             break
     logger.info("Finished executing scenarios", context={"count": len(records)})
-    return records
+    for plan in plans:
+        if plan.name not in outcomes:
+            outcomes[plan.name] = ScenarioOutcome(
+                name=plan.name,
+                duration_seconds=0.0,
+                attempted=False,
+                failed=True,
+                log_path=bundle_dirs["logs"] / f"{plan.name}.log",
+            )
+    return records, outcomes
 
 
 def _process_run_output(
@@ -507,6 +539,8 @@ def _summarize_runs(
             "returns_column": record.returns_column,
         }
         row.update(record.metrics)
+        if "sharpe_ratio" in record.metrics:
+            row.setdefault("sharpe", record.metrics["sharpe_ratio"])
         run_rows.append(row)
 
     run_df = pd.DataFrame(run_rows)
@@ -520,13 +554,24 @@ def _summarize_runs(
         logger.warning("No successful runs to summarize")
 
     scenario_df = pd.DataFrame()
-    metric_cols = ["sharpe_ratio", "max_drawdown", "total_return", "annualized_return"]
     if not run_df.empty:
+        metric_mapping: Dict[str, str] = {}
+        preferred_metrics = {
+            "sharpe": ["sharpe", "sharpe_ratio"],
+            "max_drawdown": ["max_drawdown"],
+            "total_return": ["total_return"],
+            "annualized_return": ["annualized_return"],
+        }
+        for metric, candidates in preferred_metrics.items():
+            for candidate in candidates:
+                if candidate in run_df.columns:
+                    metric_mapping[metric] = candidate
+                    break
+
         agg: Dict[str, tuple[str, str]] = {}
-        for col in metric_cols:
-            if col in run_df.columns:
-                agg[f"{col}_mean"] = (col, "mean")
-                agg[f"{col}_std"] = (col, "std")
+        for metric, column in metric_mapping.items():
+            agg[f"{metric}_mean"] = (column, "mean")
+            agg[f"{metric}_std"] = (column, "std")
         if agg:
             grouped = run_df.groupby("scenario").agg(**agg)
             grouped["run_count"] = run_df.groupby("scenario")["seed"].size()
@@ -546,7 +591,7 @@ def _plot_comparisons(scenario_df: pd.DataFrame, plots_dir: Path, logger) -> Dic
         return plots
 
     metric_mapping = {
-        "sharpe_ratio": "sharpe_ratio_mean",
+        "sharpe": "sharpe_mean",
         "max_drawdown": "max_drawdown_mean",
         "total_return": "total_return_mean",
     }
@@ -574,16 +619,24 @@ def _plot_comparisons(scenario_df: pd.DataFrame, plots_dir: Path, logger) -> Dic
 def _write_metadata(
     *,
     metadata_dir: Path,
+    results_root: Path,
+    bundle_root: Path,
     profile: TrainingProfile,
     plans: List[ScenarioPlan],
     run_df: pd.DataFrame,
     scenario_df: pd.DataFrame,
     scenario_statuses: List[Dict[str, Any]] | None = None,
+    scenario_outcomes: Mapping[str, ScenarioOutcome] | None = None,
+    env_diagnostics: Mapping[str, Any] | None = None,
+    runtime_seconds: float | None = None,
     logger,
 ) -> Dict[str, str]:
     metadata_dir.mkdir(parents=True, exist_ok=True)
     env_path = metadata_dir / "environment.json"
-    env_path.write_text(json.dumps(collect_environment_manifest(), indent=2))
+    environment_payload = collect_environment_manifest()
+    if env_diagnostics:
+        environment_payload["rl_signature"] = env_diagnostics
+    env_path.write_text(json.dumps(environment_payload, indent=2))
 
     scenarios_path = metadata_dir / "scenarios.json"
     status_lookup = {entry.get("scenario"): entry for entry in (scenario_statuses or [])}
@@ -593,6 +646,7 @@ def _write_metadata(
         analysis = effective_cfg.get("analysis", {}) if isinstance(effective_cfg, Mapping) else {}
         method = analysis.get("method") if isinstance(analysis, Mapping) else None
         scenario_runs = run_df[run_df["scenario"] == plan.name] if not run_df.empty else pd.DataFrame()
+        outcome = (scenario_outcomes or {}).get(plan.name)
         scenario_entry = {
             "name": plan.name,
             "config_path": str(plan.config_path),
@@ -601,6 +655,8 @@ def _write_metadata(
             "seeds": plan.seeds,
             "overrides": plan.overrides,
             "run_dirs": scenario_runs["run_dir"].tolist() if not scenario_runs.empty else [],
+            "duration_seconds": outcome.duration_seconds if outcome else None,
+            "log_path": str(outcome.log_path) if outcome and outcome.log_path else None,
         }
         status_entry = status_lookup.get(plan.name) or {}
         scenario_entry["status"] = status_entry.get(
@@ -613,9 +669,13 @@ def _write_metadata(
     summary_path = metadata_dir / "rl_signature_summary.json"
     summary_payload: Dict[str, object] = {
         "profile": profile.name,
+        "results_root": str(results_root),
+        "bundle_root": str(bundle_root),
         "runs": len(run_df),
         "scenarios": len(scenario_df) if not scenario_df.empty else 0,
         "metrics_available": not run_df.empty,
+        "runtime_seconds": runtime_seconds,
+        "environment": env_diagnostics,
     }
     if not scenario_df.empty:
         summary_payload["scenario_metrics"] = scenario_df.to_dict(orient="list")
@@ -633,9 +693,9 @@ def _write_metadata(
             lines.append("")
             for _, row in scenario_df.iterrows():
                 lines.append(
-                    f"- **{row['scenario']}**: sharpe={row.get('sharpe_ratio', float('nan')):.3f}, "
-                    f"max_drawdown={row.get('max_drawdown', float('nan')):.3f}, "
-                    f"total_return={row.get('total_return', float('nan')):.3f}"
+                    f"- **{row['scenario']}**: sharpe={row.get('sharpe_mean', float('nan')):.3f}, "
+                    f"max_drawdown={row.get('max_drawdown_mean', float('nan')):.3f}, "
+                    f"total_return={row.get('total_return_mean', float('nan')):.3f}"
                 )
     summary_md.write_text("\n".join(lines), encoding="utf-8")
 
@@ -685,7 +745,10 @@ def _log_environment_diagnostics(logger) -> Dict[str, Any]:
 
 
 def _build_scenario_statuses(
-    plans: List[ScenarioPlan], run_records: List[RunRecord], scenario_df: pd.DataFrame
+    plans: List[ScenarioPlan],
+    run_records: List[RunRecord],
+    scenario_df: pd.DataFrame,
+    scenario_outcomes: Mapping[str, ScenarioOutcome],
 ) -> List[Dict[str, Any]]:
     metrics_lookup: Dict[str, Dict[str, Any]] = {}
     if not scenario_df.empty:
@@ -699,7 +762,15 @@ def _build_scenario_statuses(
         scenario_runs = [rec for rec in run_records if rec.scenario == plan.name]
         successes = sum(rec.status == "success" for rec in scenario_runs)
         failures = sum(rec.status != "success" for rec in scenario_runs)
-        status = "success" if failures == 0 and successes > 0 else "error" if failures else "pending"
+        outcome = scenario_outcomes.get(plan.name)
+        if outcome and not outcome.attempted:
+            status = "skipped"
+        elif failures:
+            status = "failed"
+        elif successes > 0:
+            status = "success"
+        else:
+            status = "pending"
         scenario_statuses.append(
             {
                 "scenario": plan.name,
@@ -708,6 +779,8 @@ def _build_scenario_statuses(
                 "successful_runs": successes,
                 "failed_runs": failures,
                 "metrics": metrics_lookup.get(plan.name),
+                "duration_seconds": outcome.duration_seconds if outcome else None,
+                "log_path": str(outcome.log_path) if outcome and outcome.log_path else None,
             }
         )
     return scenario_statuses
@@ -789,7 +862,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not _validate_scenarios(plans, args, logger):
         return 1
 
-    run_records = _execute_runs(
+    run_records, scenario_outcomes = _execute_runs(
         plans,
         results_root=args.results_root,
         bundle_dirs=bundle_dirs,
@@ -804,7 +877,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         logger=logger,
     )
 
-    scenario_statuses = _build_scenario_statuses(plans, run_records, scenario_df)
+    scenario_statuses = _build_scenario_statuses(plans, run_records, scenario_df, scenario_outcomes)
 
     artifact_warnings: List[dict[str, Any]] = []
     try:
@@ -820,27 +893,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
 
-    try:
-        metadata_paths = _write_metadata(
-            metadata_dir=bundle_dirs["metadata"],
-            profile=profile,
-            plans=plans,
-            run_df=run_df,
-            scenario_df=scenario_df,
-            scenario_statuses=scenario_statuses,
-            logger=logger,
-        )
-    except Exception as exc:  # pragma: no cover - defensive bundle guard
-        metadata_paths = {}
-        logger.warning("Failed to write metadata", context={"error": str(exc)})
-        artifact_warnings.append(
-            {
-                "code": "artifact_generation_failed",
-                "message": "Failed to write metadata.",
-                "details": {"error": str(exc)},
-            }
-        )
-
     bundle_artifacts = [args.bundle_root, Path(log_path)]
     bundle_path: Path | None = None
     try:
@@ -851,6 +903,34 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 "code": "artifact_generation_failed",
                 "message": "Failed to build bundle archive.",
+                "details": {"error": str(exc)},
+            }
+        )
+
+    runtime_seconds = time.perf_counter() - start_time
+
+    try:
+        metadata_paths = _write_metadata(
+            metadata_dir=bundle_dirs["metadata"],
+            results_root=args.results_root,
+            bundle_root=args.bundle_root,
+            profile=profile,
+            plans=plans,
+            run_df=run_df,
+            scenario_df=scenario_df,
+            scenario_statuses=scenario_statuses,
+            scenario_outcomes=scenario_outcomes,
+            env_diagnostics=env_diagnostics,
+            runtime_seconds=runtime_seconds,
+            logger=logger,
+        )
+    except Exception as exc:  # pragma: no cover - defensive bundle guard
+        metadata_paths = {}
+        logger.warning("Failed to write metadata", context={"error": str(exc)})
+        artifact_warnings.append(
+            {
+                "code": "artifact_generation_failed",
+                "message": "Failed to write metadata.",
                 "details": {"error": str(exc)},
             }
         )
@@ -876,8 +956,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         for rec in run_records
         if rec.status != "success" and rec.error
     ]
-
-    runtime_seconds = time.perf_counter() - start_time
 
     data = {
         "status": "success" if not run_errors else "failed",
