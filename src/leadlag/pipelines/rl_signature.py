@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
+import logging
+import zipfile
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, Sequence
+from typing import Dict, Iterable, List, Mapping, MutableMapping, Sequence
+
+import pandas as pd
 
 from leadlag.cli.errors import ERROR_DEPENDENCY, ERROR_VALUE, emit_error
 from leadlag.cli.formatters import (
@@ -13,7 +19,67 @@ from leadlag.cli.formatters import (
     emit_formatted_output,
     finalize_format_args,
 )
-from leadlag.reporting.logging_utils import get_logger, setup_logging
+from leadlag.evaluation.finance_kpis import CANDIDATE_RETURN_COLUMNS, compute_kpis
+from leadlag.reporting.logging_utils import ContextFilter, StructuredAdapter, get_logger, setup_logging
+from leadlag.training.run_rl import run_rl
+from leadlag.utils.repro import collect_environment_manifest
+from leadlag.utils.resources import resolve_path
+
+MATPLOTLIB_AVAILABLE = importlib.util.find_spec("matplotlib") is not None
+if MATPLOTLIB_AVAILABLE:
+    import matplotlib.pyplot as plt  # type: ignore
+else:
+    plt = None  # type: ignore[assignment]
+
+
+@dataclass
+class TrainingProfile:
+    name: str
+    seeds: List[int]
+    scenarios: List[str]
+    overrides: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class ScenarioPlan:
+    name: str
+    config_path: Path
+    seeds: List[int]
+    overrides: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class RunRecord:
+    scenario: str
+    seed: int
+    status: str
+    run_dir: Path | None = None
+    error: str | None = None
+    returns_column: str | None = None
+    metrics: Dict[str, float] = field(default_factory=dict)
+    summary_path: Path | None = None
+    metrics_path: Path | None = None
+    plots: Dict[str, str] = field(default_factory=dict)
+
+
+TRAINING_PROFILES: Dict[str, TrainingProfile] = {
+    "smoke": TrainingProfile(
+        name="smoke",
+        seeds=[7],
+        scenarios=["rl_ppo"],
+        overrides={
+            "training": {"preset_name": "smoke"},
+            "run": {"training_preset": "smoke"},
+            "rl": {"total_timesteps": 2000, "n_steps": 128, "batch_size": 128},
+        },
+    ),
+    "paper": TrainingProfile(
+        name="paper",
+        seeds=[7, 13, 23],
+        scenarios=["rl_ppo", "rl_ppo_lstm"],
+        overrides={"training": {"preset_name": "paper"}, "run": {"training_preset": "paper"}},
+    ),
+}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -66,12 +132,23 @@ def _ensure_directories(results_root: Path, bundle_root: Path) -> None:
     bundle_root.mkdir(parents=True, exist_ok=True)
 
 
+def _prepare_bundle_dirs(bundle_root: Path) -> Dict[str, Path]:
+    summary_dir = bundle_root / "summary"
+    plots_dir = bundle_root / "plots"
+    logs_dir = bundle_root / "logs"
+    metadata_dir = bundle_root / "metadata"
+    for path in (summary_dir, plots_dir, logs_dir, metadata_dir):
+        path.mkdir(parents=True, exist_ok=True)
+    return {
+        "summary": summary_dir,
+        "plots": plots_dir,
+        "logs": logs_dir,
+        "metadata": metadata_dir,
+    }
+
+
 def _check_dependencies(logger) -> tuple[bool, list[str]]:
-    required = [
-        "stable_baselines3",
-        "torch",
-        "iisignature",
-    ]
+    required = ["stable_baselines3", "torch", "iisignature"]
     missing = [name for name in required if importlib.util.find_spec(name) is None]
     if missing:
         logger.error(
@@ -83,18 +160,392 @@ def _check_dependencies(logger) -> tuple[bool, list[str]]:
     return True, []
 
 
-def _plan_scenarios(profile: str) -> Dict[str, Iterable[str]]:
-    if profile == "paper":
-        return {
-            "rl": ["ppo", "ppo_lstm"],
-            "signature": ["full_signature_eval"],
-            "analysis": ["report_bundle"],
+def _resolve_scenario_path(name: str) -> Path:
+    candidate = Path(name)
+    if candidate.exists():
+        return candidate
+    resolved = resolve_path("leadlag.configs", f"scenarios/{candidate.stem}.yaml")
+    if resolved is None or not resolved.exists():
+        raise FileNotFoundError(f"Scenario config not found for '{name}'")
+    return resolved
+
+
+def _merge_overrides(*layers: Mapping[str, object]) -> Dict[str, object]:
+    merged: Dict[str, object] = {}
+    for layer in layers:
+        for key, value in layer.items():
+            if isinstance(value, Mapping):
+                existing = merged.get(key, {})
+                new_value: MutableMapping[str, object] = dict(existing) if isinstance(existing, Mapping) else {}
+                new_value.update({k: v for k, v in value.items()})
+                merged[key] = new_value
+            else:
+                merged[key] = value
+    return merged
+
+
+def _plan_profile(profile_name: str) -> TrainingProfile | None:
+    return TRAINING_PROFILES.get(profile_name)
+
+
+def _build_scenario_plans(profile: TrainingProfile) -> List[ScenarioPlan]:
+    plans: List[ScenarioPlan] = []
+    for scenario in profile.scenarios:
+        cfg_path = _resolve_scenario_path(scenario)
+        plans.append(
+            ScenarioPlan(
+                name=Path(scenario).stem,
+                config_path=cfg_path,
+                seeds=list(profile.seeds),
+                overrides=dict(profile.overrides),
+            )
+        )
+    return plans
+
+
+def _scenario_logger(log_dir: Path, scenario: str, level: str) -> StructuredAdapter:
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"{scenario}.log"
+    logger = logging.getLogger(f"rl_signature.{scenario}")
+    logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(context)s | %(message)s")
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+    handler = logging.FileHandler(log_path, encoding="utf-8")
+    handler.setFormatter(formatter)
+    handler.addFilter(ContextFilter({"scenario": scenario}))
+    logger.addHandler(handler)
+    return StructuredAdapter(logger, {"context_map": {"scenario": scenario, "log_path": str(log_path)}})
+
+
+def _derive_returns(df: pd.DataFrame) -> tuple[pd.Series, str] | None:
+    for col in CANDIDATE_RETURN_COLUMNS:
+        if col in df.columns:
+            series = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(series) > 2:
+                return series, col
+    if "mean_abs_matrix" in df.columns:
+        fallback = pd.to_numeric(df["mean_abs_matrix"], errors="coerce").dropna()
+        if len(fallback) > 5:
+            returns = fallback.pct_change().dropna()
+            if len(returns) > 2:
+                return returns, "mean_abs_matrix_pct_change"
+    return None
+
+
+def _plot_equity_curve(returns: pd.Series, path: Path, title: str, logger) -> str | None:
+    if not MATPLOTLIB_AVAILABLE or plt is None:
+        logger.warning("Skipping equity curve plot; matplotlib not available")
+        return None
+    cumulative = (1 + returns).cumprod()
+    plt.figure(figsize=(9, 4))
+    try:
+        plt.plot(cumulative.index, cumulative.values)
+    except Exception:
+        plt.plot(range(len(cumulative)), cumulative.values)
+    plt.title(title)
+    plt.xlabel("index")
+    plt.ylabel("equity")
+    plt.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, dpi=150)
+    plt.close()
+    return str(path)
+
+
+def _plot_histogram(returns: pd.Series, path: Path, title: str, logger) -> str | None:
+    if not MATPLOTLIB_AVAILABLE or plt is None:
+        logger.warning("Skipping histogram plot; matplotlib not available")
+        return None
+    plt.figure(figsize=(6, 4))
+    plt.hist(returns, bins=min(30, max(5, len(returns) // 4)), alpha=0.8)
+    plt.title(title)
+    plt.xlabel("returns")
+    plt.ylabel("frequency")
+    plt.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, dpi=150)
+    plt.close()
+    return str(path)
+
+
+def _prepare_run_overrides(plan: ScenarioPlan, seed: int) -> Dict[str, object]:
+    run_name = f"{plan.name}_s{seed:02d}"
+    seed_override: Dict[str, object] = {"run": {"seed": seed, "run_name": run_name}}
+    return _merge_overrides(plan.overrides, seed_override)
+
+
+def _execute_runs(
+    plans: Iterable[ScenarioPlan],
+    *,
+    results_root: Path,
+    bundle_dirs: Mapping[str, Path],
+    log_level: str,
+    logger,
+) -> List[RunRecord]:
+    records: List[RunRecord] = []
+    for plan in plans:
+        scenario_logger = _scenario_logger(bundle_dirs["logs"], plan.name, log_level)
+        scenario_logger.info(
+            "Executing scenario",
+            context={"scenario": plan.name, "config": str(plan.config_path), "seeds": plan.seeds},
+        )
+        for seed in plan.seeds:
+            overrides = _prepare_run_overrides(plan, seed)
+            scenario_logger.info(
+                "Launching RL runner",
+                context={"seed": seed, "overrides": list(overrides.keys())},
+            )
+            try:
+                run_dir = run_rl(str(plan.config_path), str(results_root), overrides)
+                record = RunRecord(
+                    scenario=plan.name,
+                    seed=int(seed),
+                    status="success",
+                    run_dir=Path(run_dir),
+                    metrics_path=Path(run_dir) / "metrics_timeseries.csv",
+                    summary_path=Path(run_dir) / "summary.csv",
+                )
+                records.append(record)
+                scenario_logger.info(
+                    "Scenario run completed",
+                    context={"seed": seed, "run_dir": str(run_dir)},
+                )
+            except Exception as exc:  # pragma: no cover - defensive runtime guard
+                scenario_logger.exception("Scenario run failed", context={"seed": seed})
+                records.append(
+                    RunRecord(
+                        scenario=plan.name,
+                        seed=int(seed),
+                        status="error",
+                        error=str(exc),
+                    )
+                )
+    logger.info("Finished executing scenarios", context={"count": len(records)})
+    return records
+
+
+def _process_run_output(
+    record: RunRecord,
+    *,
+    summary_dir: Path,
+    plots_dir: Path,
+    logger,
+) -> RunRecord:
+    if record.run_dir is None:
+        return record
+
+    metrics_path = record.metrics_path or (record.run_dir / "metrics_timeseries.csv")
+    summary_path = record.summary_path or (record.run_dir / "summary.csv")
+    record.metrics_path = metrics_path
+    record.summary_path = summary_path
+
+    if not metrics_path.exists():
+        logger.warning(
+            "Missing metrics_timeseries.csv; skipping metrics extraction",
+            context={"run_dir": str(record.run_dir)},
+        )
+        return record
+
+    try:
+        metrics_df = pd.read_csv(metrics_path)
+    except Exception as exc:  # pragma: no cover - defensive parsing guard
+        logger.warning(
+            "Failed to read metrics_timeseries.csv",
+            context={"run_dir": str(record.run_dir), "error": str(exc)},
+        )
+        return record
+
+    if "date" in metrics_df.columns:
+        try:
+            metrics_df["date"] = pd.to_datetime(metrics_df["date"])
+            metrics_df = metrics_df.sort_values("date")
+        except Exception:
+            pass
+
+    returns_info = _derive_returns(metrics_df)
+    if returns_info is None:
+        logger.warning(
+            "No return-like column found for KPI computation",
+            context={"run_dir": str(record.run_dir)},
+        )
+        return record
+
+    returns, column_used = returns_info
+    record.returns_column = column_used
+    kpis = compute_kpis(returns)
+    record.metrics.update(kpis)
+    record.metrics["total_return"] = float((1 + returns).prod() - 1)
+
+    equity_path = plots_dir / f"{record.run_dir.name}_equity.png"
+    hist_path = plots_dir / f"{record.run_dir.name}_hist.png"
+    eq_plot = _plot_equity_curve(returns, equity_path, f"Equity curve: {record.run_dir.name}", logger)
+    hist_plot = _plot_histogram(returns, hist_path, f"Returns histogram: {record.run_dir.name}", logger)
+    if eq_plot:
+        record.plots["equity"] = eq_plot
+    if hist_plot:
+        record.plots["histogram"] = hist_plot
+
+    if summary_path.exists():
+        record.summary_path = summary_path
+
+    run_summary_path = summary_dir / f"{record.run_dir.name}_kpis.json"
+    run_summary_path.write_text(json.dumps({"metrics": record.metrics, "returns_column": column_used}, indent=2))
+    return record
+
+
+def _summarize_runs(
+    records: List[RunRecord],
+    *,
+    summary_dir: Path,
+    plots_dir: Path,
+    logger,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    processed: List[RunRecord] = []
+    for record in records:
+        if record.status != "success":
+            processed.append(record)
+            continue
+        processed.append(_process_run_output(record, summary_dir=summary_dir, plots_dir=plots_dir, logger=logger))
+
+    run_rows: List[Dict[str, object]] = []
+    for record in processed:
+        if record.status != "success" or record.run_dir is None:
+            continue
+        row: Dict[str, object] = {
+            "scenario": record.scenario,
+            "seed": record.seed,
+            "run_dir": str(record.run_dir),
+            "returns_column": record.returns_column,
         }
-    return {
-        "rl": ["ppo_smoke"],
-        "signature": ["signature_smoke"],
-        "analysis": ["report_bundle"],
+        row.update(record.metrics)
+        run_rows.append(row)
+
+    run_df = pd.DataFrame(run_rows)
+    if not run_df.empty:
+        run_df.to_csv(summary_dir / "runs.csv", index=False)
+        logger.info("Wrote run-level KPI summary", context={"path": str(summary_dir / "runs.csv")})
+    else:
+        logger.warning("No successful runs to summarize")
+
+    scenario_df = pd.DataFrame()
+    metric_cols = ["annualized_return", "sharpe_ratio", "max_drawdown", "total_return"]
+    if not run_df.empty:
+        agg: Dict[str, str] = {col: "mean" for col in metric_cols if col in run_df.columns}
+        if agg:
+            scenario_df = run_df.groupby("scenario").agg(agg).reset_index()
+            scenario_df["num_runs"] = run_df.groupby("scenario")["seed"].size().values
+            scenario_df.to_csv(summary_dir / "scenarios.csv", index=False)
+            logger.info("Wrote scenario-level KPI summary", context={"path": str(summary_dir / "scenarios.csv")})
+    return run_df, scenario_df
+
+
+def _plot_comparisons(scenario_df: pd.DataFrame, plots_dir: Path, logger) -> Dict[str, str]:
+    plots: Dict[str, str] = {}
+    if scenario_df.empty:
+        logger.warning("Skipping comparison plots; no scenario summary data")
+        return plots
+
+    for metric in ("sharpe_ratio", "max_drawdown", "total_return"):
+        if metric not in scenario_df.columns:
+            logger.warning("Metric missing for comparison plot", context={"metric": metric})
+            continue
+        if not MATPLOTLIB_AVAILABLE or plt is None:
+            logger.warning("Skipping comparison plots; matplotlib not available")
+            break
+        path = plots_dir / f"scenario_{metric}.png"
+        plt.figure(figsize=(7, 4))
+        plt.bar(scenario_df["scenario"], scenario_df[metric])
+        plt.title(f"Scenario comparison: {metric}")
+        plt.xlabel("scenario")
+        plt.ylabel(metric)
+        plt.tight_layout()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(path, dpi=150)
+        plt.close()
+        plots[metric] = str(path)
+    return plots
+
+
+def _write_metadata(
+    *,
+    metadata_dir: Path,
+    profile: TrainingProfile,
+    plans: List[ScenarioPlan],
+    run_df: pd.DataFrame,
+    scenario_df: pd.DataFrame,
+    logger,
+) -> Dict[str, str]:
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+    env_path = metadata_dir / "environment.json"
+    env_path.write_text(json.dumps(collect_environment_manifest(), indent=2))
+
+    scenarios_path = metadata_dir / "scenarios.json"
+    scenarios_payload = [
+        {"name": plan.name, "config_path": str(plan.config_path), "seeds": plan.seeds, "overrides": plan.overrides}
+        for plan in plans
+    ]
+    scenarios_path.write_text(json.dumps(scenarios_payload, indent=2))
+
+    summary_path = metadata_dir / "rl_signature_summary.json"
+    summary_payload: Dict[str, object] = {
+        "profile": profile.name,
+        "runs": len(run_df),
+        "scenarios": len(scenario_df) if not scenario_df.empty else 0,
+        "metrics_available": not run_df.empty,
     }
+    if not scenario_df.empty:
+        summary_payload["scenario_metrics"] = scenario_df.to_dict(orient="list")
+    summary_path.write_text(json.dumps(summary_payload, indent=2))
+
+    summary_md = metadata_dir / "summary.md"
+    lines = [f"# RL + signature bundle ({profile.name})", ""]
+    if run_df.empty:
+        lines.append("No successful runs were completed.")
+    else:
+        lines.append(f"Completed {len(run_df)} run(s) across {run_df['scenario'].nunique()} scenario(s).")
+        if not scenario_df.empty:
+            lines.append("")
+            lines.append("## Scenario KPIs")
+            lines.append("")
+            for _, row in scenario_df.iterrows():
+                lines.append(
+                    f"- **{row['scenario']}**: sharpe={row.get('sharpe_ratio', float('nan')):.3f}, "
+                    f"max_drawdown={row.get('max_drawdown', float('nan')):.3f}, "
+                    f"total_return={row.get('total_return', float('nan')):.3f}"
+                )
+    summary_md.write_text("\n".join(lines), encoding="utf-8")
+
+    logger.info("Metadata written", context={"metadata_dir": str(metadata_dir)})
+    return {
+        "environment": str(env_path),
+        "scenarios": str(scenarios_path),
+        "summary": str(summary_path),
+        "summary_md": str(summary_md),
+    }
+
+
+def _build_bundle(bundle_root: Path, artifacts: Iterable[Path]) -> Path:
+    zip_path = bundle_root / "rl_signature_bundle.zip"
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for item in artifacts:
+            if not item.exists():
+                continue
+            if item.is_dir():
+                for child in item.rglob("*"):
+                    if child.is_file():
+                        try:
+                            arcname = child.relative_to(bundle_root)
+                        except ValueError:
+                            arcname = child.name
+                        zf.write(child, arcname=str(arcname))
+            else:
+                try:
+                    arcname = item.relative_to(bundle_root)
+                except ValueError:
+                    arcname = item.name
+                zf.write(item, arcname=str(arcname))
+    return zip_path
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -119,6 +570,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     logger.info("Starting RL + signature pipeline")
 
+    bundle_dirs = _prepare_bundle_dirs(args.bundle_root)
+
     deps_ok, missing = _check_dependencies(logger)
     if not deps_ok:
         emit_error(
@@ -129,7 +582,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    if args.training_profile not in {"smoke", "paper"}:
+    profile = _plan_profile(args.training_profile)
+    if profile is None:
         emit_error(
             args,
             code=ERROR_VALUE,
@@ -138,39 +592,106 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
-    plan = _plan_scenarios(args.training_profile)
-    logger.info("Planned execution", context={"profile": args.training_profile, "plan": plan})
+    logger.info(
+        "Resolved training profile",
+        context={"profile": profile.name, "seeds": profile.seeds, "scenarios": profile.scenarios},
+    )
+
+    plans = _build_scenario_plans(profile)
+    run_records = _execute_runs(
+        plans,
+        results_root=args.results_root,
+        bundle_dirs=bundle_dirs,
+        log_level=str(args.log_level),
+        logger=logger,
+    )
+
+    run_df, scenario_df = _summarize_runs(
+        run_records,
+        summary_dir=bundle_dirs["summary"],
+        plots_dir=bundle_dirs["plots"],
+        logger=logger,
+    )
+    comparison_plots = _plot_comparisons(scenario_df, bundle_dirs["plots"], logger)
+
+    metadata_paths = _write_metadata(
+        metadata_dir=bundle_dirs["metadata"],
+        profile=profile,
+        plans=plans,
+        run_df=run_df,
+        scenario_df=scenario_df,
+        logger=logger,
+    )
+
+    bundle_artifacts = [
+        args.bundle_root,
+        Path(log_path),
+    ]
+    bundle_path = _build_bundle(args.bundle_root, bundle_artifacts)
 
     artifacts: Dict[str, str] = {
         "results_root": str(args.results_root),
         "bundle_root": str(args.bundle_root),
         "log_path": str(log_path),
+        "summary_dir": str(bundle_dirs["summary"]),
+        "plots_dir": str(bundle_dirs["plots"]),
+        "logs_dir": str(bundle_dirs["logs"]),
+        "metadata_dir": str(bundle_dirs["metadata"]),
+        "bundle_zip": str(bundle_path),
     }
+    artifacts.update(metadata_paths)
+    artifacts.update(comparison_plots)
+
+    errors = [
+        {"code": "run_failed", "message": rec.error, "details": {"scenario": rec.scenario, "seed": rec.seed}}
+        for rec in run_records
+        if rec.status != "success" and rec.error
+    ]
 
     data = {
-        "profile": args.training_profile,
+        "profile": profile.name,
         "paths": artifacts,
         "dependencies": {
             "required": ["stable_baselines3", "torch", "iisignature"],
             "missing": missing,
             "validated": deps_ok,
         },
-        "execution_plan": plan,
-        "status": "planned",
+        "runs": [
+            {
+                "scenario": rec.scenario,
+                "seed": rec.seed,
+                "status": rec.status,
+                "run_dir": str(rec.run_dir) if rec.run_dir else None,
+                "metrics": rec.metrics,
+                "returns_column": rec.returns_column,
+            }
+            for rec in run_records
+        ],
+        "summaries": {
+            "run_level": str(bundle_dirs["summary"] / "runs.csv") if not run_df.empty else None,
+            "scenario_level": str(bundle_dirs["summary"] / "scenarios.csv") if not scenario_df.empty else None,
+            "comparison_plots": comparison_plots,
+        },
+        "status": "completed" if not errors else "completed_with_errors",
     }
 
     text_lines = [
-        f"Profile: {args.training_profile}",
+        f"Profile: {profile.name}",
         f"Results root: {args.results_root}",
         f"Bundle root: {args.bundle_root}",
-        "Dependencies: OK",
+        f"Runs executed: {len(run_records)} (success={sum(rec.status == 'success' for rec in run_records)})",
     ]
-    message = "RL + signature pipeline planned."
+    if run_df.empty:
+        text_lines.append("No metrics available for aggregation.")
+    else:
+        text_lines.append(f"Aggregated {len(run_df)} run(s) into summaries.")
+    message = "RL + signature pipeline completed." if not errors else "RL + signature pipeline completed with warnings."
 
     emit_formatted_output(
         args,
         data=data,
         artifacts=artifacts,
+        errors=errors if errors else None,
         text="\n".join(text_lines),
         message=message,
         pretty=True,
