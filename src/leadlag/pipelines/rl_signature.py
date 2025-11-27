@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata as importlib_metadata
 import importlib.util
 import json
 import logging
+import platform
+import sys
+import time
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
 
 import pandas as pd
 
@@ -59,6 +63,7 @@ class RunRecord:
     metrics: Dict[str, float] = field(default_factory=dict)
     summary_path: Path | None = None
     metrics_path: Path | None = None
+    scenario_log: Path | None = None
     plots: Dict[str, str] = field(default_factory=dict)
 
 
@@ -206,7 +211,7 @@ def _build_scenario_plans(profile: TrainingProfile) -> List[ScenarioPlan]:
 def _scenario_logger(log_dir: Path, scenario: str, level: str) -> StructuredAdapter:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"{scenario}.log"
-    logger = logging.getLogger(f"rl_signature.{scenario}")
+    logger = logging.getLogger(f"pipelines.rl_signature.{scenario}")
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(context)s | %(message)s")
     for handler in list(logger.handlers):
@@ -290,6 +295,10 @@ def _execute_runs(
             "Executing scenario",
             context={"scenario": plan.name, "config": str(plan.config_path), "seeds": plan.seeds},
         )
+        logger.info(
+            "Scenario started",
+            context={"scenario": plan.name, "config": str(plan.config_path), "seeds": plan.seeds},
+        )
         for seed in plan.seeds:
             overrides = _prepare_run_overrides(plan, seed)
             scenario_logger.info(
@@ -305,6 +314,7 @@ def _execute_runs(
                     run_dir=Path(run_dir),
                     metrics_path=Path(run_dir) / "metrics_timeseries.csv",
                     summary_path=Path(run_dir) / "summary.csv",
+                    scenario_log=Path(bundle_dirs["logs"]) / f"{plan.name}.log",
                 )
                 records.append(record)
                 scenario_logger.info(
@@ -319,8 +329,14 @@ def _execute_runs(
                         seed=int(seed),
                         status="error",
                         error=str(exc),
+                        scenario_log=Path(bundle_dirs["logs"]) / f"{plan.name}.log",
                     )
                 )
+        scenario_successes = sum(rec.status == "success" and rec.scenario == plan.name for rec in records)
+        logger.info(
+            "Scenario completed",
+            context={"scenario": plan.name, "runs": len(plan.seeds), "successes": scenario_successes},
+        )
     logger.info("Finished executing scenarios", context={"count": len(records)})
     return records
 
@@ -525,6 +541,70 @@ def _write_metadata(
     }
 
 
+def _gather_environment_diagnostics() -> Dict[str, Any]:
+    diagnostics: Dict[str, Any] = {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+    }
+    try:
+        diagnostics["leadlag_version"] = importlib_metadata.version("leadlag")
+    except importlib_metadata.PackageNotFoundError:
+        diagnostics["leadlag_version"] = None
+
+    try:
+        diagnostics["iisignature_version"] = importlib_metadata.version("iisignature")
+    except importlib_metadata.PackageNotFoundError:
+        diagnostics["iisignature_version"] = None
+
+    try:
+        import torch
+
+        diagnostics["torch_version"] = torch.__version__
+        diagnostics["cuda_available"] = torch.cuda.is_available()
+        if torch.cuda.is_available():
+            diagnostics["cuda_device"] = torch.cuda.get_device_name(0)
+            diagnostics["cuda_device_count"] = torch.cuda.device_count()
+    except Exception:
+        diagnostics["torch_version"] = None
+        diagnostics["cuda_available"] = False
+    return diagnostics
+
+
+def _log_environment_diagnostics(logger) -> Dict[str, Any]:
+    diagnostics = _gather_environment_diagnostics()
+    logger.info("Environment diagnostics", context=diagnostics)
+    return diagnostics
+
+
+def _build_scenario_statuses(
+    plans: List[ScenarioPlan], run_records: List[RunRecord], scenario_df: pd.DataFrame
+) -> List[Dict[str, Any]]:
+    metrics_lookup: Dict[str, Dict[str, Any]] = {}
+    if not scenario_df.empty:
+        for row in scenario_df.to_dict(orient="records"):
+            scenario_name = row.pop("scenario", None)
+            if scenario_name:
+                metrics_lookup[scenario_name] = row
+
+    scenario_statuses: List[Dict[str, Any]] = []
+    for plan in plans:
+        scenario_runs = [rec for rec in run_records if rec.scenario == plan.name]
+        successes = sum(rec.status == "success" for rec in scenario_runs)
+        failures = sum(rec.status != "success" for rec in scenario_runs)
+        status = "success" if failures == 0 and successes > 0 else "error" if failures else "pending"
+        scenario_statuses.append(
+            {
+                "scenario": plan.name,
+                "status": status,
+                "planned_seeds": plan.seeds,
+                "successful_runs": successes,
+                "failed_runs": failures,
+                "metrics": metrics_lookup.get(plan.name),
+            }
+        )
+    return scenario_statuses
+
+
 def _build_bundle(bundle_root: Path, artifacts: Iterable[Path]) -> Path:
     zip_path = bundle_root / "rl_signature_bundle.zip"
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -549,6 +629,7 @@ def _build_bundle(bundle_root: Path, artifacts: Iterable[Path]) -> Path:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    start_time = time.perf_counter()
     args = parse_args(argv)
     finalize_format_args(args, remove_in="0.2.0")
     command = "leadlag-rl-signature"
@@ -558,7 +639,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     _normalize_paths(args)
     _ensure_directories(args.results_root, args.bundle_root)
 
-    log_path = args.log_path or args.bundle_root / "rl_signature.log"
+    bundle_dirs = _prepare_bundle_dirs(args.bundle_root)
+    log_path = args.log_path or bundle_dirs["logs"] / "rl_signature.log"
     setup_logging(log_path, level=str(args.log_level).upper(), context={"module": "rl_signature"})
     logger = get_logger(
         "pipelines.rl_signature",
@@ -566,11 +648,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "results_root": args.results_root,
             "bundle_root": args.bundle_root,
             "profile": args.training_profile,
+            "log_path": log_path,
         },
     )
-    logger.info("Starting RL + signature pipeline")
-
-    bundle_dirs = _prepare_bundle_dirs(args.bundle_root)
+    logger.info(
+        "Starting RL + signature pipeline",
+        context={"log_path": log_path, "logs_root": bundle_dirs["logs"]},
+    )
+    env_diagnostics = _log_environment_diagnostics(logger)
 
     deps_ok, missing = _check_dependencies(logger)
     if not deps_ok:
@@ -612,45 +697,90 @@ def main(argv: Sequence[str] | None = None) -> int:
         plots_dir=bundle_dirs["plots"],
         logger=logger,
     )
-    comparison_plots = _plot_comparisons(scenario_df, bundle_dirs["plots"], logger)
 
-    metadata_paths = _write_metadata(
-        metadata_dir=bundle_dirs["metadata"],
-        profile=profile,
-        plans=plans,
-        run_df=run_df,
-        scenario_df=scenario_df,
-        logger=logger,
-    )
+    artifact_warnings: List[dict[str, Any]] = []
+    try:
+        comparison_plots = _plot_comparisons(scenario_df, bundle_dirs["plots"], logger)
+    except Exception as exc:  # pragma: no cover - defensive bundle guard
+        comparison_plots = {}
+        logger.warning("Failed to generate comparison plots", context={"error": str(exc)})
+        artifact_warnings.append(
+            {
+                "code": "artifact_generation_failed",
+                "message": "Failed to generate comparison plots.",
+                "details": {"error": str(exc)},
+            }
+        )
 
-    bundle_artifacts = [
-        args.bundle_root,
-        Path(log_path),
-    ]
-    bundle_path = _build_bundle(args.bundle_root, bundle_artifacts)
+    try:
+        metadata_paths = _write_metadata(
+            metadata_dir=bundle_dirs["metadata"],
+            profile=profile,
+            plans=plans,
+            run_df=run_df,
+            scenario_df=scenario_df,
+            logger=logger,
+        )
+    except Exception as exc:  # pragma: no cover - defensive bundle guard
+        metadata_paths = {}
+        logger.warning("Failed to write metadata", context={"error": str(exc)})
+        artifact_warnings.append(
+            {
+                "code": "artifact_generation_failed",
+                "message": "Failed to write metadata.",
+                "details": {"error": str(exc)},
+            }
+        )
 
-    artifacts: Dict[str, str] = {
+    bundle_artifacts = [args.bundle_root, Path(log_path)]
+    bundle_path: Path | None = None
+    try:
+        bundle_path = _build_bundle(args.bundle_root, bundle_artifacts)
+    except Exception as exc:  # pragma: no cover - defensive bundle guard
+        logger.warning("Failed to build bundle", context={"error": str(exc)})
+        artifact_warnings.append(
+            {
+                "code": "artifact_generation_failed",
+                "message": "Failed to build bundle archive.",
+                "details": {"error": str(exc)},
+            }
+        )
+
+    artifacts: Dict[str, Any] = {
         "results_root": str(args.results_root),
         "bundle_root": str(args.bundle_root),
         "log_path": str(log_path),
+        "logs_root": str(bundle_dirs["logs"]),
         "summary_dir": str(bundle_dirs["summary"]),
         "plots_dir": str(bundle_dirs["plots"]),
         "logs_dir": str(bundle_dirs["logs"]),
         "metadata_dir": str(bundle_dirs["metadata"]),
-        "bundle_zip": str(bundle_path),
+        "bundle_zip": str(bundle_path) if bundle_path else None,
+        "runs_summary_csv": str(bundle_dirs["summary"] / "runs.csv") if not run_df.empty else None,
+        "scenarios_summary_csv": str(bundle_dirs["summary"] / "scenarios.csv") if not scenario_df.empty else None,
     }
     artifacts.update(metadata_paths)
     artifacts.update(comparison_plots)
 
-    errors = [
+    run_errors = [
         {"code": "run_failed", "message": rec.error, "details": {"scenario": rec.scenario, "seed": rec.seed}}
         for rec in run_records
         if rec.status != "success" and rec.error
     ]
 
+    scenario_statuses = _build_scenario_statuses(plans, run_records, scenario_df)
+    runtime_seconds = time.perf_counter() - start_time
+
     data = {
-        "profile": profile.name,
-        "paths": artifacts,
+        "status": "success" if not run_errors else "failed",
+        "training_profile": profile.name,
+        "environment": env_diagnostics,
+        "paths": {
+            "results_root": str(args.results_root),
+            "bundle_root": str(args.bundle_root),
+            "log_path": str(log_path),
+            "logs_root": str(bundle_dirs["logs"]),
+        },
         "dependencies": {
             "required": ["stable_baselines3", "torch", "iisignature"],
             "missing": missing,
@@ -664,28 +794,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "run_dir": str(rec.run_dir) if rec.run_dir else None,
                 "metrics": rec.metrics,
                 "returns_column": rec.returns_column,
+                "log_path": str(rec.scenario_log) if rec.scenario_log else None,
             }
             for rec in run_records
         ],
+        "scenarios": scenario_statuses,
         "summaries": {
             "run_level": str(bundle_dirs["summary"] / "runs.csv") if not run_df.empty else None,
             "scenario_level": str(bundle_dirs["summary"] / "scenarios.csv") if not scenario_df.empty else None,
             "comparison_plots": comparison_plots,
+            "scenario_metrics": scenario_df.to_dict(orient="records") if not scenario_df.empty else [],
         },
-        "status": "completed" if not errors else "completed_with_errors",
+        "runtime_seconds": runtime_seconds,
     }
+
+    errors = run_errors + artifact_warnings
 
     text_lines = [
         f"Profile: {profile.name}",
         f"Results root: {args.results_root}",
         f"Bundle root: {args.bundle_root}",
         f"Runs executed: {len(run_records)} (success={sum(rec.status == 'success' for rec in run_records)})",
+        f"Runtime: {runtime_seconds:.2f}s",
     ]
     if run_df.empty:
         text_lines.append("No metrics available for aggregation.")
     else:
         text_lines.append(f"Aggregated {len(run_df)} run(s) into summaries.")
-    message = "RL + signature pipeline completed." if not errors else "RL + signature pipeline completed with warnings."
+    if artifact_warnings:
+        text_lines.append("Some artifacts could not be generated; see logs for details.")
+
+    overall_success = not run_errors
+    message = (
+        "RL + signature pipeline completed." if overall_success else "RL + signature pipeline completed with errors."
+    )
 
     emit_formatted_output(
         args,
@@ -696,8 +838,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         message=message,
         pretty=True,
         command=command,
+        success=overall_success,
     )
-    return 0
+    return 0 if overall_success else 1
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry
