@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import importlib.metadata as importlib_metadata
 import importlib.util
 import json
@@ -152,11 +153,14 @@ def _prepare_bundle_dirs(bundle_root: Path) -> Dict[str, Path]:
 
 
 def _check_dependencies(args, logger) -> tuple[bool, str | None]:
-    if importlib.util.find_spec("iisignature") is None:
-        details = {
-            "kaggle": "pip install --no-binary iisignature --no-build-isolation iisignature",
-            "local": "PIP_NO_BUILD_ISOLATION=1 pip install --no-binary iisignature iisignature",
-        }
+    details = {
+        "kaggle": "pip install --no-binary iisignature --no-build-isolation iisignature",
+        "local": "PIP_NO_BUILD_ISOLATION=1 pip install --no-binary iisignature iisignature",
+    }
+
+    try:
+        iisignature = importlib.import_module("iisignature")  # type: ignore
+    except ImportError:
         emit_error(
             args,
             code=ERROR_DEPENDENCY,
@@ -164,10 +168,15 @@ def _check_dependencies(args, logger) -> tuple[bool, str | None]:
             details=details,
         )
         return False, None
+    except Exception as exc:  # pragma: no cover - defensive import guard
+        emit_error(
+            args,
+            code=ERROR_DEPENDENCY,
+            message="Failed to import iisignature",
+            details={"error": str(exc), **details},
+        )
+        return False, None
 
-    import importlib
-
-    iisignature = importlib.import_module("iisignature")  # type: ignore
     version = getattr(iisignature, "__version__", None)
     logger.info("iisignature available", context={"version": version})
     return True, version
