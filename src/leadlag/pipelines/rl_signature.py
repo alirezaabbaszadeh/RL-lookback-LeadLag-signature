@@ -28,7 +28,6 @@ from leadlag.cli.formatters import (
 from leadlag.evaluation.finance_kpis import CANDIDATE_RETURN_COLUMNS, compute_kpis
 from leadlag.reporting.logging_utils import ContextFilter, StructuredAdapter, get_logger, setup_logging
 from leadlag.training.run_rl import run_rl
-from leadlag.training.scenario_config import _merge_extends
 from leadlag.utils.repro import collect_environment_manifest
 from leadlag.utils.resources import resolve_path
 from leadlag import hydra_main
@@ -194,10 +193,13 @@ def _resolve_scenario_path(name: str) -> Path:
 
 def _load_effective_config(plan: ScenarioPlan) -> Dict[str, Any]:
     raw_cfg = hydra_main._load_scenario_cfg(plan.name)  # pylint: disable=protected-access
-    merged_cfg = _merge_extends(plan.config_path)
-    merged_cfg = _merge_overrides(merged_cfg, plan.overrides)
-    if isinstance(raw_cfg, dict):
+    merged_cfg: Mapping[str, Any] = raw_cfg if isinstance(raw_cfg, Mapping) else {}
+    merged_cfg = _merge_overrides(dict(merged_cfg), plan.overrides)
+    if isinstance(raw_cfg, Mapping):
         merged_cfg.setdefault("runner", raw_cfg.get("runner"))
+        analysis_cfg = raw_cfg.get("analysis") if isinstance(raw_cfg.get("analysis"), Mapping) else {}
+        if isinstance(analysis_cfg, Mapping):
+            merged_cfg.setdefault("analysis", dict(analysis_cfg))
     return merged_cfg
 
 
