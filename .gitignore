@@ -47,3 +47,12 @@ build/
 .pytest_cache/
 .coverage
 coverage.xml
+
+# System & Python Junk
+__pycache__/
+*.py[cod]
+*.class
+Microsoft/
+.DS_Store
+Thumbs.db
+
