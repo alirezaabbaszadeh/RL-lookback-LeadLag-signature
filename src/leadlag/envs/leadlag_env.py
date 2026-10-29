@@ -254,32 +254,34 @@ class LeadLagEnv(gym.Env):
             return self._resolve_relative(action)
         return self._resolve_hybrid(action)
 
+    def _scalar_action(self, action):
+        if isinstance(action, np.ndarray):
+            return action.item() if action.ndim == 0 else action[0]
+        if isinstance(action, list):
+            return action[0]
+        return action
+
     def _resolve_absolute(self, action) -> int:
         if self.discrete_actions:
-            if isinstance(action, (np.ndarray, list)):
-                action = int(action[0])
-            return self.min_lookback + int(action)
+            action = int(self._scalar_action(action))
+            return self.min_lookback + action
         return int(np.round(float(action)))
 
     def _resolve_relative(self, action) -> int:
         current = self._current_lookback
         if self.discrete_actions:
-            if isinstance(action, (np.ndarray, list)):
-                action = int(action[0])
-            idx = int(action)
+            idx = int(self._scalar_action(action))
             if idx not in (0, 1, 2):
                 raise ValueError("Relative discrete action must be in {0,1,2}")
             delta = (-self.relative_step, 0, self.relative_step)[idx]
             return current + delta
-        delta = float(action[0] if isinstance(action, (np.ndarray, list)) else action)
+        delta = float(self._scalar_action(action))
         return int(current + delta * self.relative_step)
 
     def _resolve_hybrid(self, action) -> int:
         current = self._current_lookback
         if self.discrete_actions:
-            if isinstance(action, (np.ndarray, list)):
-                action = int(action[0])
-            token = self._hybrid_actions[int(action)]
+            token = self._hybrid_actions[int(self._scalar_action(action))]
             if token == "min":
                 return self.min_lookback
             if token == "max":

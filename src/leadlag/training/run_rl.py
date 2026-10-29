@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -35,12 +35,24 @@ from leadlag.utils.config import deep_update
 from leadlag.utils import update_run_manifest
 
 
-def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
+_UNSET = object()
+
+
+def _instantiate_env(
+    prices: pd.DataFrame,
+    cfg: Dict[str, Any],
+    *,
+    random_start: Optional[bool] = None,
+    episode_length: object = _UNSET,
+) -> LeadLagEnv:
     ll_cfg = _config_to_leadlag(cfg)
     rl_cfg = cfg.get("rl", {})
-    episode_length = rl_cfg.get("episode_length")
-    if episode_length is not None:
-        episode_length = int(episode_length)
+    resolved_episode_length = rl_cfg.get("episode_length") if episode_length is _UNSET else episode_length
+    if resolved_episode_length is not None:
+        resolved_episode_length = int(resolved_episode_length)
+    resolved_random_start = (
+        bool(rl_cfg.get("random_start", True)) if random_start is None else bool(random_start)
+    )
     env = LeadLagEnv(
         price_df=prices,
         leadlag_config=ll_cfg,
@@ -52,12 +64,86 @@ def _instantiate_env(prices: pd.DataFrame, cfg: Dict[str, Any]) -> LeadLagEnv:
         penalty_step=int(rl_cfg.get("penalty_step", 10)),
         action_mode=rl_cfg.get("action_mode", "absolute"),
         relative_step=int(rl_cfg.get("relative_step", 5)),
-        episode_length=episode_length,
-        random_start=rl_cfg.get("random_start", True),
+        episode_length=resolved_episode_length,
+        random_start=resolved_random_start,
         random_seed=rl_cfg.get("random_seed"),
         ema_alpha=rl_cfg.get("ema_alpha"),
     )
     return env
+
+
+def _compute_backtest_series(
+    prices: pd.DataFrame,
+    history: pd.DataFrame,
+    cfg: Dict[str, Any],
+) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series] | None:
+    """Convert env history into a simple position-based backtest over the price basket."""
+
+    if history is None or history.empty:
+        return None
+    if prices is None or prices.empty:
+        return None
+
+    env_cfg = cfg.get("env") if isinstance(cfg.get("env"), dict) else {}
+    max_abs_position = float(env_cfg.get("max_abs_position", 1.0)) if env_cfg else 1.0
+    if max_abs_position <= 0.0:
+        max_abs_position = 1.0
+    allow_short = bool(env_cfg.get("allow_short", True)) if env_cfg else True
+    min_position = -max_abs_position if allow_short else 0.0
+    initial_position = float(env_cfg.get("initial_position", 0.0)) if env_cfg else 0.0
+    initial_position = float(np.clip(initial_position, min_position, max_abs_position))
+
+    if "position" in history.columns:
+        signals = pd.to_numeric(history["position"], errors="coerce")
+        kind = "position"
+    elif "trading_signal" in history.columns:
+        signals = pd.to_numeric(history["trading_signal"], errors="coerce")
+        kind = "trading_signal"
+    elif "lookback_normalized" in history.columns:
+        signals = pd.to_numeric(history["lookback_normalized"], errors="coerce")
+        kind = "lookback_normalized"
+    else:
+        return None
+
+    signals = signals.reindex(history.index).astype(float)
+
+    if kind == "position":
+        positions = signals
+    elif kind == "trading_signal":
+        if allow_short:
+            positions = signals.clip(-1.0, 1.0) * max_abs_position
+        else:
+            positions = ((signals + 1.0) / 2.0).clip(0.0, 1.0) * max_abs_position
+    else:  # lookback_normalized
+        normalized = signals.clip(0.0, 1.0)
+        if allow_short:
+            positions = (normalized * 2.0 - 1.0) * max_abs_position
+        else:
+            positions = normalized * max_abs_position
+
+    positions = positions.ffill().fillna(initial_position)
+    positions = positions.clip(lower=min_position, upper=max_abs_position).astype(float)
+
+    base_returns = prices.sort_index().pct_change().mean(axis=1).astype(float)
+    base_returns = base_returns.reindex(history.index).ffill().fillna(0.0).astype(float)
+
+    trades = positions.diff().fillna(positions.iloc[0] - initial_position).astype(float)
+
+    costs_cfg = cfg.get("costs") if isinstance(cfg.get("costs"), dict) else {}
+    slippage_cfg = cfg.get("slippage") if isinstance(cfg.get("slippage"), dict) else {}
+    fee_bps = float(costs_cfg.get("fee_bps", 0.0)) if costs_cfg else 0.0
+    slippage_bps = float(slippage_cfg.get("bps", 0.0)) if slippage_cfg else 0.0
+    cost_rate = (fee_bps + slippage_bps) / 10000.0
+    costs = trades.abs() * cost_rate
+    costs = costs.astype(float)
+
+    executed_positions = positions.shift(1).fillna(initial_position).astype(float)
+    portfolio_returns = executed_positions * base_returns - costs
+    portfolio_returns = portfolio_returns.astype(float)
+
+    return portfolio_returns, positions, trades, costs
+
+
 def run_rl(
     cfg_path: str, out_root: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None
 ) -> Path:
@@ -140,7 +226,7 @@ def run_rl(
     if use_random_policy:
         logger.info("Executing random policy baseline")
         # Random policy baseline (negative control)
-        eval_env = _instantiate_env(prices, cfg)
+        eval_env = _instantiate_env(prices, cfg, random_start=False)
         obs, _ = reset_env(eval_env)
         terminated = False
         truncated = False
@@ -198,7 +284,7 @@ def run_rl(
         eval_freq = int(rl_cfg.get("eval_freq", 0))
         callbacks = []
         if eval_freq > 0:
-            eval_env = _instantiate_env(prices, cfg)
+            eval_env = _instantiate_env(prices, cfg, random_start=False)
             callbacks.append(
                 EvalCallback(
                     eval_env,
@@ -216,7 +302,7 @@ def run_rl(
         model.save(str(out_dir / "model.zip"))
 
         # Evaluate deterministic policy over the dataset
-        eval_env = _instantiate_env(prices, cfg)
+        eval_env = _instantiate_env(prices, cfg, random_start=False)
         obs, _ = reset_env(eval_env)
         terminated = False
         truncated = False
@@ -231,7 +317,31 @@ def run_rl(
     # enrich with lookback decisions
     decisions = eval_env.get_history_dataframe()
     if not decisions.empty:
-        metrics_df = metrics_df.join(decisions[["lookback"]], how="left")
+        backtest = _compute_backtest_series(prices, decisions, cfg)
+        if backtest is not None:
+            portfolio_returns, positions, trades, costs = backtest
+            decisions = decisions.copy()
+            decisions["portfolio_return"] = portfolio_returns
+            decisions["position"] = positions
+            decisions["trade"] = trades
+            decisions["cost"] = costs
+
+        extra_cols = [
+            col
+            for col in (
+                "lookback",
+                "lookback_normalized",
+                "trading_signal",
+                "reward",
+                "portfolio_return",
+                "position",
+                "trade",
+                "cost",
+            )
+            if col in decisions.columns
+        ]
+        if extra_cols:
+            metrics_df = metrics_df.join(decisions[extra_cols], how="left")
 
     metrics_df.to_csv(out_dir / "metrics_timeseries.csv", index=True)
     summary = summarize_metrics(metrics_df)

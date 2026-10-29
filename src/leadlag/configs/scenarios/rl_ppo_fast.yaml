@@ -1,0 +1,38 @@
+extends: ../base.yaml
+
+run:
+  run_name: rl_ppo_fast
+
+analysis:
+  # Use signature method (requires iisignature)
+  method: signature
+  lookback: 30
+  update_freq: 1
+  signature:
+    sig_method: levy
+
+rl:
+  min_lookback: 10
+  max_lookback: 60
+  discrete_actions: true
+  action_mode: absolute
+  relative_step: 5
+  episode_length: 126
+  random_start: true
+  ema_alpha: 0.2
+  policy: mlp
+  reward_template: default
+  total_timesteps: 5000
+  n_steps: 128
+  batch_size: 64
+  learning_rate: 0.0003
+  gamma: 0.99
+  ent_coef: 0.0
+  eval_freq: 0
+  verbose: false
+  reward_weights:
+    alpha: 1.0
+    beta: 0.2
+    gamma: 0.05
+  penalty_same: 0.05
+  penalty_step: 10

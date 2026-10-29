@@ -64,6 +64,7 @@ leadlag-report = "leadlag.reporting.generate_report:main"
 leadlag-log-trajectories = "leadlag.research.offline_rl.log_trajectories:main"
 leadlag-train-offline = "leadlag.research.offline_rl.train_offline:main"
 leadlag-rl-signature = "leadlag.pipelines.rl_signature:main"
+leadlag-supervisor-report = "leadlag.reporting.supervisor_report:main"
 
 [tool.setuptools]
 include-package-data = true

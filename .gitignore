@@ -47,3 +47,7 @@ build/
 .pytest_cache/
 .coverage
 coverage.xml
+
+# IDE & Windows ADS
+.vs/
+*Zone.Identifier*
