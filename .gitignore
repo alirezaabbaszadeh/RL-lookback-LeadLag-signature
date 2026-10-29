@@ -61,3 +61,6 @@ Thumbs.db
 .vs/
 *Zone.Identifier*
 
+
+# Hydra output directory
+outputs/

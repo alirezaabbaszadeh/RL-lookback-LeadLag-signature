@@ -353,9 +353,11 @@ def _load_scenario_cfg(entry):
             if isinstance(cfg_dict, dict):
                 cfg_dict.setdefault("name", entry)
                 cfg_dict.setdefault("path", str(scenario_path))
-                runner = preset.get("runner")
+                runner = preset.get("runner") or cfg_dict.get("runner")
                 if runner:
-                    cfg_dict.setdefault("runner", runner)
+                    cfg_dict["runner"] = runner
+                elif entry.startswith("rl_") or "rl" in entry:
+                    cfg_dict["runner"] = "rl"
             return cfg_dict
         preset = SCENARIO_PRESETS.get(entry)
         if preset:

@@ -1,5 +1,7 @@
 extends: rl_ppo.yaml
 
+runner: rl
+
 run:
   run_name: rl_ppo_sharpe
 
