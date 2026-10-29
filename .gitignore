@@ -48,6 +48,16 @@ build/
 .coverage
 coverage.xml
 
+# System & Python Junk
+__pycache__/
+*.py[cod]
+*.class
+Microsoft/
+.DS_Store
+Thumbs.db
+
+
 # IDE & Windows ADS
 .vs/
 *Zone.Identifier*
+
