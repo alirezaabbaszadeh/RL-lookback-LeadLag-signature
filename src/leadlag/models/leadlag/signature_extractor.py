@@ -21,6 +21,7 @@ class SignatureConfig:
     order: int = 2
     scaling_method: str = "mean-centering"
     sig_method: str = "custom"
+    allow_fallback: bool = True
 
 
 class SignatureExtractor:
@@ -28,7 +29,7 @@ class SignatureExtractor:
 
     def __init__(self, config: Optional[SignatureConfig] = None, cache_size: int = 64) -> None:
         self.config = config or SignatureConfig()
-        if not SIGNATURE_AVAILABLE:
+        if not SIGNATURE_AVAILABLE and not self.config.allow_fallback:
             raise ImportError("iisignature package is required for signature-based methods")
         self.cache_size = max(0, int(cache_size))
         self._cache: "OrderedDict[bytes, float]" = OrderedDict()
@@ -47,12 +48,28 @@ class SignatureExtractor:
                 return cached
 
         standardized = self._standardize(contiguous)
-        signature = iisignature.sig(standardized, self.config.order, 1)
+        L = max(1, standardized.shape[0])
 
-        if self.config.sig_method == "levy":
-            value = (signature[1][1] - signature[1][2]) * 0.5
+        if SIGNATURE_AVAILABLE:
+            # Construct zero-anchored cumulative path scaled by 1/sqrt(L) for scale invariance
+            cum_path = np.vstack([
+                np.zeros((1, 2), dtype=float),
+                np.cumsum(standardized, axis=0) / np.sqrt(float(L)),
+            ])
+            signature = iisignature.sig(cum_path, self.config.order, 1)
+
+            if self.config.sig_method == "levy":
+                value = float((signature[1][1] - signature[1][2]) * 0.5)
+            else:
+                value = float(signature[1][1] - signature[1][2])
         else:
-            value = signature[1][1] - signature[1][2]
+            # Discrete Lévy area fallback:
+            # A_{1,2} = 0.5 * sum_{1 <= u < v <= L} (r_{u,1} * r_{v,2} - r_{u,2} * r_{v,1}) / L
+            r0 = standardized[:, 0]
+            r1 = standardized[:, 1]
+            outer_diff = np.outer(r0, r1) - np.outer(r1, r0)
+            levy_area = 0.5 * float(np.sum(np.triu(outer_diff, k=1))) / float(L)
+            value = float(levy_area) if self.config.sig_method == "levy" else float(2.0 * levy_area)
 
         if self.cache_size > 0:
             self._cache[cache_key] = value
@@ -76,12 +93,14 @@ class SignatureExtractor:
         if array.ndim != 2:
             raise ValueError("Input array must be 2D (n_samples, n_features)")
 
-        mean = np.mean(array, axis=0)
-        std = np.std(array, axis=0, ddof=1)
-        std = np.where(std == 0, 1.0, std)
+        mean = np.nanmean(array, axis=0)
+        std = np.nanstd(array, axis=0, ddof=1)
+        std = np.where((std == 0) | np.isnan(std), 1.0, std)
+        arr_clean = np.nan_to_num(array, nan=0.0)
 
         if self.config.scaling_method == "by_std":
-            return (array - mean) / std
+            return (arr_clean - mean) / std
         if self.config.scaling_method == "mean-centering":
-            return array - mean
-        return array / std
+            # Normalize variance while preserving zero-mean centering
+            return (arr_clean - mean) / std
+        return arr_clean / std

@@ -61,16 +61,17 @@ def load_reward_template(template: Optional[Any]) -> Optional[RewardTemplate]:
 
 def compute_components(
     metrics: Mapping[str, float],
-    extras: Mapping[str, Mapping[str, float]],
+    extras: Mapping[str, Any],
     context: RewardContext,
     params: Optional[Dict[str, Any]] = None,
 ) -> RewardDict:
     params = params or {}
     components: RewardDict = {}
-    components["S"] = _component_strength(metrics)
+    components["S"] = _component_strength(metrics, extras)
     components["C"] = _component_consistency(metrics)
     components["E"] = _component_edge_penalty(metrics, context, params.get("edge", {}))
-    components["Sharpe"] = _component_sharpe(extras.get("regime") or {}, params.get("sharpe", {}))
+    regime = extras.get("regime") if isinstance(extras, Mapping) else {}
+    components["Sharpe"] = _component_sharpe(regime or {}, params.get("sharpe", {}))
     components["LookbackPenalty"] = _component_lookback_penalty(context, params.get("lookback", {}))
     return components
 
@@ -80,10 +81,16 @@ def compute_components(
 # ---------------------------------------------------------------------------
 
 
-def _component_strength(metrics: Mapping[str, float]) -> float:
+def _component_strength(metrics: Mapping[str, float], extras: Optional[Mapping[str, Any]] = None) -> float:
     mean_abs = float(metrics.get("mean_abs", 0.0))
     row_range = float(metrics.get("row_range", 0.0))
-    return 0.5 * mean_abs + 0.5 * row_range
+    realized_ic = 0.0
+    if extras and isinstance(extras, Mapping):
+        realized_ic = float(extras.get("realized_ic", 0.0))
+    base_strength = 0.5 * mean_abs + 0.5 * row_range
+    if realized_ic > 0:
+        return float(base_strength * (1.0 + realized_ic))
+    return float(base_strength)
 
 
 def _component_consistency(metrics: Mapping[str, float]) -> float:

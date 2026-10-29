@@ -10,7 +10,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 
 class _AttentionFeatureExtractor(BaseFeaturesExtractor):
-    """Lightweight self-attention feature extractor for tabular observations."""
+    """Self-attention feature extractor with per-feature tokenization (FT-Transformer style)."""
 
     def __init__(self, observation_space: spaces.Box, features_dim: int = 128, n_heads: int = 4):
         super().__init__(observation_space, features_dim)
@@ -19,7 +19,9 @@ class _AttentionFeatureExtractor(BaseFeaturesExtractor):
             raise ValueError("Observation space must have positive dimension")
 
         self.obs_dim = obs_dim
-        self.embed = nn.Linear(1, features_dim)
+        self.feature_weight = nn.Parameter(torch.randn(1, obs_dim, features_dim) * 0.02)
+        self.feature_bias = nn.Parameter(torch.zeros(1, obs_dim, features_dim))
+        self.norm1 = nn.LayerNorm(features_dim)
         self.attn = nn.MultiheadAttention(features_dim, num_heads=max(1, n_heads), batch_first=True)
         self.proj = nn.Sequential(
             nn.LayerNorm(features_dim),
@@ -29,11 +31,11 @@ class _AttentionFeatureExtractor(BaseFeaturesExtractor):
         )
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        # Treat each scalar feature as a token
-        tokens = observations.unsqueeze(-1)
-        embedded = self.embed(tokens)
-        attn_out, _ = self.attn(embedded, embedded, embedded)
-        pooled = attn_out.mean(dim=1)
+        # observations shape: (batch_size, obs_dim)
+        tokens = observations.unsqueeze(-1) * self.feature_weight + self.feature_bias
+        normed = self.norm1(tokens)
+        attn_out, _ = self.attn(normed, normed, normed, need_weights=False)
+        pooled = (tokens + attn_out).mean(dim=1)
         return self.proj(pooled)
 
 

@@ -97,3 +97,45 @@ def test_random_start_respects_episode_bounds():
     assert all(start >= env._min_start_index for start in starts)
     max_allowed = len(env._dates) - env._episode_length
     assert all(start <= max_allowed for start in starts)
+
+
+def test_leadlag_signal_computation():
+    env = LeadLagEnv(
+        price_df=_make_prices(rows=60),
+        leadlag_config=_leadlag_cfg(),
+        min_lookback=10,
+        max_lookback=25,
+        discrete_actions=True,
+    )
+    env.reset()
+    matrix = pd.DataFrame(
+        [[0.0, 0.5, 0.0],
+         [-0.5, 0.0, 0.2],
+         [0.0, -0.2, 0.0]],
+        index=list("ABC"),
+        columns=list("ABC")
+    )
+    log_ret = pd.DataFrame(
+        np.random.normal(0, 0.01, size=(10, 3)),
+        columns=list("ABC")
+    )
+    sig, pred = env._compute_leadlag_signal(matrix, log_ret)
+    assert -1.0 <= sig <= 1.0
+    assert len(pred) == 3
+
+
+def test_causal_mdp_step_info():
+    env = LeadLagEnv(
+        price_df=_make_prices(rows=80),
+        leadlag_config=_leadlag_cfg(),
+        min_lookback=10,
+        max_lookback=30,
+        discrete_actions=True,
+        action_mode="relative",
+    )
+    obs, info = env.reset()
+    next_obs, reward, term, trunc, step_info = env.step(1)
+    assert "leadlag_signal" in step_info
+    assert "realized_ic" in step_info
+    assert -1.0 <= step_info["leadlag_signal"] <= 1.0
+    assert next_obs.shape == (env.obs_dim,)

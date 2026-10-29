@@ -172,6 +172,36 @@ class LeadLagEnv(gym.Env):
         obs = self._make_observation(metrics, extras, self._current_lookback)
         return obs, {}
 
+    def _compute_leadlag_signal(self, matrix: pd.DataFrame, log_returns: pd.DataFrame) -> Tuple[float, np.ndarray]:
+        """Compute the real Lead-Lag cross-sectional follower prediction vector and directional signal."""
+        if matrix.empty or log_returns.empty:
+            return 0.0, np.zeros(0, dtype=float)
+
+        common_assets = [col for col in matrix.columns if col in log_returns.columns]
+        if len(common_assets) < 2:
+            return 0.0, np.zeros(0, dtype=float)
+
+        sub_matrix = matrix.loc[common_assets, common_assets].values.astype(float)
+        latest_returns = log_returns[common_assets].iloc[-1].values.astype(float)
+        clean_ret = np.nan_to_num(latest_returns, nan=0.0)
+
+        ret_std = float(np.std(clean_ret))
+        ret_mean = float(np.mean(clean_ret))
+        r_tilde_t = (clean_ret - ret_mean) / (ret_std if ret_std > 1e-8 else 1.0)
+
+        N = len(common_assets)
+        row_sums = np.sum(sub_matrix, axis=1) / max(1, N - 1)
+        pos_leaders = np.maximum(0.0, row_sums)
+
+        pos_asymmetry = np.maximum(0.0, sub_matrix)
+        pred_returns = pos_asymmetry.T @ r_tilde_t
+
+        denom = float(np.sum(pos_leaders)) + 1e-8
+        raw_sig = float(np.dot(pos_leaders, r_tilde_t)) / denom
+        trading_signal = float(np.tanh(raw_sig))
+
+        return trading_signal, pred_returns
+
     def step(self, action):
         prev_lookback = self._current_lookback
         target_lookback = self._resolve_action(action)
@@ -179,23 +209,49 @@ class LeadLagEnv(gym.Env):
         self._prev_lookback = prev_lookback
         self._current_lookback = lookback
 
-        matrix, metrics, extras = self._compute_matrix_and_metrics(self._current_index, lookback)
+        decision_idx = self._current_index
+        current_date = self._dates[decision_idx]
+
+        matrix, metrics, extras = self._compute_matrix_and_metrics(decision_idx, lookback)
         metrics = self._apply_smoothing(metrics)
 
-        reward, reward_components = self._compute_reward(metrics, extras, lookback)
-        self._prev_reward = reward
+        log_ret_window = extras.get("log_returns", pd.DataFrame())
+        trading_signal, pred_returns = self._compute_leadlag_signal(matrix, log_ret_window)
+        normalized_lookback = self._normalise_lookback(lookback)
+
+        # Advance environment clock: t -> t + 1 (Causal MDP Step)
+        self._current_index += 1
+        terminated = (self._current_index >= self._episode_end_index) or (self._current_index >= len(self._dates))
+        truncated = False
+
+        # Out-of-sample realized accuracy at t + 1
+        if self._current_index < len(self._dates):
+            next_date = self._dates[self._current_index]
+            if not matrix.empty and len(pred_returns) > 0:
+                common_assets = [col for col in matrix.columns if col in self.price_df.columns]
+                p_now = self.price_df.loc[current_date, common_assets].values.astype(float)
+                p_next = self.price_df.loc[next_date, common_assets].values.astype(float)
+                r_next = np.nan_to_num((p_next - p_now) / np.maximum(p_now, 1e-8), nan=0.0)
+
+                if len(r_next) >= 3 and np.std(r_next) > 1e-8 and np.std(pred_returns) > 1e-8:
+                    realized_ic = float(np.corrcoef(pred_returns, r_next)[0, 1])
+                    if np.isnan(realized_ic):
+                        realized_ic = 0.0
+                else:
+                    realized_ic = 0.0
+                extras["realized_ic"] = realized_ic
+                extras["realized_return"] = trading_signal * float(np.mean(r_next))
 
         delta_norm = 0.0
         if self.max_lookback != self.min_lookback:
             delta_norm = (lookback - prev_lookback) / (self.max_lookback - self.min_lookback)
         self._last_delta_norm = float(delta_norm)
 
+        reward, reward_components = self._compute_reward(metrics, extras, lookback)
+        self._prev_reward = reward
+
         obs = self._make_observation(metrics, extras, lookback)
 
-        normalized_lookback = self._normalise_lookback(lookback)
-        trading_signal = self._signal_from_normalised(normalized_lookback)
-
-        current_date = self._dates[self._current_index]
         history_entry = {
             "date": current_date,
             "lookback": lookback,
@@ -216,15 +272,13 @@ class LeadLagEnv(gym.Env):
         self._prev_metrics = metrics
         self._prev_regime = extras.get("regime")
 
-        self._current_index += 1
-        terminated = self._current_index >= self._episode_end_index
-        truncated = False
-
         info = {
             "date": current_date,
             "lookback": lookback,
             "lookback_normalized": normalized_lookback,
             "trading_signal": trading_signal,
+            "leadlag_signal": trading_signal,
+            "realized_ic": extras.get("realized_ic", 0.0),
             "reward_components": reward_components,
             "episode_end": self._episode_end_index,
         }
@@ -332,6 +386,7 @@ class LeadLagEnv(gym.Env):
         extras = {
             "regime": self._compute_regime_stats(log_returns),
             "signature": self._compute_signature_features(matrix_df),
+            "log_returns": log_returns,
         }
         return matrix_df, metrics, extras
 
