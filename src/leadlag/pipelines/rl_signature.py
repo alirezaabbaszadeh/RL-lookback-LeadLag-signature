@@ -313,12 +313,14 @@ def _derive_returns(df: pd.DataFrame) -> tuple[pd.Series, str] | None:
             series = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(series) > 2:
                 return series, col
-    if "mean_abs_matrix" in df.columns:
-        fallback = pd.to_numeric(df["mean_abs_matrix"], errors="coerce").dropna()
-        if len(fallback) > 5:
-            returns = fallback.pct_change().dropna()
-            if len(returns) > 2:
-                return returns, "mean_abs_matrix_pct_change"
+    if "realized_return" in df.columns:
+        series = pd.to_numeric(df["realized_return"], errors="coerce").dropna()
+        if len(series) > 2:
+            return series, "realized_return"
+    if "trading_signal" in df.columns and "market_return" in df.columns:
+        series = (pd.to_numeric(df["trading_signal"], errors="coerce") * pd.to_numeric(df["market_return"], errors="coerce")).dropna()
+        if len(series) > 2:
+            return series, "trading_signal_x_market_return"
     return None
 
 

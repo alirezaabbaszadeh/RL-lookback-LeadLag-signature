@@ -62,7 +62,9 @@ def _signal_strength(mat: pd.DataFrame) -> float:
     off = arr[mask]
     if off.size == 0:
         return np.nan
-    return float(np.nanmean(np.abs(off)))
+    mean_val = float(np.nanmean(np.abs(off)))
+    std_val = float(np.nanstd(np.abs(off)))
+    return mean_val / max(std_val, 1e-8)
 def run_dynamic(
     config_path: str, out_root: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None
 ) -> Path:

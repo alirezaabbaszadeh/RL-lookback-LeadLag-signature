@@ -1,0 +1,3 @@
+name: rl_ppo_drawdown
+path: leadlag/configs/scenarios/rl_ppo_drawdown.yaml
+runner: rl

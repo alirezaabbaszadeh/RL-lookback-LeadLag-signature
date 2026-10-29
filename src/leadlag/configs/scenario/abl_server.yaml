@@ -1,0 +1,5 @@
+name: abl_server
+path: leadlag/configs/scenarios/abl_server.yaml
+runner: rl
+multi_seed:
+  seeds: [101, 202, 303]

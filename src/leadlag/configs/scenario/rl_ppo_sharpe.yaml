@@ -1,0 +1,3 @@
+name: rl_ppo_sharpe
+path: leadlag/configs/scenarios/rl_ppo_sharpe.yaml
+runner: rl

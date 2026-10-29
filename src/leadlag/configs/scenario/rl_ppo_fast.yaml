@@ -1,0 +1,3 @@
+name: rl_ppo_fast
+path: leadlag/configs/scenarios/rl_ppo_fast.yaml
+runner: rl

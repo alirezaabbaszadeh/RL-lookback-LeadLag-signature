@@ -1,0 +1,3 @@
+name: abl_random
+path: leadlag/configs/scenarios/abl_random.yaml
+runner: rl

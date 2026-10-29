@@ -1,0 +1,3 @@
+name: ccf_fixed
+path: leadlag/configs/scenarios/ccf_fixed.yaml
+runner: scenario

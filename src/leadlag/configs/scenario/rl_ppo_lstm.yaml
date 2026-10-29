@@ -1,0 +1,3 @@
+name: rl_ppo_lstm
+path: leadlag/configs/scenarios/rl_ppo_lstm.yaml
+runner: rl

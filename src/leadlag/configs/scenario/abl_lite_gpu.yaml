@@ -1,0 +1,3 @@
+name: abl_lite_gpu
+path: leadlag/configs/scenarios/abl_lite_gpu.yaml
+runner: rl

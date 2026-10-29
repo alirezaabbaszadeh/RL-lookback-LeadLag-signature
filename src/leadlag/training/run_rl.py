@@ -60,6 +60,7 @@ def _instantiate_env(
         max_lookback=int(rl_cfg.get("max_lookback", 120)),
         discrete_actions=bool(rl_cfg.get("discrete_actions", True)),
         reward_weights=rl_cfg.get("reward_weights", None),
+        reward_template=rl_cfg.get("reward_template"),
         penalty_same=float(rl_cfg.get("penalty_same", 0.05)),
         penalty_step=int(rl_cfg.get("penalty_step", 10)),
         action_mode=rl_cfg.get("action_mode", "absolute"),

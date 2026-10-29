@@ -435,22 +435,27 @@ def _make_leadlag_env(
 ) -> LeadLagEnv:
     features_cfg = cfg.get("features") or {}
     env_cfg = cfg.get("env") or {}
+    rl_cfg = cfg.get("rl") or {}
     lookback = int(cfg.window.lookback)
     ll_config = _leadlag_config(features_cfg, lookback)
 
     action_space = str(env_cfg.get("action_space", "discrete3")).lower()
     if action_space == "discrete3":
         discrete_actions = True
-        action_mode = "relative"
-        relative_step = 5
+        default_action_mode = "relative"
+        default_relative_step = 5
     else:
         discrete_actions = True
-        action_mode = "absolute"
-        relative_step = 1
+        default_action_mode = "absolute"
+        default_relative_step = 1
 
-    min_lookback = max(5, lookback // 2)
-    max_lookback = max(min_lookback + 1, lookback)
+    action_mode = str(rl_cfg.get("action_mode", env_cfg.get("action_mode", default_action_mode)))
+    relative_step = int(rl_cfg.get("relative_step", default_relative_step))
+    min_lookback = int(rl_cfg.get("min_lookback", max(5, lookback // 2)))
+    max_lookback = int(rl_cfg.get("max_lookback", max(min_lookback + 1, lookback)))
     episode_length = max(lookback + 1, min(len(prices) - lookback, int(cfg.training.total_env_steps)))
+    ema_alpha = rl_cfg.get("ema_alpha", None)
+    reward_template = rl_cfg.get("reward_template", None)
 
     env = LeadLagEnv(
         price_df=prices,
@@ -463,7 +468,8 @@ def _make_leadlag_env(
         episode_length=episode_length,
         random_start=True,
         random_seed=seed,
-        ema_alpha=None,
+        ema_alpha=ema_alpha,
+        reward_template=reward_template,
     )
     return env
 
@@ -741,12 +747,20 @@ def _train_sb3_agent(
         rewards.append(float(reward))
         steps += 1
     history = eval_env.get_history_dataframe()
-    if "reward" in history.columns:
-        returns = history["reward"].astype(float)
+    realized_path = _replay_trading_path(cfg, prices, history)
+    if realized_path is not None and not realized_path.returns.empty:
+        returns = realized_path.returns
+        trade_metrics = realized_path.metrics
     else:
-        index = pd.RangeIndex(len(rewards))
-        returns = pd.Series(rewards, index=index, dtype=float)
-    trade_metrics = _summarize_trade_history(cfg, history, returns, prices=prices)
+        if "trading_signal" in history.columns and prices is not None:
+            pct_rets = prices.pct_change().mean(axis=1).reindex(history.index).fillna(0.0)
+            returns = (history["trading_signal"] * pct_rets).astype(float)
+        elif "reward" in history.columns:
+            returns = history["reward"].astype(float)
+        else:
+            index = pd.RangeIndex(len(rewards))
+            returns = pd.Series(rewards, index=index, dtype=float)
+        trade_metrics = _summarize_trade_history(cfg, history, returns, prices=prices)
     return (
         returns,
         trade_metrics,
