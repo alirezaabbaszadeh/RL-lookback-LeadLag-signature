@@ -11,6 +11,7 @@ from gymnasium import spaces
 
 from leadlag.models.LeadLag_main import LeadLagAnalyzer
 from leadlag.models.config import LeadLagConfig
+from leadlag.models.leadlag.matrix_builder import compute_levy_matrix_vectorized
 from leadlag.training.rewards import RewardContext, RewardTemplate, load_reward_template
 
 
@@ -371,15 +372,21 @@ class LeadLagEnv(gym.Env):
         data = log_returns.values
         valid_columns = log_returns.columns.tolist()
         n_assets = len(valid_columns)
-        lead_lag_matrix = np.zeros((n_assets, n_assets))
-        for i, j in itertools.combinations(range(n_assets), 2):
-            pair_data = data[:, [i, j]]
-            if np.all(np.isnan(pair_data[:, 0])) or np.all(np.isnan(pair_data[:, 1])):
-                continue
-            val = self.analyzer._compute_lead_lag_measure_optimized(pair_data)
-            if not np.isnan(val):
-                lead_lag_matrix[i, j] = val
-                lead_lag_matrix[j, i] = -val
+
+        sig_m = getattr(self.analyzer.config, "sig_method", None)
+        is_levy = (self.analyzer.config.method == "signature" and sig_m in ("levy", "custom"))
+        if is_levy and not np.isnan(data).any():
+            lead_lag_matrix = compute_levy_matrix_vectorized(data, standardize=True)
+        else:
+            lead_lag_matrix = np.zeros((n_assets, n_assets))
+            for i, j in itertools.combinations(range(n_assets), 2):
+                pair_data = data[:, [i, j]]
+                if np.all(np.isnan(pair_data[:, 0])) or np.all(np.isnan(pair_data[:, 1])):
+                    continue
+                val = self.analyzer._compute_lead_lag_measure_optimized(pair_data)
+                if not np.isnan(val):
+                    lead_lag_matrix[i, j] = val
+                    lead_lag_matrix[j, i] = -val
 
         matrix_df = pd.DataFrame(lead_lag_matrix, index=valid_columns, columns=valid_columns)
         metrics = self._compute_metrics(matrix_df)
