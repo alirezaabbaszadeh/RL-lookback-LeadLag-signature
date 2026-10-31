@@ -64,6 +64,7 @@ def walk_forward_purged(
     total_samples: int,
     n_splits: int,
     embargo_frac: float = 0.0,
+    min_embargo: int = 0,
 ) -> Iterator[PurgedSplit]:
     """Yield purged walk-forward train/test splits.
 
@@ -73,9 +74,10 @@ def walk_forward_purged(
     ensuring that every index appears in exactly one test window.  An embargo is
     optionally applied around each window: any training index that lies within
     ``embargo`` steps immediately before ``test_start`` or immediately after
-    ``test_end`` is removed.  The embargo therefore depends on the absolute
-    position of each test slice and never trims unrelated regions of the training
-    set.
+    ``test_end`` is removed.  The embargo is computed as
+    ``max(int(min_embargo), int(np.ceil(test_size * embargo_frac)))``.
+    The embargo therefore depends on the absolute position of each test slice
+    and never trims unrelated regions of the training set.
     """
     if n_splits <= 1:
         raise ValueError("n_splits must be greater than 1")
@@ -83,6 +85,8 @@ def walk_forward_purged(
         raise ValueError("total_samples must be greater than or equal to n_splits")
     if embargo_frac < 0:
         raise ValueError("embargo_frac must be non-negative")
+    if min_embargo < 0:
+        raise ValueError("min_embargo must be non-negative")
 
     indices = np.arange(total_samples)
     base_size = total_samples // n_splits
@@ -94,7 +98,7 @@ def walk_forward_purged(
         test_end = test_start + test_size
         test_indices = indices[test_start:test_end]
 
-        embargo = int(np.ceil(test_size * embargo_frac))
+        embargo = max(int(min_embargo), int(np.ceil(test_size * embargo_frac)))
         train_indices = np.concatenate([indices[:test_start], indices[test_end:]])
         train_indices = _apply_embargo(train_indices, test_start, test_end, embargo)
 
@@ -106,8 +110,18 @@ def walk_forward_purged(
         test_start = test_end
 
 
-def purged_kfold(total_samples: int, n_splits: int, embargo_frac: float = 0.0) -> Iterator[PurgedSplit]:
-    return walk_forward_purged(total_samples, n_splits, embargo_frac)
+def purged_kfold(
+    total_samples: int,
+    n_splits: int,
+    embargo_frac: float = 0.0,
+    min_embargo: int = 0,
+) -> Iterator[PurgedSplit]:
+    return walk_forward_purged(
+        total_samples,
+        n_splits,
+        embargo_frac=embargo_frac,
+        min_embargo=min_embargo,
+    )
 
 
 __all__ = ["PurgedSplit", "walk_forward_purged", "purged_kfold"]

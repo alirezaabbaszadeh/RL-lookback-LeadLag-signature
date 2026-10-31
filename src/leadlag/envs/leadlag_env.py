@@ -375,6 +375,22 @@ class LeadLagEnv(gym.Env):
 
         sig_m = getattr(self.analyzer.config, "sig_method", None)
         is_levy = (self.analyzer.config.method == "signature" and sig_m in ("levy", "custom"))
+
+        # Fast Vectorized Path vs Pairwise Fallback:
+        # 1. Vectorized Path (compute_levy_matrix_vectorized):
+        #    - Triggered when method is signature ('levy' or 'custom') and the return window
+        #      contains NO NaNs (`not np.isnan(data).any()`).
+        #    - It column-standardizes increments Z = (R - mu) / sigma, constructs the cumulative
+        #      path X_t, and performs a single BLAS matrix multiplication S2 = X_prev.T @ Z
+        #      to compute all N x N skew-symmetric Levy areas 0.5 * (S2 - S2.T) / L simultaneously
+        #      with O(L * N^2) throughput (>20x faster than looping over pairs).
+        # 2. Pairwise Fallback:
+        #    - If un-imputed series contain missing bars or NaNs (e.g. newly listed or illiquid
+        #      coins with asynchronous trading halts), dense matrix contraction cannot mask NaNs
+        #      per-pair without corrupting clean asset pairs.
+        #    - In this case, or for non-signature methods (e.g. ccf_at_lag, dtw), the environment
+        #      gracefully falls back to pairwise evaluation where `_compute_lead_lag_measure_optimized`
+        #      handles and drops NaNs per asset pair (i, j) individually.
         if is_levy and not np.isnan(data).any():
             lead_lag_matrix = compute_levy_matrix_vectorized(data, standardize=True)
         else:

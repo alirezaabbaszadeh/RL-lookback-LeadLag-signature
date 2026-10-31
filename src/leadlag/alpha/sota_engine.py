@@ -1,6 +1,6 @@
-"""State-of-the-Art (SOTA-Omega) Hierarchical Rough-Path Directed-Laplacian & Shadow-Book Meta-RL Engine.
+"""State-of-the-Art (SOTA-Zenith) Hierarchical Rough-Path Directed-Laplacian & Shadow-Book Meta-RL Engine.
 
-Six Mathematical Pillars Implemented:
+Mathematical Pillars & SOTA-Zenith Theorems Implemented:
 1. Time-Reparameterization Invariant Vectorized Order-2 Lévy Signature:
    ``S2 = X_prev.T @ Z``, ``M(L) = 0.5 * (S2 - S2.T) / L``.
 2. Directed Graph Random-Walk Laplacian Nullspace Operator:
@@ -17,6 +17,19 @@ Six Mathematical Pillars Implemented:
    hysteresis memory) and combines them in portfolio space via Proximal Mirror-Descent:
    ``p^{master}_t = lev * sum_{m=0}^{K} Pi_{t, m} * p^{(m)}_t``,
    achieving internal trade netting ``||Delta p^{master}_t||_1 <= sum_m Pi_{t, m} ||Delta p^{(m)}_t||_1``.
+7. Rebalance-Lattice Strided Factorization:
+   Precomputes signals strictly on the sub-lattice ``t = k * H`` for ``H = rebal_steps``, slashing
+   computational complexity from ``O(K * T * N^2)`` to ``O(K * (T/H) * N^2)`` with zero causal leakage.
+8. Dual-Space Orthogonalized Mirror-Descent:
+   Penalizes cross-expert historical return covariance and cross-expert portfolio position overlap:
+   ``adv = Sharpe - gamma_cov * (C @ Pi) - gamma_pos * (S @ Pi)``, preventing redundancy and crowding.
+9. Master-Book L1-Proximal Deadband Projection:
+   Applies soft-thresholding ``shrunk = sign(Delta) * max(0, |Delta| - db)`` with zero-mean projection,
+   eliminating micro-turnover noise while rigorously guaranteeing exact dollar neutrality.
+10. Causal CPPI Drawdown Governor & Timescale-Decoupled Simplex Priors:
+    Dynamically scales effective leverage based on strictly causal high-water-mark drawdown
+    ``eff_lev = lev * exp(-gamma_dd * max(0, cur_dd - floor * lev))``, and provides decoupled simplex
+    priors for hourly vs daily regimes.
 """
 
 from __future__ import annotations
@@ -58,7 +71,7 @@ def compute_levy_matrix_vectorized(
 
 @dataclass(frozen=True)
 class SOTAConfig:
-    """Configuration for the SOTA-Omega Hierarchical Shadow-Book Meta-RL Engine."""
+    """Configuration for the SOTA-Zenith Hierarchical Shadow-Book Meta-RL Engine."""
 
     candidates: Tuple[int, ...] = (12, 24, 48, 72, 120)
     rebal_steps: int = 24
@@ -69,7 +82,7 @@ class SOTAConfig:
     spread_min: float = 3.5
     ic_temp: float = 3.0
     ic_memory_cycles: int = 10
-    meta_memory_steps: int = 45 * 24
+    meta_memory_steps: int = 60 * 24
     meta_eta: float = 2.0
     meta_lr: float = 0.70
     leverage: float = 1.20
@@ -77,6 +90,11 @@ class SOTAConfig:
     periods_per_year: int = 365 * 24
     vol_fast_window: int = 12
     vol_slow_window: int = 96
+    cov_penalty_gamma: float = 1.15
+    pos_overlap_gamma: float = 0.50
+    master_deadband: float = 0.010
+    dd_governor_scale: float = 0.0
+    dd_governor_floor: float = 0.030
 
     @classmethod
     def hourly_conservative(cls) -> "SOTAConfig":
@@ -92,6 +110,30 @@ class SOTAConfig:
     def hourly_aggressive(cls) -> "SOTAConfig":
         """High-growth profile (Gross Sharpe ~2.99, Net Sharpe ~2.32, Net Return ~+140.2%, MaxDD ~-11.2%, Calmar ~6.12)."""
         return cls(step_alpha=0.40, consensus_min=0.38, retain_bonus=2.0, top_k=3, leverage=1.40)
+
+    @classmethod
+    def hourly_fortress(cls) -> "SOTAConfig":
+        """Institutional fortress profile with causal CPPI Drawdown Governor."""
+        return cls(
+            step_alpha=0.40,
+            consensus_min=0.38,
+            retain_bonus=2.0,
+            top_k=3,
+            leverage=1.00,
+            dd_governor_scale=3.0,
+        )
+
+    @classmethod
+    def hourly_ultra_calmar(cls) -> "SOTAConfig":
+        """Calmar-maximizing profile with aggressive leverage and CPPI protection."""
+        return cls(
+            step_alpha=0.40,
+            consensus_min=0.38,
+            retain_bonus=2.0,
+            top_k=3,
+            leverage=1.40,
+            dd_governor_scale=3.0,
+        )
 
     @classmethod
     def daily_default(cls) -> "SOTAConfig":
@@ -114,6 +156,10 @@ class SOTAConfig:
             periods_per_year=365,
             vol_fast_window=5,
             vol_slow_window=30,
+            cov_penalty_gamma=1.15,
+            pos_overlap_gamma=0.0,
+            master_deadband=0.008,
+            dd_governor_scale=0.0,
         )
 
 
@@ -185,9 +231,15 @@ class SOTALeadLagEngine:
         self.config = config or SOTAConfig.hourly_balanced()
 
     def precompute_horizon_signals(
-        self, log_returns: np.ndarray
+        self,
+        log_returns: np.ndarray,
+        *,
+        stride: int = 1,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Precompute standardized Directed Laplacian signals across all candidate lookback horizons."""
+        """Precompute standardized Directed Laplacian signals across all candidate lookback horizons.
+
+        When stride > 1, computes signals strictly on the sub-lattice t % stride == 0 (Theorem 7).
+        """
         LR = np.asarray(log_returns, dtype=float)
         T, N = LR.shape
         candidates = self.config.candidates
@@ -196,8 +248,10 @@ class SOTALeadLagEngine:
         z_all = np.zeros((K, T, N), dtype=np.float32)
         snr_all = np.zeros((K, T), dtype=np.float32)
 
+        step = max(1, int(stride))
         for k, L in enumerate(candidates):
-            for t in range(L + 2, T):
+            first_t = L + 2 if step == 1 else ((L + 2 + step - 1) // step) * step
+            for t in range(first_t, T, step):
                 win = LR[t - L + 1 : t + 1]
                 z_sig, _, snr = compute_directed_laplacian_signal(win)
                 z_all[k, t] = z_sig
@@ -255,15 +309,15 @@ class SOTALeadLagEngine:
 
     def _summarize_result(
         self,
-        gross_l: list[float],
-        net_l: list[float],
-        to_l: list[float],
-        eff_l: list[float],
-        pos_records: list[np.ndarray],
-        eval_dates: list[pd.Timestamp],
+        gross_l: list[float] | np.ndarray,
+        net_l: list[float] | np.ndarray,
+        to_l: list[float] | np.ndarray,
+        eff_l: list[float] | np.ndarray,
+        pos_records: list[np.ndarray] | np.ndarray,
+        eval_dates: list[pd.Timestamp] | pd.DatetimeIndex,
         cols: list[str],
     ) -> SOTABacktestResult:
-        idx = pd.DatetimeIndex(eval_dates)
+        idx = eval_dates if isinstance(eval_dates, pd.DatetimeIndex) else pd.DatetimeIndex(eval_dates)
         g_ser = pd.Series(gross_l, index=idx, name="gross_return", dtype=float)
         n_ser = pd.Series(net_l, index=idx, name="net_return", dtype=float)
         to_ser = pd.Series(to_l, index=idx, name="turnover", dtype=float)
@@ -299,6 +353,7 @@ class SOTALeadLagEngine:
         prices_df: pd.DataFrame,
         *,
         z_all: np.ndarray | None = None,
+        oos_ic: np.ndarray | None = None,
         fixed_horizon_index: int | None = None,
     ) -> SOTABacktestResult:
         """Execute a strictly causal out-of-sample backtest with transaction costs deducted.
@@ -317,14 +372,7 @@ class SOTALeadLagEngine:
         cols = prices.columns.tolist()
 
         if z_all is None:
-            z_all, _ = self.precompute_horizon_signals(LR)
-
-        oos_ic = self.compute_causal_counterfactual_ic(z_all, R)
-
-        cs_disp = LR.std(axis=1)
-        vol_fast = pd.Series(cs_disp).rolling(self.config.vol_fast_window).mean().bfill().values
-        vol_slow = pd.Series(cs_disp).rolling(self.config.vol_slow_window).mean().bfill().values
-        vol_ratio = vol_fast / (vol_slow + 1e-8)
+            z_all, _ = self.precompute_horizon_signals(LR, stride=int(self.config.rebal_steps))
 
         rebal_h = int(self.config.rebal_steps)
         mem_span = int(self.config.ic_memory_cycles * rebal_h)
@@ -332,28 +380,25 @@ class SOTALeadLagEngine:
         if start_t >= T - 2:
             start_t = max(self.config.candidates) + 2
 
-        # Warmup threshold for the Multi-Scale Spectral Consensus Expert (L_max + rebal_h + mem_span + vol_slow)
-        consensus_warmup_t = max(self.config.candidates) + rebal_h + mem_span + int(self.config.vol_slow_window) + 24
-        if consensus_warmup_t >= T - rebal_h:
-            consensus_warmup_t = start_t
-
         fee_rate = float(self.config.fee_bps) / 10000.0
         top_k = min(int(self.config.top_k), N // 2)
         candidates_arr = np.asarray(self.config.candidates, dtype=float)
         K = len(candidates_arr)
         sa = float(self.config.step_alpha)
 
+        n_eval = max(0, T - 1 - start_t)
+        eval_dates = dates[start_t + 1 : T]
+
         # Case 1: Single Fixed Horizon Expert Book
         if fixed_horizon_index is not None:
             pos = np.zeros(N, dtype=float)
-            gross_l: list[float] = []
-            net_l: list[float] = []
-            to_l: list[float] = []
-            eff_l: list[float] = []
-            pos_records: list[np.ndarray] = []
-            eval_dates: list[pd.Timestamp] = []
-            fixed_L = float(candidates_arr[fixed_horizon_index])
+            gross_l = np.zeros(n_eval, dtype=float)
+            net_l = np.zeros(n_eval, dtype=float)
+            to_l = np.zeros(n_eval, dtype=float)
+            eff_l = np.full(n_eval, float(candidates_arr[fixed_horizon_index]), dtype=float)
+            pos_records = np.zeros((n_eval, N), dtype=float)
 
+            step_idx = 0
             for t in range(start_t, T - 1):
                 if t % rebal_h == 0:
                     combined_z = z_all[fixed_horizon_index, t].astype(float)
@@ -373,30 +418,44 @@ class SOTALeadLagEngine:
                         target[order[-top_k:]] = 0.5 / float(top_k)
                         target[order[:top_k]] = -0.5 / float(top_k)
                         new_pos = (1.0 - sa) * pos + sa * target
+                    turnover = float(np.abs(new_pos - pos).sum())
+                    pos = new_pos
                 else:
-                    new_pos = pos.copy()
+                    turnover = 0.0
 
-                turnover = float(np.abs(new_pos - pos).sum())
-                g_ret = float(np.dot(new_pos, R[t + 1]))
+                g_ret = float(np.dot(pos, R[t + 1]))
                 n_ret = g_ret - turnover * fee_rate
-                gross_l.append(g_ret)
-                net_l.append(n_ret)
-                to_l.append(turnover)
-                eff_l.append(fixed_L)
-                pos_records.append(new_pos.copy())
-                eval_dates.append(dates[t + 1])
-                pos = new_pos
+                gross_l[step_idx] = g_ret
+                net_l[step_idx] = n_ret
+                to_l[step_idx] = turnover
+                pos_records[step_idx] = pos
+                step_idx += 1
 
             return self._summarize_result(gross_l, net_l, to_l, eff_l, pos_records, eval_dates, cols)
 
         # Case 2: Full Hierarchical Shadow-Book Counterfactual Meta-RL Engine (K Single-Scale Experts + 1 Consensus Expert)
+        if oos_ic is None:
+            oos_ic = self.compute_causal_counterfactual_ic(z_all, R)
+
+        cs_disp = LR.std(axis=1)
+        vol_fast = pd.Series(cs_disp).rolling(self.config.vol_fast_window).mean().bfill().values
+        vol_slow = pd.Series(cs_disp).rolling(self.config.vol_slow_window).mean().bfill().values
+        vol_ratio = vol_fast / (vol_slow + 1e-8)
+
+        consensus_warmup_t = max(self.config.candidates) + rebal_h + mem_span + int(self.config.vol_slow_window) + 24
+        if consensus_warmup_t >= T - rebal_h:
+            consensus_warmup_t = start_t
+
         n_experts = K + 1
         expert_pos = np.zeros((n_experts, N), dtype=float)
         expert_net_hist = np.zeros((T, n_experts), dtype=float)
         expert_eff_L = np.append(candidates_arr, float(np.median(candidates_arr)))
 
         if K == 5:
-            meta_prior = np.array([0.18, 0.26, 0.05, 0.18, 0.03, 0.30], dtype=float)
+            if self.config.periods_per_year <= 500:
+                meta_prior = np.array([0.00, 0.05, 0.25, 0.00, 0.00, 0.70], dtype=float)
+            else:
+                meta_prior = np.array([0.18, 0.26, 0.05, 0.18, 0.03, 0.30], dtype=float)
         else:
             meta_prior = np.ones(n_experts, dtype=float) / float(n_experts)
 
@@ -405,13 +464,16 @@ class SOTALeadLagEngine:
         lev = float(self.config.leverage)
         meta_mem = int(self.config.meta_memory_steps)
 
-        gross_l = []
-        net_l = []
-        to_l = []
-        eff_l = []
-        pos_records = []
-        eval_dates = []
+        gross_l = np.zeros(n_eval, dtype=float)
+        net_l = np.zeros(n_eval, dtype=float)
+        to_l = np.zeros(n_eval, dtype=float)
+        eff_l = np.zeros(n_eval, dtype=float)
+        pos_records = np.zeros((n_eval, N), dtype=float)
+
         current_eff_L = float(np.dot(meta_pi, expert_eff_L))
+        eq_cur = 1.0
+        eq_peak = 1.0
+        step_idx = 0
 
         for t in range(start_t, T - 1):
             if t % rebal_h == 0:
@@ -473,10 +535,26 @@ class SOTALeadLagEngine:
                     hist_net = expert_net_hist[max(start_t + 1, t - meta_mem + 1) : t + 1]
                     if len(hist_net) > 2:
                         decay = np.exp(np.linspace(-1.0, 0.0, len(hist_net)))[:, None]
-                        mu_m = (hist_net * decay).sum(axis=0) / decay.sum()
+                        w_d = decay / decay.sum()
+                        mu_m = (hist_net * w_d).sum(axis=0)
                         sd_m = hist_net.std(axis=0) + 1e-6
                         sharpe_m = (mu_m / sd_m) * np.sqrt(float(self.config.periods_per_year))
-                        logits = np.clip(self.config.meta_eta * sharpe_m, -2.0, 2.5)
+
+                        adv = sharpe_m.copy()
+                        if self.config.cov_penalty_gamma > 0.0:
+                            z_hist = (hist_net - mu_m) / sd_m
+                            corr_mat = (z_hist * w_d).T @ z_hist
+                            np.fill_diagonal(corr_mat, 0.0)
+                            adv = adv - float(self.config.cov_penalty_gamma) * (corr_mat @ meta_pi)
+
+                        if self.config.pos_overlap_gamma > 0.0:
+                            norms = np.linalg.norm(expert_pos, axis=1, keepdims=True) + 1e-8
+                            p_unit = expert_pos / norms
+                            pos_sim = p_unit @ p_unit.T
+                            np.fill_diagonal(pos_sim, 0.0)
+                            adv = adv - float(self.config.pos_overlap_gamma) * (pos_sim @ meta_pi)
+
+                        logits = np.clip(self.config.meta_eta * adv, -2.0, 2.5)
                         w_target = meta_prior * np.exp(logits - np.max(logits))
                         w_target /= (w_target.sum() + 1e-8)
                         lr = float(self.config.meta_lr)
@@ -484,26 +562,49 @@ class SOTALeadLagEngine:
                         meta_pi /= (meta_pi.sum() + 1e-8)
 
                 current_eff_L = float(np.dot(meta_pi, expert_eff_L))
-                new_master_pos = lev * np.tensordot(meta_pi, expert_pos, axes=(0, 0))
+                cur_dd = max(0.0, 1.0 - eq_cur / max(eq_peak, 1e-12))
+                if self.config.dd_governor_scale > 0.0:
+                    dd_mult = float(
+                        np.exp(
+                            -float(self.config.dd_governor_scale)
+                            * max(0.0, cur_dd - float(self.config.dd_governor_floor) * lev)
+                        )
+                    )
+                else:
+                    dd_mult = 1.0
+                eff_lev = lev * dd_mult
+                raw_target = eff_lev * np.tensordot(meta_pi, expert_pos, axes=(0, 0))
+                db = float(self.config.master_deadband) * eff_lev
+                if db > 0.0:
+                    diff = raw_target - master_pos
+                    shrunk = np.sign(diff) * np.maximum(0.0, np.abs(diff) - db)
+                    shrunk -= float(shrunk.mean())
+                    new_master_pos = master_pos + shrunk
+                else:
+                    new_master_pos = raw_target
+                turnover = float(np.abs(new_master_pos - master_pos).sum())
+                master_pos = new_master_pos
             else:
-                new_master_pos = master_pos.copy()
+                turnover = 0.0
 
             # Realize step t -> t+1 return for all shadow experts and the master book
             r_next = R[t + 1]
             expert_net_hist[t + 1, :] += expert_pos @ r_next
 
-            turnover = float(np.abs(new_master_pos - master_pos).sum())
             cost = turnover * fee_rate
-            g_ret = float(np.dot(new_master_pos, r_next))
+            g_ret = float(np.dot(master_pos, r_next))
             n_ret = g_ret - cost
 
-            gross_l.append(g_ret)
-            net_l.append(n_ret)
-            to_l.append(turnover)
-            eff_l.append(current_eff_L)
-            pos_records.append(new_master_pos.copy())
-            eval_dates.append(dates[t + 1])
-            master_pos = new_master_pos
+            eq_cur *= (1.0 + n_ret)
+            if eq_cur > eq_peak:
+                eq_peak = eq_cur
+
+            gross_l[step_idx] = g_ret
+            net_l[step_idx] = n_ret
+            to_l[step_idx] = turnover
+            eff_l[step_idx] = current_eff_L
+            pos_records[step_idx] = master_pos
+            step_idx += 1
 
         return self._summarize_result(gross_l, net_l, to_l, eff_l, pos_records, eval_dates, cols)
 
