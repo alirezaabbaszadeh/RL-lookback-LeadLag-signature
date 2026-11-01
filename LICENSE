@@ -1,22 +1,43 @@
-MIT License
+STRICTLY PROPRIETARY AND CONFIDENTIAL SOURCE CODE LICENSE
+===============================================================================
+COPYRIGHT (C) 2025-2026 ALIREZA ABBASZADEH & DR. SASAN BARAK.
+ALL RIGHTS RESERVED.
 
-Copyright (c) 2025 LeadLag Team
+TRADE SECRET AND PROPRIETARY ASSET NOTICE:
+-------------------------------------------------------------------------------
+This repository, codebase, mathematical formulations, algorithmic implementations,
+theorems (Theorems 1 through 20), spectral graph Laplacian operators, rough path
+signature engines, counterfactual mirror-descent optimization protocols, empirical
+research data, and all related documentation constitute confidential trade secrets
+and strictly proprietary intellectual property owned exclusively by Alireza
+Abbaszadeh and Dr. Sasan Barak.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+RESTRICTIONS AND NON-DISCLOSURE:
+-------------------------------------------------------------------------------
+1. NO PUBLIC ACCESS OR REDISTRIBUTION: No part of this software or its underlying
+   mathematical equations may be reproduced, distributed, transmitted, sublicensed,
+   disclosed, published, or broadcast in any form or by any means, electronic,
+   mechanical, photocopying, recording, or otherwise, without prior written
+   authorization signed by the copyright holders.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. PROHIBITION OF REVERSE ENGINEERING: Decompilation, disassembly, reverse
+   engineering, derivative modeling, or reconstruction of the mathematical logic,
+   portfolio construction engines, or internal execution mechanics is strictly
+   forbidden.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. COMMERCIAL USE PROHIBITED: Commercial deployment, automated signal re-transmission,
+   quant fund utilization, or integration into proprietary trading execution
+   infrastructure is prohibited without an explicit, executed commercial licensing
+   agreement.
 
+4. ACADEMIC & RESEARCH GOVERNANCE: Academic reference or citation is restricted
+   strictly to authorized publications endorsed by Dr. Sasan Barak and Alireza
+   Abbaszadeh. Direct source code inspection is granted solely under strict
+   Non-Disclosure Agreement (NDA).
+
+LEGAL JURISDICTION AND ENFORCEMENT:
+-------------------------------------------------------------------------------
+Unauthorized access, copying, theft, or dissemination will be prosecuted to the
+maximum extent punishable under domestic and international copyright, trade secret,
+and intellectual property laws, including claims for statutory damages, injunctive
+relief, and legal fees.

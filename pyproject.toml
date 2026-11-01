@@ -12,14 +12,15 @@ description = "Lead-lag signature RL experimentation toolkit"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    { name = "LeadLag Team" },
+    { name = "Alireza Abbaszadeh & Dr. Sasan Barak" },
 ]
-license = "MIT"
+license = "Proprietary and Confidential - All Rights Reserved"
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Financial and Risk Analysts",
     "Programming Language :: Python :: 3.10",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Private :: Do Not Upload",
 ]
 dependencies = [
     "numpy>=1.23,<2.0",

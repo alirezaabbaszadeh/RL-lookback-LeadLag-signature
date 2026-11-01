@@ -67,3 +67,10 @@ outputs/
 RL-leader-pack.zip
 
 scratch/
+# Confidential Credentials and Private Keys
+*.env*
+*.key
+*.pem
+*.token
+*credentials*.json
+*.secret

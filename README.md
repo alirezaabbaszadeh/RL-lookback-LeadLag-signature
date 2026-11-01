@@ -1,4 +1,9 @@
-# Reactor v3 LeadLag Platform
+<!-- CONFIDENTIAL & PROPRIETARY INTELLECTUAL PROPERTY -->
+> **CRITICAL LEGAL NOTICE & STRICT NON-DISCLOSURE:**
+> This repository, codebase, and accompanying mathematical formulations (Theorems 1 through 20) are the **strictly confidential and proprietary property** of **Alireza Abbaszadeh and Dr. Sasan Barak**. All rights reserved.
+> Unauthorized distribution, reproduction, scraping, disclosure, or commercial use is strictly prohibited under international trade secret and copyright laws.
+
+# SOTA-Apex (LeadLag Platform)
 
 GPU-first reinforcement-learning research stack for lead–lag signature trading.
 Reactor v3 standardises the code layout, Hydra configuration surface, and Kaggle
