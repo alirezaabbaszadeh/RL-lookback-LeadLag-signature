@@ -1,27 +1,4 @@
-<div align="center">
-
-# SOTA-Apex: Continuous Rough-Path Directed-Laplacian & Multi-Scale Shadow-Book Meta-RL
-
-[![Author: Alireza Abbaszadeh](https://img.shields.io/badge/Author-Alireza_Abbaszadeh-1e3a8a.svg?style=for-the-badge&logo=google-scholar&logoColor=white)](https://aiali.ir)
-[![Supervisor: Dr. Sasan Barak](https://img.shields.io/badge/Supervisor-Dr._Sasan_Barak-0f2744.svg?style=for-the-badge&logo=academia&logoColor=white)](https://scholar.google.com)
-[![Pytest Status](https://img.shields.io/badge/Pytest-206%2F206%20Passed%20(100%25)-059669.svg?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary_%26_Confidential-b45309.svg?style=for-the-badge)](LICENSE)
-[![Net Sharpe](https://img.shields.io/badge/Net_Sharpe-3.35_--_4.21-2563eb.svg?style=for-the-badge)](results/)
-[![Principal Loss](https://img.shields.io/badge/Principal_Loss-0.00%25-059669.svg?style=for-the-badge)](results/)
-[![Monograph PDF](https://img.shields.io/badge/Academic_Monograph-Download_PDF-dc2626.svg?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](docs/SOTA_Apex_Master_Academic_Report_Barak.pdf)
-
-**Autonomous Lead-Lag Microstructure Discovery Across High-Dimensional Asset Universes**
-
-[Website & Portfolio (aiali.ir)](https://aiali.ir) • [Academic Monograph (PDF)](docs/SOTA_Apex_Master_Academic_Report_Barak.pdf) • [Mathematical Roadmap](docs/SOTA_Apex_Master_Academic_Report_Barak.html)
-
-</div>
-
----
-
-<!-- CONFIDENTIAL & PROPRIETARY INTELLECTUAL PROPERTY -->
-> **CRITICAL LEGAL NOTICE & STRICT TRADE SECRET PROTECTION:**
-> This repository, codebase, and accompanying mathematical formulations (**Theorems 1 through 20**) are the **strictly confidential and proprietary intellectual property** of **Alireza Abbaszadeh and Dr. Sasan Barak**. All rights reserved.
-> Public inspection of README and citation metadata is authorized for academic indexing and peer review. Any unauthorized commercial exploitation, scraping, algorithmic copying, re-transmission, or reverse engineering is strictly prohibited under international trade secret and copyright treaties.
+# Reactor v3 LeadLag Platform
 
 GPU-first reinforcement-learning research stack for lead–lag signature trading.
 Reactor v3 standardises the code layout, Hydra configuration surface, and Kaggle
@@ -323,22 +300,3 @@ For CI environments without CUDA, override `hardware=auto` and `training=smoke`
 to keep runtimes bounded. A quick contract check such as `leadlag --status
 --format json --dry-run` verifies that CLI output continues to conform to the
 shared envelope.
-## Academic Citation & Research Governance
-
-If you refer to this research, mathematical theorems, or empirical benchmarks, please cite the canonical monograph:
-
-```bibtex
-@article{abbaszadeh2026sota_apex,
-  title   = {A Unified Rough-Path Directed-Laplacian & Multi-Scale Shadow-Book Meta-Reinforcement Learning Framework for Lead-Lag Microstructure Discovery},
-  author  = {Abbaszadeh, Alireza and Barak, Sasan},
-  journal = {Doctoral Monograph in Quantitative Finance and Machine Learning},
-  year    = {2026},
-  url     = {https://github.com/alirezaabbaszadeh/RL-lookback-LeadLag-signature},
-  note    = {Supervised by Dr. Sasan Barak; Principal Investigator in Financial Econometrics & Machine Learning}
-}
-```
-
-### Authorship & Laboratory Directory
-- **Lead Quantitative Systems Engineer & Author:** [Alireza Abbaszadeh](https://aiali.ir) (`aiali.ir`)
-- **Principal Research Supervisor:** **Dr. Sasan Barak** (Financial Econometrics & Machine Learning in Quantitative Finance)
-- **Primary Repository:** [`https://github.com/alirezaabbaszadeh/RL-lookback-LeadLag-signature`](https://github.com/alirezaabbaszadeh/RL-lookback-LeadLag-signature)

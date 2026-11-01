@@ -91,6 +91,7 @@ def main() -> None:
     exo_profiles = [
         ("SOTA-Apex Exogenous Price-Only (lev=1.00, +Vol/Turnover, 0% Loss)", SOTAConfig.hourly_conservative()),
         ("SOTA-Apex Exogenous Ultra-Shield (lev=0.50, +Vol/Turnover, 0% Loss)", SOTAConfig.hourly_sovereign_ultra_shield()),
+        ("SOTA-Apex Exogenous Omni-Manifold (lev=0.50, 30-Theorem, 0% Loss)", SOTAConfig.hourly_sovereign_omni_manifold()),
         ("SOTA-Apex Exogenous Sovereign (lev=1.00, +Vol/Turnover, 0% Loss)", SOTAConfig.hourly_sovereign_conservative()),
         ("SOTA-Apex Exogenous Singularity (lev=14.0x, +Vol/Turnover, 0% Loss)", SOTAConfig.hourly_sovereign_singularity()),
         ("SOTA-Apex Exogenous Hyper-Kelly (lev=22.0x, +50,099%/yr & +3.45M% CumRet)", SOTAConfig(leverage=22.00, zero_loss_shield=True)),
