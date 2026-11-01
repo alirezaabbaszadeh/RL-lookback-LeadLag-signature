@@ -66,19 +66,7 @@ def walk_forward_purged(
     embargo_frac: float = 0.0,
     min_embargo: int = 0,
 ) -> Iterator[PurgedSplit]:
-    """Yield purged walk-forward train/test splits.
-
-    The splits are constructed by iteratively selecting contiguous test windows
-    whose lengths differ by at most one sample.  Any remainder after dividing the
-    dataset across ``n_splits`` windows is distributed across the earliest folds,
-    ensuring that every index appears in exactly one test window.  An embargo is
-    optionally applied around each window: any training index that lies within
-    ``embargo`` steps immediately before ``test_start`` or immediately after
-    ``test_end`` is removed.  The embargo is computed as
-    ``max(int(min_embargo), int(np.ceil(test_size * embargo_frac)))``.
-    The embargo therefore depends on the absolute position of each test slice
-    and never trims unrelated regions of the training set.
-    """
+    """Yield purged walk-forward train/test splits with optional minimum signature embargo."""
     if n_splits <= 1:
         raise ValueError("n_splits must be greater than 1")
     if total_samples < n_splits:
@@ -117,10 +105,7 @@ def purged_kfold(
     min_embargo: int = 0,
 ) -> Iterator[PurgedSplit]:
     return walk_forward_purged(
-        total_samples,
-        n_splits,
-        embargo_frac=embargo_frac,
-        min_embargo=min_embargo,
+        total_samples, n_splits, embargo_frac=embargo_frac, min_embargo=min_embargo
     )
 
 

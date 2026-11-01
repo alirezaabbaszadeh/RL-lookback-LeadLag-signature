@@ -1,15 +1,33 @@
-"""SOTA Rough-Path Directed-Laplacian & Counterfactual Mirror-Descent Alpha Package."""
-
-from .sota_engine import (
+from leadlag.alpha.sota_engine import (
     SOTABacktestResult,
     SOTAConfig,
     SOTALeadLagEngine,
+    compute_bilinear_smart_money_signals,
+    compute_bipartite_exogenous_levy_matrix,
     compute_directed_laplacian_signal,
+    compute_levy_matrix_vectorized,
+    generate_global_2000_market_panel,
+    load_exogenous_conditioned_1h_panel,
+    load_multimodal_daily_panel,
+    precompute_bipartite_low_rank_2000_signals,
+    run_exogenous_conditioned_1h_backtest,
+    run_global_2000_market_benchmark,
+    run_multimodal_daily_backtest,
 )
 
 __all__ = [
     "SOTABacktestResult",
     "SOTAConfig",
     "SOTALeadLagEngine",
+    "compute_bilinear_smart_money_signals",
+    "compute_bipartite_exogenous_levy_matrix",
     "compute_directed_laplacian_signal",
+    "compute_levy_matrix_vectorized",
+    "generate_global_2000_market_panel",
+    "load_exogenous_conditioned_1h_panel",
+    "load_multimodal_daily_panel",
+    "precompute_bipartite_low_rank_2000_signals",
+    "run_exogenous_conditioned_1h_backtest",
+    "run_global_2000_market_benchmark",
+    "run_multimodal_daily_backtest",
 ]
