@@ -1919,22 +1919,27 @@ def apply_intraday_volatility_tpsl_and_min_hold_guard(
     asset_log_returns: np.ndarray,
     *,
     sl_sigma_mult: float = 3.5,
-    tp_sigma_mult: float = 3.5,
+    tp_sigma_mult: float = 3.8,
+    trailing_pullback_sigma: float = 1.6,
+    redistribute_to_winners: bool = True,
     min_hold_steps: int = 6,
     vol_window: int = 24,
 ) -> dict[str, Any]:
-    """Apply Intraday Per-Asset Volatility TP/SL Barrier & Broker Anti-Latency Min-Hold Compliance Guard (Theorems 32 & 33).
+    """Apply Intraday Per-Asset Volatility TP/SL Barrier, Winner Redistribution & Min-Hold Guard (Theorems 32-34).
 
-    Enforces two institutional reality guards between scheduled rebalance timestamps:
+    Enforces three institutional reality and alpha-amplification guards between scheduled rebalance timestamps:
       1. Broker Anti-Latency Min-Hold Compliance Lock (Theorem 33): No non-emergency position may be closed or
          reversed before holding for at least `min_hold_steps` bars (e.g., 6 hours = 360 minutes, well above prop-firm
          and broker 1-3 minute tick-scalping / latency-arbitrage bans).
-      2. Intraday Per-Asset Volatility Stop-Loss & Take-Profit with Leg-Neutral Projection (Theorem 32):
+      2. Intraday Per-Asset Volatility Stop-Loss & Asymmetric Chandelier Trailing Profit-Runner (Theorem 32 & 34):
          Tracks each open asset cumulative return since entry against its strictly causal rolling volatility
          envelope sigma_{i,t} * sqrt(h_t). When an asset breaches -k_SL * sigma_{i,t} * sqrt(h_t) (emergency stop-loss)
-         or +k_TP * sigma_{i,t} * sqrt(h_t) after min_hold_steps (take-profit), that asset is immediately closed and
-         the opposing leg is proportionally scaled so exact dollar neutrality (1^T p_t = 0) is preserved without
-         triggering artificial churn across untouched positions.
+         or reaches +k_TP * sigma_{i,t} * sqrt(h_t) after min_hold_steps and pulls back by trailing_pullback_sigma * sigma_{i,t}
+         from its intraday high-water mark (or immediately if trailing_pullback_sigma <= 0), that asset is exited.
+      3. Same-Leg Winner Capital Redistribution (Theorem 34): Instead of shrinking the opposite leg when a losing position
+         stops out, freed capital is redistributed to surviving positive-momentum winners in the same leg (when
+         `redistribute_to_winners=True`), preserving both exact dollar neutrality (1^T p_t = 0) and full gross capital
+         deployment while amplifying right-tail trend winners.
     """
     P_sched = np.asarray(scheduled_positions, dtype=float)
     R_eval = np.asarray(asset_returns, dtype=float)
@@ -1966,6 +1971,7 @@ def apply_intraday_volatility_tpsl_and_min_hold_guard(
     min_h = max(0, int(min_hold_steps))
     k_sl = float(sl_sigma_mult)
     k_tp = float(tp_sigma_mult)
+    k_trail = float(trailing_pullback_sigma)
 
     sl_count = 0
     tp_count = 0
@@ -1994,12 +2000,22 @@ def apply_intraday_volatility_tpsl_and_min_hold_guard(
             else np.zeros((1, N))
         )
         h_blk = hold_h[None, :] + np.arange(blk_len)[:, None]
-        sigma_blk = vol_roll[s0:s1] * np.sqrt(np.maximum(h_blk, 1))
+        vol_1h_blk = vol_roll[s0:s1]
+        sigma_blk = vol_1h_blk * np.sqrt(np.maximum(h_blk, 1))
         signed_pnl = cum_before * np.sign(cur_p)[None, :]
+        peak_pnl = np.maximum.accumulate(signed_pnl, axis=0)
 
         active_cols = np.abs(cur_p) > 1e-8
         sl_mat = active_cols[None, :] & (signed_pnl <= -k_sl * sigma_blk)
-        tp_mat = active_cols[None, :] & (h_blk >= min_h) & (signed_pnl >= k_tp * sigma_blk)
+        if k_trail > 0.0:
+            tp_mat = (
+                active_cols[None, :]
+                & (h_blk >= min_h)
+                & (peak_pnl >= k_tp * sigma_blk)
+                & ((peak_pnl - signed_pnl) >= k_trail * vol_1h_blk)
+            )
+        else:
+            tp_mat = active_cols[None, :] & (h_blk >= min_h) & (signed_pnl >= k_tp * sigma_blk)
         hit_mat = sl_mat | tp_mat
 
         if not np.any(hit_mat):
@@ -2007,6 +2023,8 @@ def apply_intraday_volatility_tpsl_and_min_hold_guard(
             hold_h += blk_len
         else:
             p_step = cur_p.copy()
+            orig_pos_leg = cur_p[cur_p > 0].sum()
+            orig_neg_leg = -cur_p[cur_p < 0].sum()
             for u in range(blk_len):
                 if u > 0 and np.any(hit_mat[u]):
                     active_now = np.abs(p_step) > 1e-8
@@ -2018,16 +2036,28 @@ def apply_intraday_volatility_tpsl_and_min_hold_guard(
                         tp_count += int(np.sum(tp_now))
                         p_step = p_step.copy()
                         p_step[newly_hit] = 0.0
-                        pos_sum = p_step[p_step > 0].sum()
-                        neg_sum = -p_step[p_step < 0].sum()
-                        min_leg = min(pos_sum, neg_sum)
-                        if min_leg > 1e-8:
-                            if pos_sum > min_leg:
-                                p_step[p_step > 0] *= min_leg / pos_sum
-                            if neg_sum > min_leg:
-                                p_step[p_step < 0] *= min_leg / neg_sum
+                        if redistribute_to_winners:
+                            pos_mask = p_step > 1e-8
+                            neg_mask = p_step < -1e-8
+                            if np.any(pos_mask) and np.any(neg_mask):
+                                pos_w = p_step[pos_mask] * np.exp(np.clip(signed_pnl[u, pos_mask] * 10.0, -2.0, 2.0))
+                                neg_w = (-p_step[neg_mask]) * np.exp(np.clip(signed_pnl[u, neg_mask] * 10.0, -2.0, 2.0))
+                                target_leg = min(orig_pos_leg, orig_neg_leg)
+                                p_step[pos_mask] = (pos_w / max(pos_w.sum(), 1e-12)) * target_leg
+                                p_step[neg_mask] = -(neg_w / max(neg_w.sum(), 1e-12)) * target_leg
+                            else:
+                                p_step[:] = 0.0
                         else:
-                            p_step[:] = 0.0
+                            pos_sum = p_step[p_step > 0].sum()
+                            neg_sum = -p_step[p_step < 0].sum()
+                            min_leg = min(pos_sum, neg_sum)
+                            if min_leg > 1e-8:
+                                if pos_sum > min_leg:
+                                    p_step[p_step > 0] *= min_leg / pos_sum
+                                if neg_sum > min_leg:
+                                    p_step[p_step < 0] *= min_leg / neg_sum
+                            else:
+                                p_step[:] = 0.0
                         hold_h[newly_hit] = 0
                 pos_actual[s0 + u] = p_step
             hold_h[np.abs(p_step) > 1e-8] += blk_len
@@ -2046,31 +2076,35 @@ def run_third_party_paper_trading_audit(
     prices_df: pd.DataFrame,
     config: SOTAConfig | None = None,
     *,
+    z_all: dict[int, np.ndarray] | None = None,
     fee_bps: float = 5.0,
     base_slippage_bps: float = 2.0,
     funding_spread_bps_per_8h: float = 0.24,
     sl_sigma_mult: float = 3.5,
-    tp_sigma_mult: float = 3.5,
+    tp_sigma_mult: float = 3.8,
+    trailing_pullback_sigma: float = 1.6,
+    redistribute_to_winners: bool = True,
     min_hold_steps: int = 6,
     execution_delay_fraction: float = 0.25,
     verify_prefix_isolation: bool = True,
 ) -> SOTARealityShieldResult:
-    """Execute an Independent Third-Party Paper-Trading & Reality-Shield Verification Audit (Theorems 31-33).
+    """Execute an Independent Third-Party Paper-Trading & Reality-Shield Verification Audit (Theorems 31-34).
 
     Simulates an external broker/exchange paper-trading matching engine:
       1. Eliminates any backward-fill (`bfill`) lookahead on leading missing values by restricting to assets valid at t=0
          or forward-filling only.
       2. Verifies strict filtration causality via multi-checkpoint prefix isolation (`prices.iloc[:t_chk]`), proving
          that historical orders are 100% invariant to future price trajectories.
-      3. Enforces the Broker Anti-Latency Min-Hold Compliance Lock (`min_hold_steps`) and Intraday Per-Asset
-         Volatility TP/SL (`sl_sigma_mult`, `tp_sigma_mult`) with Leg-Neutral dollar-neutrality preservation.
+      3. Enforces the Broker Anti-Latency Min-Hold Compliance Lock (`min_hold_steps`), Intraday Per-Asset
+         Volatility Stop-Loss (`sl_sigma_mult`), Asymmetric Chandelier Trailing Profit-Runner (`tp_sigma_mult`,
+         `trailing_pullback_sigma`), and Same-Leg Winner Capital Redistribution (`redistribute_to_winners`).
       4. Applies the Execution Latency Delay Buffer (`execution_delay_fraction`, e.g. 0.25 for 15-minute TWAP fill
          or 1.00 for full 1-hour next-candle delay) and deducts Commission + Dynamic Volatility Slippage + 8h Funding.
     """
     cfg = config or SOTAConfig.hourly_conservative()
     df_clean = prices_df.sort_index()
     valid_t0 = df_clean.columns[df_clean.iloc[: min(200, len(df_clean))].notna().mean() == 1.0]
-    if len(valid_t0) >= 4:
+    if len(valid_t0) >= 4 and z_all is None:
         P = df_clean[valid_t0].ffill()
     else:
         P = df_clean.ffill().fillna(0.0)
@@ -2082,11 +2116,14 @@ def run_third_party_paper_trading_audit(
     LR[0] = 0.0
     LR = np.nan_to_num(LR, nan=0.0, posinf=0.0, neginf=0.0)
 
-    z_all, _ = eng.precompute_horizon_signals(LR, stride=int(cfg.rebal_steps))
-    res_base = eng.run_backtest(P, z_all=z_all)
+    if z_all is None:
+        z_signals, _ = eng.precompute_horizon_signals(LR, stride=int(cfg.rebal_steps))
+    else:
+        z_signals = z_all
+    res_base = eng.run_backtest(P, z_all=z_signals)
 
     max_prefix_diff = 0.0
-    if verify_prefix_isolation and len(P) >= 1600:
+    if verify_prefix_isolation and len(P) >= 1600 and z_all is None:
         for frac in (0.35, 0.65, 0.85):
             chk_t = int(len(P) * frac)
             P_sub = P.iloc[:chk_t]
@@ -2108,6 +2145,8 @@ def run_third_party_paper_trading_audit(
         LR_eval,
         sl_sigma_mult=sl_sigma_mult,
         tp_sigma_mult=tp_sigma_mult,
+        trailing_pullback_sigma=trailing_pullback_sigma,
+        redistribute_to_winners=redistribute_to_winners,
         min_hold_steps=min_hold_steps,
     )
     pos_actual = tpsl_res["positions"]

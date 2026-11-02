@@ -558,3 +558,35 @@ def test_theorem33_broker_anti_latency_min_hold_and_third_party_paper_trading_au
     assert np.isfinite(audit.net_sharpe)
     assert audit.prefix_isolation_max_diff < 1e-12
     np.testing.assert_allclose(audit.positions.sum(axis=1).values, 0.0, atol=1e-12)
+
+
+def test_theorem34_same_leg_winner_redistribution_and_chandelier_trailing() -> None:
+    T, N = 48, 4
+    sched = np.zeros((T, N), dtype=float)
+    sched[:, 0] = 0.25
+    sched[:, 1] = 0.25
+    sched[:, 2] = -0.25
+    sched[:, 3] = -0.25
+
+    rets = np.zeros((T, N), dtype=float)
+    # Asset 0 crashes at bar 5 (triggers SL), Asset 1 is a strong winner in the same long leg
+    rets[4, 0] = -0.15
+    rets[1:10, 1] = 0.015
+    lrets = np.log1p(np.maximum(rets, -0.9))
+
+    out = apply_intraday_volatility_tpsl_and_min_hold_guard(
+        sched,
+        rets,
+        lrets,
+        sl_sigma_mult=2.0,
+        tp_sigma_mult=3.8,
+        trailing_pullback_sigma=1.5,
+        redistribute_to_winners=True,
+        min_hold_steps=6,
+    )
+    pos = out["positions"]
+    assert out["sl_triggers_count"] >= 1
+    # Asset 0 closed after bar 4 -> at bar 6, Asset 1 absorbs the full +0.50 long leg!
+    assert abs(pos[6, 0]) < 1e-9
+    assert abs(pos[6, 1] - 0.50) < 1e-6
+    assert np.allclose(pos.sum(axis=1), 0.0, atol=1e-6)
