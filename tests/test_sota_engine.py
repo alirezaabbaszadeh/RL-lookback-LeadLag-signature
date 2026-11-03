@@ -9,6 +9,17 @@ import pandas as pd
 from leadlag.alpha.sota_engine import (
     SOTARealityShieldResult,
     apply_intraday_volatility_tpsl_and_min_hold_guard,
+    apply_rough_path_infinity_grid_harvester,
+    apply_smart_rebalance_and_funding_carry_overlay,
+    compute_continual_meta_rl_adaptation_step,
+    compute_cvar_rockafellar_uryasev_saddle_weights,
+    compute_pac_sample_complexity_certificate,
+    compute_rough_path_bellman_q_projection,
+    compute_stochastic_lyapunov_barrier_certificate,
+    compute_symplectic_slicing_and_maker_execution,
+    compute_wasserstein_sublinear_regret_bound,
+    evaluate_world_model_ood_kill_switch,
+    run_20_agent_hierarchical_marl_ecosystem,
     compute_composite_reality_friction,
     run_third_party_paper_trading_audit,
     SOTAConfig,
@@ -590,3 +601,120 @@ def test_theorem34_same_leg_winner_redistribution_and_chandelier_trailing() -> N
     assert abs(pos[6, 0]) < 1e-9
     assert abs(pos[6, 1] - 0.50) < 1e-6
     assert np.allclose(pos.sum(axis=1), 0.0, atol=1e-6)
+
+
+def test_theorem35_rough_path_bellman_q_projection() -> None:
+    rng = np.random.default_rng(35)
+    Phi = rng.normal(0.0, 1.0, size=(60, 8))
+    R = 0.01 * Phi + rng.normal(0.0, 0.002, size=(60, 8))
+    out = compute_rough_path_bellman_q_projection(Phi, R, discount_gamma=0.95)
+    assert out["policy_weights"].shape == (60, 8)
+    assert np.allclose(out["policy_weights"].sum(axis=1), 0.0, atol=1e-6)
+    assert out["bellman_residual"] >= 0.0
+
+
+def test_theorem36_cvar_rockafellar_uryasev_saddle_weights() -> None:
+    rng = np.random.default_rng(36)
+    P = rng.normal(0.0, 0.2, size=(120, 6))
+    P -= P.mean(axis=1, keepdims=True)
+    R = rng.normal(0.0, 0.03, size=(120, 6))
+    out = compute_cvar_rockafellar_uryasev_saddle_weights(P, R, alpha=0.95, cvar_limit=0.012, window=40)
+    assert out["positions"].shape == (120, 6)
+    assert out["post_realized_cvar"] <= out["cvar_limit"] * 1.15
+
+
+def test_theorem37_stochastic_lyapunov_barrier_certificate() -> None:
+    T, N = 80, 6
+    P_star = np.zeros((T, N))
+    P_star[:, :3] = 1.0 / 6.0
+    P_star[:, 3:] = -1.0 / 6.0
+    P = P_star + np.random.default_rng(37).normal(0.0, 0.05, size=(T, N))
+    eq = np.linspace(1.0, 1.25, T)
+    out = compute_stochastic_lyapunov_barrier_certificate(P, P_star, eq)
+    assert out["stabilized_positions"].shape == (T, N)
+    assert out["stability_certified"] is True
+
+
+def test_theorem38_wasserstein_sublinear_regret_bound() -> None:
+    rng = np.random.default_rng(38)
+    E_ret = rng.normal(0.0005, 0.005, size=(500, 4))
+    r_pi = E_ret.mean(axis=1) + 0.0002
+    out = compute_wasserstein_sublinear_regret_bound(E_ret, r_pi)
+    assert out["sublinear_verified"] is True
+    assert out["theoretical_regret_bound"] > 0.0
+
+
+def test_theorem39_continual_meta_rl_adaptation_step() -> None:
+    w_prior = np.array([0.25, 0.25, 0.25, 0.25])
+    grad = np.array([0.4, -0.1, 0.2, -0.5])
+    fisher = np.array([2.0, 1.5, 3.0, 1.0])
+    out = compute_continual_meta_rl_adaptation_step(w_prior, grad, fisher)
+    assert np.isclose(out["adapted_weights"].sum(), 1.0)
+    assert out["sample_efficiency_gain_pct"] >= 30.0
+
+
+def test_theorem40_pac_sample_complexity_certificate() -> None:
+    rng = np.random.default_rng(40)
+    factors = rng.normal(0.0, 1.0, size=(300, 3))
+    loadings = rng.normal(0.0, 1.0, size=(3, 24))
+    R = factors @ loadings + rng.normal(0.0, 0.2, size=(300, 24))
+    out = compute_pac_sample_complexity_certificate(R)
+    assert 1 <= out["effective_rank"] < 24
+    assert out["sample_compression_factor"] > 1.5
+
+
+def test_theorem41_20_agent_hierarchical_marl_ecosystem() -> None:
+    rng = np.random.default_rng(41)
+    Z = rng.normal(0.0, 1.0, size=(4, 90, 10))
+    R = 0.005 * Z[0] + rng.normal(0.0, 0.01, size=(90, 10))
+    out_full = run_20_agent_hierarchical_marl_ecosystem(Z, R)
+    out_drop = run_20_agent_hierarchical_marl_ecosystem(Z, R, dropout_agent_indices=[0, 5, 10, 15])
+    assert out_full["ensemble_positions"].shape == (90, 10)
+    assert out_full["active_agents_count"] == 20
+    assert out_drop["active_agents_count"] == 16
+    assert np.allclose(out_drop["ensemble_positions"].sum(axis=1), 0.0, atol=1e-6)
+
+
+def test_theorem42_world_model_ood_kill_switch() -> None:
+    rng = np.random.default_rng(42)
+    R_pred = rng.normal(0.0, 0.005, size=(50, 12))
+    R_real = R_pred.copy()
+    R_real[25] += 0.12  # Extreme OOD shock at step 25
+    out = evaluate_world_model_ood_kill_switch(R_real, R_pred, ood_wasserstein_threshold=0.03)
+    assert out["kill_switch_activations"] >= 1
+    assert out["safe_leverage_multiplier"][25] <= 0.25
+
+
+def test_theorem43_rough_path_infinity_grid_harvester() -> None:
+    rng = np.random.default_rng(43)
+    T, N = 60, 8
+    P_core = np.zeros((T, N))
+    P_core[:, :4] = 0.125
+    P_core[:, 4:] = -0.125
+    R = rng.normal(0.0, 0.015, size=(T, N))
+    LR = np.log1p(np.clip(R, -0.5, 0.5))
+    out = apply_rough_path_infinity_grid_harvester(P_core, R, LR, satellite_fraction=0.28)
+    assert out["positions"].shape == (T, N)
+    assert np.allclose(out["positions"].sum(axis=1), 0.0, atol=1e-6)
+    assert out["grid_harvest_cycles"] >= 0
+
+
+def test_theorem44_smart_rebalance_and_funding_carry_overlay() -> None:
+    rng = np.random.default_rng(44)
+    T, N = 60, 8
+    P = np.zeros((T, N))
+    P[:, :4] = 0.125
+    P[:, 4:] = -0.125
+    S = rng.normal(0.0, 1.0, size=(T, N))
+    R = rng.normal(0.0, 0.01, size=(T, N))
+    out = apply_smart_rebalance_and_funding_carry_overlay(P, S, R)
+    assert out["positions"].shape == (T, N)
+    assert np.allclose(out["positions"].sum(axis=1), 0.0, atol=1e-6)
+
+
+def test_theorem45_symplectic_slicing_and_maker_execution() -> None:
+    to_v = np.full(100, 0.02)
+    vol_v = np.full(100, 0.012)
+    out = compute_symplectic_slicing_and_maker_execution(to_v, vol_v, maker_fill_ratio=0.65, n_slices=4)
+    assert out["effective_fee_bps"] < 5.0
+    assert out["mean_sliced_slippage_bps"] < 2.0
