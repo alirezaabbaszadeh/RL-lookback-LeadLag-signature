@@ -1,3 +1,8 @@
+from leadlag.alpha.dynamic_online_learner import (
+    DynamicOnlineContinualLearner,
+    MarketEvent,
+    MarketRegime,
+)
 from leadlag.alpha.sota_engine import (
     SOTARealityShieldResult,
     run_20_agent_hierarchical_marl_ecosystem,
@@ -41,6 +46,9 @@ from leadlag.alpha.sota_engine import (
 )
 
 __all__ = [
+    "DynamicOnlineContinualLearner",
+    "MarketEvent",
+    "MarketRegime",
     "SOTARealityShieldResult",
     "run_20_agent_hierarchical_marl_ecosystem",
     "evaluate_world_model_ood_kill_switch",
