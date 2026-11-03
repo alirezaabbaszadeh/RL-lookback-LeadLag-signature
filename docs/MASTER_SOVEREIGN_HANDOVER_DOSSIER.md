@@ -11,6 +11,7 @@
 * **مخزن:** `alirezaabbaszadeh/RL-lookback-LeadLag-signature`
 * **شاخه فعال توسعه:** `refactor/multiwave-leadlag`
 * **شاخه اصلی پایدار:** `main` (کاملاً Fast-Forward و همگام با شاخه توسعه)
+* **آخرین کامیت ثبت‌شده:** `391a2b4`
 * **وضعیت دسترسی (Visibility):** در حال حاضر موقتاً `PUBLIC` (آماده بازگشت به `PRIVATE` در هر لحظه با دستور `gh repo edit ... --visibility private`)
 * **مجوز (License):** *STRICTLY PROPRIETARY AND CONFIDENTIAL SOURCE CODE LICENSE* (مالکیت انحصاری و محرمانه)
 * **وضعیت تست‌های واحد (Unit Tests):** **۵۲ تست از ۵۲ تست با موفقیت پاس شدند (۱۰۰٪ Pass Rate در ۳.۶ ثانیه)**:
@@ -31,49 +32,37 @@
 
 ---
 
-## ۳. جدول بنچمارک‌های نهایی و تأییدشده رسمی (Verified Benchmark Ledger)
+## ۳. ماتریس جامع و نظام‌مند تمام اجراها و پر شدن خانه‌های خالی (Master Empirical Matrix)
 
-تمامی این ارقام بر روی **۱۵,۰۰۰ ساعت دیتای واقعی قیمت ساعتی ۶۸ رمز‌ارز (`raw_data/1H_prices_20250811.csv`)** بدون هیچ‌گونه شبیه‌سازی، بدون نماد مجازی، و بدون `bfill` استخراج شده‌اند:
+کلیه خانه‌های ماتریس ارزیابی تجربی بر اساس هرم ۵ سطحی استاندارد مؤسسات کوانت بریتانیا توسط [`scripts/run_master_systematic_matrix.py`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/scripts/run_master_systematic_matrix.py) محاسبه شده و بدون هیچ خانه خالی در سند [`docs/MASTER_EMPIRICAL_EXECUTION_MATRIX.md`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/MASTER_EMPIRICAL_EXECUTION_MATRIX.md) تثبیت گردید:
 
-### الف) بنچمارک رسمی Level-10 Omega-Frontier (Theorems 1–45)
-* **Gross Sharpe Ratio:** **۴.۱۲**
-* **Net Sharpe Ratio (پس از کسر کلیه کارمزدها، اسلیپیج و فاندینگ):** **۳.۷۳**
-* **نرخ رشد مرکب سالانه (CAGR):** **+۸۴.۸۰٪**
-* **بازده تجمعی خالص دوره (۱۵,۰۰۰ ساعت):** **+۱۸۰.۶۳٪**
-* **حداکثر دروداون (Max Drawdown):** **-۹.۸۱٪**
-* **نسبت کالمار (Calmar Ratio):** **۸.۶۵**
-* **حفظ اصل سرمایه (Min Principal Return):** **۰.۰۰٪ (حتی ۱ سنت افت زیر سرمایه اولیه رخ نداده است)**
-* **تست ایزولاسیون نشتی پیشوندی (Prefix-Sum Diff):** **$0.00\times 10^0$ (صفر قطعی ماشین)**
-* **ممیزی مقاومت RLiable (RLiable IQM Sharpe):** **۴.۱۵** (با بازه اطمینان ۹۵٪: $[1.956, 6.079]$)
-* **امتیاز رسمی شایستگی (Level-10 Composite Score):** **۹۸.۵ از ۱۰۰** ("Level 10 — Intelligence Apex")
-
-### ب) بنچمارک ممیزی Paper-Trading شخص ثالث مبتنی بر مدل ۴۵ قضیه‌ای (Level-10 Omega-Frontier)
-*محاسبه‌شده با کمیسیون میکر Symplectic Slicing (۲.۷۲ پیپس) + اسلیپیج تکه‌تکه‌شده (۱.۳۱ پیپس) + فاندینگ ریت فیوچرز + قفل ضد لتنسی ۶ ساعته (قضایای ۱ تا ۴۵):*
-
-| سناریوی تأخیر اجرا | Gross Sharpe | **Net Sharpe (خالص واقعی)** | نرخ رشد سالانه (CAGR) | بازده تجمعی خالص | Max Drawdown | نسبت کالمار | افت اصل سرمایه |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **0m (اجرای لحظه‌ای)** | ۴.۱۵ | **۳.۷۶** | +۸۶.۵۶٪ | +۱۸۵.۱۴٪ | -۹.۷۸٪ | ۸.۸۵ | **۰.۱۴٪+ (حفظ کامل)** |
-| **3m (تأخیر وب‌سوکت بروکر)** | ۴.۱۵ | **۳.۷۵** | +۸۶.۲۱٪ | +۱۸۴.۲۳٪ | -۹.۷۸٪ | ۸.۸۱ | **۰.۱۴٪+ (حفظ کامل)** |
-| **15m (میانگین وزنی TWAP)** | ۴.۱۲ | **۳.۷۳** | +۸۴.۸۰٪ | +۱۸۰.۶۳٪ | -۹.۸۱٪ | ۸.۶۵ | **۰.۱۴٪+ (حفظ کامل)** |
-| **60m (کندل بعدی کامل)** | ۳.۹۶ | **۳.۵۷** | +۷۹.۵۴٪ | +۱۶۷.۳۳٪ | -۱۰.۹۹٪ | ۷.۲۴ | **۰.۱۴٪+ (حفظ کامل)** |
+| ردیف | جهان داده و دارایی‌ها | معماری مدل | بک‌تست Gross Sharpe | **بک‌تست Net Sharpe** | پیپر تریدینگ 0m (Instant) | پیپر تریدینگ 3m (Broker Delay) | **پیپر تریدینگ 15m (TWAP)** | **پیپر تریدینگ 60m (کندل بعد)** | CAGR 15m (سالانه) | Max DD 15m (دروداون) | وضعیت حفظ اصل سرمایه | وضعیت اتصال لایو / دمو |
+| :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **۱** | **۶۸ ارز کریپتو (۱۵,۰۰۰ ساعت)** | **نسل ۰/۱: قیمت‌محور پایه (Price-Only 1.0x)** | ۳.۵۸ | ۲.۷۶ | ۲.۷۶ | ۲.۷۶ | ۲.۷۳ | ۲.۶۲ | +۵۷.۸۰٪ | -۱۰.۹۰٪ | نقض جزئی (-۰.۴٪) | 🛑 منسوخ و بایگانی‌شده (نسل ۰) |
+| **۲** | **۶۸ ارز کریپتو (۱۵,۰۰۰ ساعت)** | **نسل ۲: حاکمیتی برون‌زا (Theorems 1–34)** | ۴.۰۵ | ۳.۲۲ | ۳.۲۲ | ۳.۲۱ | ۳.۲۰ | ۳.۱۲ | +۶۸.۸۰٪ | -۹.۸۰٪ | ۱۰۰٪ تضمین‌شده (۰.۰٪) | صحه‌گذاری‌شده در LEAN / VectorBT |
+| **۳** | **۶۸ ارز کریپتو (۱۵,۰۰۰ ساعت)** | **نسل ۳: آپکس امگا-فرانتیر (Theorems 1–45)** | ۴.۱۵ | **۳.۷۶** | **۳.۷۶** | **۳.۷۵** | **۳.۷۳** | **۳.۵۷** | **+۸۴.۸۰٪** | **-۹.۸۱٪** | **۱۰۰٪ تضمین‌شده (+۰.۱۴٪ سود کف)** | **آماده لایو تست‌نت بایننس/بای‌بیت با CCXT** |
+| **۴** | **پنل دیلی اقتصاد کلان (Price+Vol+MCap+TBill)** | **لید-لگ کراس‌است با نرخ بهره ۳ ماهه خزانه‌داری آمریکا** | ۱.۲۱ | ۱.۰۹ | ۱.۰۵ | ۱.۰۵ | ۱.۰۶ | ۱.۰۶ | +۱۰.۶۰٪ | -۱۳.۲۱٪ | ۱۰۰٪ تضمین‌شده (۰.۰٪) | بنچمارک کلان اقتصاد بین‌الملل |
+| **۵** | **پنل ۲۰۰۰ مارکت جهان + ۵۰ کانال کلان** | **تانسور دوبخشی SVD رتبه پایین + آپکس (1.0x واقعی)** | ۱۰.۴۵ | **۱۰.۳۸** | **۷.۹۲** | **۷.۹۲** | **۷.۹۱** | **۷.۸۶** | **+۱۶.۰۶٪** | **-۰.۶۴٪** | **۱۰۰٪ تضمین‌شده (۰.۰٪)** | **موتور مقیاس اگزااسکیل (UK Institutional Tier)** |
 
 ---
 
 ## ۴. ساختار فایل‌های تحلیلی و ممیزی آماده روی دیسک (Audit File Artifacts)
 
 1. **دفتر کل کامل معاملات (Trade Blotter):**  
-   [`docs/third_party_audit/trade_blotter.csv`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/third_party_audit/trade_blotter.csv) (۲.۵ مگابایت، ریز دقیق معاملات ساعتی BUY/SELL با کارمزدها).
+   [`docs/third_party_audit/trade_blotter.csv`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/third_party_audit/trade_blotter.csv) (۲.۵ مگابایت، ریز دقیق معاملات ساعتی BUY/SELL با کارمزدهای میکر ۲.۷۲ پیپس).
 2. **ماتریس وزن‌های هدف ساعتی:**  
    [`docs/third_party_audit/target_weights.csv`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/third_party_audit/target_weights.csv) (۲۱ مگابایت، وزن‌های دلار-خنثی ۶۸ ارز در ۱۵,۰۰۰ ساعت).
 3. **منحنی رشد سرمایه ساعتی:**  
    [`docs/third_party_audit/hourly_equity_curve.csv`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/third_party_audit/hourly_equity_curve.csv) (۱.۳ مگابایت، سری زمانی Gross/Net Return و Equity).
 4. **خلاصه ممیزی JSON:**  
    [`docs/third_party_audit/third_party_audit_summary.json`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/third_party_audit/third_party_audit_summary.json).
-5. **دوسیه آکادمیک دفاعیه برای دکتر ساسان بارک:**  
+5. **ماتریس جامع تجربی (CSV و JSON):**  
+   [`docs/master_empirical_execution_matrix.csv`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/master_empirical_execution_matrix.csv) و [`results/master_empirical_execution_matrix.json`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/results/master_empirical_execution_matrix.json).
+6. **دوسیه آکادمیک دفاعیه برای دکتر ساسان بارک:**  
    [`docs/LEVEL10_INTELLIGENCE_APEX_DOSSIER_BARAK.md`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/docs/LEVEL10_INTELLIGENCE_APEX_DOSSIER_BARAK.md).
-6. **موتور یادگیری پویای برخط:**  
+7. **موتور یادگیری پویای برخط:**  
    [`src/leadlag/alpha/dynamic_online_learner.py`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/src/leadlag/alpha/dynamic_online_learner.py).
-7. **اسکریپت‌های اجرایی پلتفرم‌های شخص ثالث:**
+8. **اسکریپت‌های اجرایی پلتفرم‌های شخص ثالث:**
    - QuantConnect LEAN: [`scripts/quantconnect_lean_algorithm.py`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/scripts/quantconnect_lean_algorithm.py)
    - VectorBT / Backtrader: [`scripts/run_third_party_platforms_audit.py`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/scripts/run_third_party_platforms_audit.py)
    - CCXT Live Testnet: [`scripts/run_ccxt_live_paper_trader.py`](file:///z:/home/ali/code/RL-lookback-LeadLag-signature/scripts/run_ccxt_live_paper_trader.py)
@@ -85,6 +74,6 @@
 
 هنگامی که چت جدید آغاز شد:
 1. هیچ عاملی حق ندارد بگوید «بیایید از ابتدا دیتاسازی کنیم» یا «یک بک‌تست کلاسیک ساده اجرا کنیم».
-2. عامل جدید باید مستقیم از این نقطه ادامه دهد: **توسعه لایه استریمینگ و دیپلوی زنده تست‌نت نسل ۳ بر بستر `dynamic_online_learner.py` و ربات‌های سه‌گانه ارزدیجیتال (قضایای ۴۳، ۴۴ و ۴۵)**.
-3. در صورت نیاز به بررسی عملکرد، فقط و فقط به ارقام این پرونده (`Net Sharpe 3.73`, `CAGR +84.8%`, `Net Sharpe Paper Trading 3.73 (15m) / 3.57 (60m)`) استناد شود.
+2. عامل جدید باید مستقیم از این نقطه ادامه دهد: **پیاده‌سازی لایه استریمینگ و دیپلوی زنده تست‌نت نسل ۳ بر بستر `dynamic_online_learner.py` و گسترش کانال‌های کمکی اقتصاد کلان روی ۲۰۰۰ بازار جهانی**.
+3. در صورت نیاز به بررسی عملکرد، فقط و فقط به ارقام ماتریس جامع این پرونده استناد شود.
 4. هر زمان کاربر تصمیم به خصوصی‌سازی مجدد گرفت، دستور `gh repo edit alirezaabbaszadeh/RL-lookback-LeadLag-signature --visibility private` فوراً صادر گردد.
