@@ -7,6 +7,11 @@ import numpy as np
 import pandas as pd
 
 from leadlag.alpha.sota_engine import (
+    compute_five_layer_macro_liquidity_cascade_operator,
+    compute_continuous_time_rough_signature_kernel,
+    compute_multi_horizon_daily_hourly_1m_state_space_fusion,
+    compute_g4_central_bank_monetary_impulse_tensor,
+    compute_macro_regime_gated_alpha_tilt_allocation,
     compute_intelligent_dual_margin_and_treasury_routing,
     compute_borrow_aware_short_leg_optimizer,
     compute_oi_volume_proportional_futures_roll,
@@ -909,3 +914,81 @@ def test_theorem55_1min_subbar_rough_signature_aggregator() -> None:
     assert out["intra_hour_1m_levy_leadership"].shape == (T_hours, N)
     # Asset 0 must exhibit positive intra-hour 1-minute Levy leadership over Asset 1
     assert float(out["intra_hour_1m_levy_leadership"][:, 0].mean()) > float(out["intra_hour_1m_levy_leadership"][:, 1].mean())
+
+
+def test_theorem56_five_layer_macro_liquidity_cascade_operator() -> None:
+    rng = np.random.default_rng(56)
+    T = 120
+    L1 = rng.normal(0.0, 1.0, size=(T, 4))
+    L2 = np.roll(L1, 2, axis=0) * 0.6 + rng.normal(0.0, 0.5, size=(T, 4))
+    L3 = np.roll(L2, 2, axis=0) * 0.6 + rng.normal(0.0, 0.5, size=(T, 4))
+    L4 = np.roll(L3, 2, axis=0) * 0.6 + rng.normal(0.0, 0.5, size=(T, 4))
+    L5 = np.roll(L4, 2, axis=0) @ rng.normal(0.0, 1.0, size=(4, 12)) + rng.normal(0.0, 0.5, size=(T, 12))
+
+    out = compute_five_layer_macro_liquidity_cascade_operator(L1, L2, L3, L4, L5, lags=(12, 8, 6, 4))
+    assert out["layer5_cascade_signals"].shape == (T, 12)
+    assert out["upstream_macro_wave"].shape == (T,)
+    assert "layer1_cb_to_layer2_rates" in out["inter_layer_levy_flow"]
+
+
+def test_theorem57_continuous_time_rough_signature_kernel_irregular_timestamps() -> None:
+    rng = np.random.default_rng(57)
+    t_tokyo = np.cumsum(rng.uniform(0.5, 1.5, size=80))
+    v_tokyo = np.cumsum(rng.normal(0.0, 0.01, size=80))
+    # London timestamps shifted slightly later and following Tokyo moves
+    t_london = t_tokyo + 0.8
+    v_london = v_tokyo * 0.9 + rng.normal(0.0, 0.002, size=80)
+
+    out = compute_continuous_time_rough_signature_kernel(t_tokyo, v_tokyo, t_london, v_london)
+    assert np.isfinite(out["hayashi_yoshida_covariance"])
+    assert np.isfinite(out["continuous_time_levy_area"])
+    assert out["signature_kernel_similarity"] > 0.0
+
+
+def test_theorem58_multi_horizon_daily_hourly_1m_state_space_fusion() -> None:
+    rng = np.random.default_rng(58)
+    T, N = 80, 10
+    Z_d = rng.normal(0.0, 1.0, size=(T, N))
+    Z_h = rng.normal(0.0, 1.0, size=(T, N))
+    Z_m = rng.normal(0.0, 1.0, size=(T, N))
+    # Realized return strongly driven by 1H signal Z_h
+    R = 0.02 * np.roll(Z_h, 1, axis=0) + rng.normal(0.0, 0.005, size=(T, N))
+
+    out = compute_multi_horizon_daily_hourly_1m_state_space_fusion(Z_d, Z_h, Z_m, R, kalman_gain_lr=0.25)
+    assert out["fused_multi_horizon_signal"].shape == (T, N)
+    assert np.allclose(out["kalman_horizon_weights"].sum(axis=1), 1.0, atol=1e-12)
+    # 1H weight (index 1) must remain dominant
+    assert out["terminal_weights_1d_1h_1m"][1] > out["terminal_weights_1d_1h_1m"][0]
+
+
+def test_theorem59_g4_central_bank_monetary_impulse_tensor() -> None:
+    rng = np.random.default_rng(59)
+    T = 60
+    fed = rng.normal(0.0, 1.0, size=(T, 5))
+    ecb = rng.normal(0.0, 1.0, size=(T, 3))
+    boj = rng.normal(0.0, 1.0, size=(T, 3))
+    pboc = rng.normal(0.0, 1.0, size=(T, 3))
+
+    out = compute_g4_central_bank_monetary_impulse_tensor(fed, ecb, boj, pboc)
+    assert out["g4_monetary_tensor"].shape == (T, 4)
+    assert out["global_net_liquidity_impulse"].shape == (T,)
+    assert np.isclose(sum(out["regional_weights"].values()), 1.0)
+
+
+def test_theorem60_macro_regime_gated_alpha_tilt_allocation() -> None:
+    T, N = 50, 8
+    W_n = np.zeros((T, N), dtype=float)
+    W_n[:, :4] = 0.125
+    W_n[:, 4:] = -0.125
+    W_m = np.full((T, N), -0.05, dtype=float)
+    imp = np.zeros(T, dtype=float)
+    # Severe liquidity shock on steps 30..49
+    imp[30:] = -0.85
+
+    out = compute_macro_regime_gated_alpha_tilt_allocation(W_n, W_m, imp, max_directional_tilt=0.25, impulse_threshold=0.35)
+    assert out["pure_neutral_steps"] == 30
+    assert out["macro_tilt_active_steps"] == 20
+    # During calm steps 0..29, portfolio is 100% dollar-neutral
+    assert np.allclose(out["hybrid_positions"][:30].sum(axis=1), 0.0, atol=1e-12)
+    # During severe contraction steps 30..49, portfolio tilts net short as designed
+    assert np.all(out["hybrid_positions"][30:].sum(axis=1) < -0.01)
