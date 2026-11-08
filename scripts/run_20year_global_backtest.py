@@ -158,9 +158,13 @@ def run_20year_or_local_global_backtest(repo_root: Path) -> dict[str, object]:
 
     pos_eval = res.positions.values
     imp_eval = g4["global_net_liquidity_impulse"][-len(pos_eval) :]
-    macro_dir = np.sign(imp_eval)[:, None] * np.full_like(pos_eval, 1.0 / float(prices_clean.shape[1]))
+    # Dynamic Causal Z-Score Normalization for G4 Monetary Impulse (Theorem 59-60)
+    imp_s = pd.Series(imp_eval)
+    imp_z = ((imp_s - imp_s.rolling(252, min_periods=30).mean()) / (imp_s.rolling(252, min_periods=30).std() + 1e-8)).fillna(0.0).values
+
+    macro_dir = np.sign(imp_z)[:, None] * np.full_like(pos_eval, 1.0 / float(prices_clean.shape[1]))
     hybrid = compute_macro_regime_gated_alpha_tilt_allocation(
-        pos_eval, macro_dir, imp_eval, max_directional_tilt=0.20, impulse_threshold=0.45
+        pos_eval, macro_dir, imp_z, max_directional_tilt=0.25, impulse_threshold=0.50
     )
 
     return {

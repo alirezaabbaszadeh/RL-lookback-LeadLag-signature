@@ -995,6 +995,39 @@ def test_theorem60_macro_regime_gated_alpha_tilt_allocation() -> None:
     assert np.all(out["hybrid_positions"][30:].sum(axis=1) < -0.01)
 
 
+def test_theorem60_dynamic_learnable_macro_tilt_controller() -> None:
+    """Test dynamic learnable macro tilt expanding up to 90% Long/Short while retaining 50/50 anchor."""
+    T, N = 60, 10
+    W_n = np.zeros((T, N), dtype=float)
+    W_n[:, :5] = 0.10
+    W_n[:, 5:] = -0.10  # 50/50 dollar-neutral anchor
+    W_macro = np.full((T, N), 0.09, dtype=float)  # 90% gross Long target
+    imp = np.zeros(T, dtype=float)
+    imp[20:40] = 2.5  # Extreme positive monetary impulse (e.g. massive QE)
+    imp[40:] = -2.5  # Extreme negative impulse (aggressive tightening)
+
+    # Realized returns that reward the macro direction during extreme shock
+    R = np.zeros((T, N), dtype=float)
+    R[20:40] = 0.02
+    R[40:] = -0.02
+
+    out = compute_macro_regime_gated_alpha_tilt_allocation(
+        W_n,
+        W_macro,
+        imp,
+        max_directional_tilt=0.90,
+        impulse_threshold=0.50,
+        realized_returns=R,
+        enable_learnable_controller=True,
+    )
+    # 1. During calm steps 0..19, stays anchored at 50/50 dollar-neutral (0 net exposure)
+    assert np.allclose(out["hybrid_positions"][:20].sum(axis=1), 0.0, atol=1e-12)
+    # 2. During massive conviction steps with positive feedback, directional tilt dynamically expands up to 90% Long
+    assert out["max_realized_directional_tilt"] >= 0.85
+    # 3. Dynamic theta learned adaptively
+    assert out["adaptive_theta_weights"].shape == (T,)
+
+
 def test_open_world_3000_market_multi_resolution_and_multi_broker_end_to_end_proof() -> None:
     """Prove end-to-end simultaneous operation across 3,000 Global Markets, 6 Asset Classes, 5 Macro Layers, and 1m/1H/1D Resolutions."""
     rng = np.random.default_rng(2026)

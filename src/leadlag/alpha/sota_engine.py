@@ -3955,20 +3955,67 @@ def compute_macro_regime_gated_alpha_tilt_allocation(
     *,
     max_directional_tilt: float = 0.25,
     impulse_threshold: float = 0.35,
+    realized_returns: np.ndarray | None = None,
+    volatility_regime: np.ndarray | None = None,
+    adaptive_learning_rate: float = 0.05,
+    enable_learnable_controller: bool = False,
 ) -> dict[str, Any]:
-    """Apex Theorem XXIII (Theorem 60): Hybrid Sector Dollar-Neutral Core + Macro Regime-Gated Directional Tilt."""
+    """Apex Theorem XXIII (Theorem 60): Dynamic Learnable Macro Regime-Gated Directional Tilt.
+
+    Dynamically balances between:
+      1. Foundational 50/50 Dollar-Neutral Anchor (Market-Neutral Core) when uncertainty is high.
+      2. Adaptive Macro Directional Expansion (allowing up to 90%+ Long or 90%+ Short) when
+         real-time monetary impulse conviction is validated by online reinforcement feedback.
+    """
     W_neutral = np.asarray(sector_neutral_positions, dtype=float)
     W_macro = np.asarray(macro_directional_target, dtype=float)
     imp = np.asarray(global_liquidity_impulse, dtype=float).reshape(-1)
     if W_neutral.ndim != 2 or W_neutral.shape != W_macro.shape or len(imp) != W_neutral.shape[0]:
         raise ValueError("sector_neutral_positions, macro_directional_target, and global_liquidity_impulse must align")
     T, N = W_neutral.shape
-    max_tilt = float(np.clip(max_directional_tilt, 0.0, 0.50))
-    thresh = max(0.05, float(impulse_threshold))
+    # Dynamic ceiling: allow up to 0.95 (95% Long or Short) per user doctoral directive
+    max_tilt = float(np.clip(max_directional_tilt, 0.0, 0.95))
+    thresh = float(impulse_threshold)
 
     W_n_clean = W_neutral - W_neutral.mean(axis=1, keepdims=True)
     excess_imp = np.maximum(0.0, np.abs(imp) - thresh) / max(1.0 - thresh, 1e-6)
-    lambda_t = max_tilt * np.tanh(2.0 * excess_imp)
+
+    if not enable_learnable_controller or realized_returns is None or T < 2:
+        # Standard analytical tanh scaling bounded by max_tilt (up to 0.95)
+        lambda_t = max_tilt * np.tanh(2.0 * excess_imp)
+        theta_history = np.ones(T, dtype=float)
+    else:
+        # Online Adaptive Learnable Bayesian Controller (RL Contextual Bandit Policy)
+        R = np.asarray(realized_returns, dtype=float)
+        vol = (
+            np.asarray(volatility_regime, dtype=float).reshape(-1)
+            if volatility_regime is not None
+            else np.std(R, axis=1)
+        )
+        vol_norm = np.clip(vol / (np.median(vol) + 1e-8), 0.5, 3.0)
+
+        lambda_t = np.zeros(T, dtype=float)
+        theta_history = np.zeros(T, dtype=float)
+        theta = 1.0  # Initial learnable sensitivity parameter
+        eta = float(adaptive_learning_rate)
+
+        for t in range(T):
+            # Online learning update based on realized reward of the directional tilt vs neutral anchor
+            if t > 0:
+                r_prev = R[t - 1]
+                p_macro = float(np.dot(W_macro[t - 1], r_prev))
+                p_neutral = float(np.dot(W_n_clean[t - 1], r_prev))
+                excess_reward = p_macro - p_neutral
+                # Gradient ascent: if tilt added alpha, expand conviction; if adverse, decay towards 0.0 (50/50 anchor)
+                grad = excess_reward
+                theta = float(np.clip(theta + eta * np.tanh(20.0 * grad), 0.0, 2.00))
+
+            # Conviction derived from monetary impulse dampened by regime volatility
+            conviction = float(np.tanh(2.5 * excess_imp[t])) / float(vol_norm[t])
+            # Dynamic tilt smoothly interpolates between 50/50 anchor (lambda=0) and full directional power (lambda=max_tilt)
+            dyn_lambda = float(np.clip(theta * conviction * max_tilt, 0.0, max_tilt))
+            lambda_t[t] = dyn_lambda
+            theta_history[t] = theta
 
     W_hybrid = (1.0 - lambda_t[:, None]) * W_n_clean + lambda_t[:, None] * W_macro
     neutral_steps = int(np.sum(lambda_t < 1e-6))
@@ -3980,6 +4027,8 @@ def compute_macro_regime_gated_alpha_tilt_allocation(
         "pure_neutral_steps": neutral_steps,
         "macro_tilt_active_steps": tilt_active_steps,
         "mean_abs_net_exposure": float(np.mean(np.abs(W_hybrid.sum(axis=1)))) if T > 0 else 0.0,
+        "max_realized_directional_tilt": float(np.max(lambda_t)) if T > 0 else 0.0,
+        "adaptive_theta_weights": theta_history,
     }
 
 
