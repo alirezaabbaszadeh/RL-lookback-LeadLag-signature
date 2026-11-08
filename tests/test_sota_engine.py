@@ -7,6 +7,18 @@ import numpy as np
 import pandas as pd
 
 from leadlag.alpha.sota_engine import (
+    compute_intelligent_dual_margin_and_treasury_routing,
+    compute_borrow_aware_short_leg_optimizer,
+    compute_oi_volume_proportional_futures_roll,
+    compute_weekend_offhours_cross_asset_proxy_hedge,
+    compute_1min_subbar_rough_signature_aggregator,
+    build_global_3000_multi_asset_universe_spec,
+    align_asynchronous_multi_asset_clock_filtrations,
+    compute_cross_asset_multi_broker_margin_and_routing,
+    load_real_multimodal_exogenous_2000_panel,
+    compute_liquidity_tiered_capital_scaling,
+    run_multi_stage_reality_and_oracle_regret_audit,
+    extract_real_smart_money_exogenous_tensor,
     SOTARealityShieldResult,
     apply_intraday_volatility_tpsl_and_min_hold_guard,
     apply_rough_path_infinity_grid_harvester,
@@ -718,3 +730,182 @@ def test_theorem45_symplectic_slicing_and_maker_execution() -> None:
     out = compute_symplectic_slicing_and_maker_execution(to_v, vol_v, maker_fill_ratio=0.65, n_slices=4)
     assert out["effective_fee_bps"] < 5.0
     assert out["mean_sliced_slippage_bps"] < 2.0
+
+
+def test_theorem46_real_multimodal_exogenous_panel_zero_synthetic_and_causal() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    bundle = load_real_multimodal_exogenous_2000_panel(repo_root, max_hours=300)
+    assert bundle["is_strictly_real"] is True
+    assert bundle["prices"].shape == bundle["R_trad"].shape
+    T, N = bundle["R_trad"].shape
+    assert bundle["Y_exo"].shape[0] == T
+    assert bundle["Y_exo"].shape[1] >= 10 * N
+    assert not np.isnan(bundle["Y_exo"]).any()
+    bundle2 = load_real_multimodal_exogenous_2000_panel(repo_root, max_hours=300)
+    np.testing.assert_allclose(bundle["Y_exo"], bundle2["Y_exo"], atol=0.0)
+
+
+def test_theorem46_exogenous_smart_money_prefix_isolation_invariance() -> None:
+    prices = _make_synthetic_leadlag_panel(T=160, N=6, seed=46)
+    rng = np.random.default_rng(460)
+    vol = rng.uniform(10.0, 15.0, size=(160, 6))
+    to = rng.uniform(-5.0, -2.0, size=(160, 6))
+    exo_full, _ = extract_real_smart_money_exogenous_tensor(prices, vol, to)
+    exo_prefix, _ = extract_real_smart_money_exogenous_tensor(prices.iloc[:100], vol[:100], to[:100])
+    np.testing.assert_allclose(exo_full[:100], exo_prefix, atol=1e-14)
+
+
+def test_theorem47_liquidity_tiered_capital_scaling_and_impact_governance() -> None:
+    T, N = 80, 8
+    P = np.zeros((T, N), dtype=float)
+    P[:, :4] = 0.125
+    P[:, 4:] = -0.125
+    V_usd = np.full((T, N), 5e7, dtype=float)
+    V_usd[:, 0] = 2e4
+    V_usd[:, 4] = 2e4
+    LR = np.random.default_rng(47).normal(0.0, 0.01, size=(T, N))
+
+    res_small = compute_liquidity_tiered_capital_scaling(P, V_usd, LR, portfolio_capital_usd=100.0)
+    res_large = compute_liquidity_tiered_capital_scaling(P, V_usd, LR, portfolio_capital_usd=1000000.0)
+
+    assert res_small["dollar_neutral_max_err"] < 1e-12
+    assert res_large["dollar_neutral_max_err"] < 1e-12
+    assert np.abs(res_large["scaled_positions"][-1, 0]) < np.abs(res_small["scaled_positions"][-1, 0])
+
+
+def test_theorem48_multi_stage_reality_and_oracle_regret_audit() -> None:
+    prices = _make_synthetic_leadlag_panel(T=120, N=8, seed=48)
+    P = np.zeros((120, 8), dtype=float)
+    P[:, :2] = 0.25
+    P[:, -2:] = -0.25
+    V_usd = np.full((120, 8), 1e7, dtype=float)
+    out = run_multi_stage_reality_and_oracle_regret_audit(
+        prices, P, V_usd, capital_tiers_usd=(100.0, 1000000.0)
+    )
+    assert out["theoretical_dispersion_mean_step_bps"] > 0.0
+    assert "$100" in out["capital_tier_audit"]
+    assert "$1,000,000" in out["capital_tier_audit"]
+
+
+def test_theorem49_asynchronous_multi_asset_clock_filtration_zero_lookahead() -> None:
+    spec = build_global_3000_multi_asset_universe_spec()
+    assert spec["total_target_markets"] == 3000
+    assert len(spec["asset_classes"]) == 6
+
+    rng = np.random.default_rng(49)
+    T, N = 100, 6
+    P = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.01, size=(T, N)), axis=0))
+    mask = np.ones((T, N), dtype=bool)
+    # Asset 0 is closed on bars 40..60 (e.g. weekend/holiday equity session closure)
+    mask[40:60, 0] = False
+    out_full = align_asynchronous_multi_asset_clock_filtrations(P, mask)
+    out_prefix = align_asynchronous_multi_asset_clock_filtrations(P[:70], mask[:70])
+
+    # During closed bars 40..59, price is held constant at bar 39 settle and log-return is strictly 0.0
+    assert np.allclose(out_full["causal_prices"][40:60, 0], P[39, 0])
+    assert np.allclose(out_full["synchronized_log_returns"][40:60, 0], 0.0)
+    # Strict prefix isolation invariance
+    np.testing.assert_allclose(out_full["synchronized_log_returns"][:70], out_prefix["synchronized_log_returns"], atol=1e-15)
+
+
+def test_theorem50_cross_asset_multi_broker_margin_and_closed_session_routing() -> None:
+    T, N = 40, 6
+    P_target = np.zeros((T, N), dtype=float)
+    P_target[:, :3] = 1.0 / 6.0
+    P_target[:, 3:] = -1.0 / 6.0
+    mask = np.ones((T, N), dtype=bool)
+    # Asset 0 closes at bar 20 while its target changes at bar 20
+    mask[20:, 0] = False
+    P_target[20:, 0] = -0.25
+    cls_ids = np.arange(N)
+
+    routed = compute_cross_asset_multi_broker_margin_and_routing(P_target, mask, cls_ids)
+    pos = routed["routed_positions"]
+    # Asset 0 must remain locked at its bar 19 weight (+1/6) during closed bars 20..39
+    assert np.allclose(pos[20:, 0], 1.0 / 6.0)
+    # Active open markets automatically compensate so total portfolio remains strictly dollar-neutral (1^T w = 0)
+    assert routed["max_open_session_net_exposure_err"] < 1e-12
+
+
+def test_theorem51_intelligent_dual_margin_and_treasury_routing() -> None:
+    T, N = 50, 8
+    P = np.zeros((T, N), dtype=float)
+    P[:, :4] = 0.125
+    P[:, 4:] = -0.125
+    R = np.random.default_rng(51).normal(0.0, 0.01, size=(T, N))
+    broker_ids = np.array([0, 0, 1, 1, 2, 2, 3, 3])
+
+    u_res = compute_intelligent_dual_margin_and_treasury_routing(P, R, broker_ids, mode="unified_portfolio_margin")
+    f_res = compute_intelligent_dual_margin_and_treasury_routing(P, R, broker_ids, mode="fragmented_multi_broker")
+    a_res = compute_intelligent_dual_margin_and_treasury_routing(P, R, broker_ids, mode="auto_intelligent")
+
+    assert u_res["unified_margin_mean"] < f_res["fragmented_margin_mean"]
+    assert a_res["capital_efficiency_gain_pct"] > 20.0
+    assert a_res["selected_mode"] == "auto_intelligent_hybrid"
+
+
+def test_theorem52_borrow_aware_short_leg_optimizer() -> None:
+    T, N = 30, 6
+    W_s = np.zeros((T, N), dtype=float)
+    W_s[:, :4] = -0.125
+    alpha_s = np.full((T, N), 5.0, dtype=float)
+    # Asset 0 is an expensive Hard-to-Borrow stock (8,000 bps annual borrow fee), Asset 5 is an Index Futures contract
+    borrow_bps = np.zeros((T, N), dtype=float)
+    borrow_bps[:, 0] = 80000.0
+    div_bps = np.zeros((T, N), dtype=float)
+    idx_mask = np.array([False, False, False, False, True, True])
+
+    out = compute_borrow_aware_short_leg_optimizer(W_s, alpha_s, borrow_bps, div_bps, idx_mask)
+    assert out["optimized_short_net_alpha_bps"] > out["raw_short_net_alpha_bps"]
+    assert out["short_alpha_improvement_bps"] > 0.0
+    assert np.allclose(out["optimized_short_weights"].sum(axis=1), -0.50, atol=1e-12)
+
+
+def test_theorem53_oi_volume_proportional_futures_roll_strictly_positive() -> None:
+    T = 100
+    # Simulate deep contango roll where additive Panama roll would distort prices
+    F1 = np.linspace(50.0, 20.0, T)
+    F2 = F1 + 15.0
+    OI1 = np.linspace(10000.0, 100.0, T)
+    OI2 = np.linspace(100.0, 10000.0, T)
+
+    out = compute_oi_volume_proportional_futures_roll(F1, F2, OI1, OI2)
+    assert out["strictly_positive_verified"] is True
+    assert out["continuous_prices"].shape == (T,)
+    assert np.all(np.isfinite(out["continuous_log_returns"]))
+
+
+def test_theorem54_weekend_offhours_cross_asset_proxy_hedge() -> None:
+    rng = np.random.default_rng(54)
+    L, T, N = 300, 40, 6
+    factor = rng.normal(0.0, 0.02, size=(L, 1))
+    R_hist = factor @ np.ones((1, N)) + rng.normal(0.0, 0.005, size=(L, N))
+    P = np.zeros((T, N), dtype=float)
+    # Traditional assets 0..3 have net long tilt locked going into weekend; assets 4..5 are 24/7 open markets
+    P[:, 0] = 0.30
+    P[:, 1] = 0.20
+    P[:, 4] = -0.25
+    P[:, 5] = -0.25
+    mask = np.zeros((T, N), dtype=bool)
+    mask[:, 4:] = True
+
+    out = compute_weekend_offhours_cross_asset_proxy_hedge(P, mask, R_hist, proxy_hedge_intensity=0.80)
+    assert out["proxy_hedge_active_steps"] == T
+    assert np.allclose(out["hedged_positions"].sum(axis=1), 0.0, atol=1e-12)
+
+
+def test_theorem55_1min_subbar_rough_signature_aggregator() -> None:
+    rng = np.random.default_rng(55)
+    T_hours, M_sub, N = 24, 60, 5
+    T_min = T_hours * M_sub
+    r_1m = rng.normal(0.0, 0.001, size=(T_min, N))
+    # Inject 1-minute intra-hour leadership: asset 0 leads asset 1 by 1 minute
+    r_1m[1:, 1] += 0.8 * r_1m[:-1, 0]
+    P_1m = 100.0 * np.exp(np.cumsum(r_1m, axis=0))
+    V_1m = rng.uniform(100.0, 1000.0, size=(T_min, N))
+
+    out = compute_1min_subbar_rough_signature_aggregator(P_1m, V_1m, subbars_per_step=60)
+    assert out["hourly_close_prices"].shape == (T_hours, N)
+    assert out["intra_hour_1m_levy_leadership"].shape == (T_hours, N)
+    # Asset 0 must exhibit positive intra-hour 1-minute Levy leadership over Asset 1
+    assert float(out["intra_hour_1m_levy_leadership"][:, 0].mean()) > float(out["intra_hour_1m_levy_leadership"][:, 1].mean())
