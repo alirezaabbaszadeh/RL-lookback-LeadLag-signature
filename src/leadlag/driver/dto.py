@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
-@dataclass(slots=True)
+@dataclass
 class ScenarioSelection:
     """Structured representation of a selected scenario reference."""
 
@@ -20,7 +20,7 @@ class ScenarioSelection:
         return asdict(self)
 
 
-@dataclass(slots=True)
+@dataclass
 class ScenarioResult:
     """Scenario execution outcome captured by the driver."""
 
@@ -47,7 +47,7 @@ class ScenarioResult:
         return payload
 
 
-@dataclass(slots=True)
+@dataclass
 class RunStatusEntry:
     """Metadata describing the status of a run discovered on disk."""
 
@@ -77,7 +77,7 @@ class RunStatusEntry:
         return payload
 
 
-@dataclass(slots=True)
+@dataclass
 class DriverSummary:
     """Serializable payload summarising the driver execution."""
 
@@ -103,7 +103,7 @@ class DriverSummary:
         return payload
 
 
-@dataclass(slots=True)
+@dataclass
 class ExecutionResult:
     """Structured result returned from scenario execution."""
 
@@ -116,7 +116,7 @@ class ExecutionResult:
     dry_run_entries: list[ScenarioSelection] = field(default_factory=list)
 
 
-@dataclass(slots=True)
+@dataclass
 class ScenarioExecutionContext:
     """Context describing a scenario prior to execution."""
 

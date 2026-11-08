@@ -9,7 +9,7 @@ from .dto import DriverSummary, ExecutionResult, RunStatusEntry, ScenarioSelecti
 from leadlag.reporting.logging_utils import get_logger, setup_logging
 
 
-@dataclass(slots=True)
+@dataclass
 class StatusRender:
     """Deterministic payload for rendering run status information."""
 
@@ -19,15 +19,17 @@ class StatusRender:
     errors: list[dict[str, object]] | None
 
 
-@dataclass(slots=True)
+@dataclass
 class DryRunRender:
     """Deterministic payload for rendering dry-run selections."""
 
     text: str
     data: dict[str, object]
+    success: bool = True
+    errors: list[dict[str, object]] | None = None
 
 
-@dataclass(slots=True)
+@dataclass
 class ExecutionRender:
     """Deterministic payload for rendering full execution results."""
 

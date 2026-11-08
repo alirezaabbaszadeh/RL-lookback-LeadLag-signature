@@ -412,6 +412,106 @@ class ExecuteCommand:
         )
 
 
+class ThirdPartyAuditCommand:
+    """Execute Independent Third-Party Paper-Trading Audit (Theorems 31-45)."""
+
+    def __call__(self, context: CommandContext) -> CommandResponse:
+        import json
+        from pathlib import Path
+        import pandas as pd
+        from leadlag.alpha.sota_engine import (
+            SOTAConfig,
+            _clean_panel_df,
+            run_third_party_paper_trading_audit,
+        )
+
+        repo_root = Path(context.results_root).resolve().parent if context.results_root else Path.cwd()
+        if not (repo_root / "raw_data" / "1H_prices_20250811.csv").exists():
+            repo_root = Path(__file__).resolve().parents[3]
+
+        raw_p = repo_root / "raw_data" / "1H_prices_20250811.csv"
+        if not raw_p.exists():
+            return CommandResponse(
+                exit_code=1,
+                code="ERROR_DATA_MISSING",
+                message=f"Raw historical data file not found at {raw_p}",
+            )
+
+        df_p = _clean_panel_df(raw_p)
+        df_tail = df_p.iloc[-15000:]
+        valid_t0 = df_tail.columns[df_tail.iloc[:200].notna().mean() == 1.0]
+        prices_68 = df_tail[valid_t0].ffill()
+
+        cfg = SOTAConfig.hourly_sovereign_conservative()
+        delay_map = {
+            "0m": 0.0,
+            "3m": 0.05,
+            "15m": 0.25,
+            "60m": 1.00,
+        }
+        delay_tier = getattr(context.args, "delay_tier", "all")
+        results = {}
+
+        if delay_tier in delay_map:
+            frac = delay_map[delay_tier]
+            res = run_third_party_paper_trading_audit(prices_68, cfg, execution_delay_fraction=frac)
+            results[delay_tier] = {
+                "net_sharpe": round(res.net_sharpe, 3),
+                "cagr_pct": round(res.cagr * 100.0, 2),
+                "max_drawdown_pct": round(res.max_drawdown * 100.0, 2),
+                "calmar_ratio": round(res.calmar_ratio, 2),
+                "min_principal_pct": round(res.min_principal_return * 100.0, 2),
+            }
+        else:
+            for tier_name, frac in delay_map.items():
+                res = run_third_party_paper_trading_audit(prices_68, cfg, execution_delay_fraction=frac)
+                results[tier_name] = {
+                    "net_sharpe": round(res.net_sharpe, 3),
+                    "cagr_pct": round(res.cagr * 100.0, 2),
+                    "max_drawdown_pct": round(res.max_drawdown * 100.0, 2),
+                    "calmar_ratio": round(res.calmar_ratio, 2),
+                    "min_principal_pct": round(res.min_principal_return * 100.0, 2),
+                }
+
+        out_text = f"=== Third-Party Paper-Trading Audit (Level-10 Theorems 1-45) ===\n"
+        out_text += f"Universe: 68-Crypto Hourly (15,000 Hours)\n"
+        out_text += json.dumps(results, indent=2)
+
+        return CommandResponse(
+            exit_code=0,
+            message="Third-party paper-trading audit completed successfully.",
+            text=out_text,
+            data=results,
+        )
+
+
+class MasterMatrixCommand:
+    """Execute the Full Master Systematic Execution Matrix on 100% Real Historical Panels."""
+
+    def __call__(self, context: CommandContext) -> CommandResponse:
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[3]
+        runner_script = repo_root / "scripts" / "run_master_systematic_matrix.py"
+
+        if not runner_script.exists():
+            return CommandResponse(
+                exit_code=1,
+                code="ERROR_SCRIPT_MISSING",
+                message=f"Matrix runner not found at {runner_script}",
+            )
+
+        res = subprocess.run([sys.executable, str(runner_script)], capture_output=True, text=True)
+        return CommandResponse(
+            exit_code=res.returncode,
+            message="Master systematic execution matrix processed.",
+            text=res.stdout if res.returncode == 0 else res.stderr,
+            data={"stdout": res.stdout, "stderr": res.stderr},
+        )
+
+
 @dataclass(frozen=True)
 class CommandDependencies:
     driver_service: DriverService
@@ -450,8 +550,12 @@ def build_command_registry(dependencies: CommandDependencies) -> tuple[CommandSp
         execution_setup=setup,
         responder=responder,
     )
+    audit_command = ThirdPartyAuditCommand()
+    matrix_command = MasterMatrixCommand()
 
     return (
+        CommandSpec("third-party-audit", lambda args: bool(getattr(args, "third_party_audit", False)), audit_command),
+        CommandSpec("master-matrix", lambda args: bool(getattr(args, "master_matrix", False)), matrix_command),
         CommandSpec("validate", lambda args: bool(args.validate), validate),
         CommandSpec("status", lambda args: bool(args.status), status),
         CommandSpec("list", lambda args: bool(args.list), list_command),

@@ -10,7 +10,7 @@ from pathlib import Path
 __all__ = ["ExecutionOptions", "ExecutionSetup", "prepare_execution"]
 
 
-@dataclass(slots=True)
+@dataclass
 class ExecutionOptions:
     """Configuration for executing scenarios."""
 
@@ -21,7 +21,7 @@ class ExecutionOptions:
     dry_run: bool = False
 
 
-@dataclass(slots=True)
+@dataclass
 class ExecutionSetup:
     """Prepared resources for executing scenarios via the CLI."""
 

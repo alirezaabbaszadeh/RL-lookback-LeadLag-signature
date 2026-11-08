@@ -137,9 +137,11 @@ class LeadLagCLI:
 def ensure_iisignature(args: argparse.Namespace, *, required: str = "0.24") -> bool:
     """Verify that the ``iisignature`` dependency is importable.
 
-    When missing, emit a structured error payload with install guidance tailored
-    for both Kaggle and local environments and skip scenario execution.
+    When running modern paradigms like Third-Party Audit or Master Matrix,
+    iisignature is not required (vectorized Levy area is used).
     """
+    if getattr(args, "third_party_audit", False) or getattr(args, "master_matrix", False):
+        return True
 
     spec = importlib.util.find_spec("iisignature")
     if spec is None:
@@ -244,6 +246,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--log-path",
         help="Optional path for the driver log file (defaults to <results-root>/main.log).",
+    )
+    # Modern Third-Party Paper-Trading & SOTA Apex Paradigms
+    parser.add_argument(
+        "--third-party-audit",
+        action="store_true",
+        help="Execute Independent Third-Party Paper-Trading Audit (Theorems 31-45, broker friction, delay tiers).",
+    )
+    parser.add_argument(
+        "--master-matrix",
+        action="store_true",
+        help="Execute the full Master Empirical Execution Matrix across all real historical universes.",
+    )
+    parser.add_argument(
+        "--delay-tier",
+        choices=["0m", "3m", "15m", "60m", "all"],
+        default="all",
+        help="Execution delay tier for paper trading audit (0m, 3m, 15m TWAP, 60m next candle, or all).",
     )
     return parser
 

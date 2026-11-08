@@ -3,4 +3,3 @@ Asset_Universe,Model_Architecture,Backtest_Gross_Sharpe,Backtest_Net_Sharpe,Pape
 "68-Crypto Hourly (15,000h)",Generation 2: Exogenous Sovereign (Theorems 1-34),4.05,3.22,3.22,3.21,3.2,3.12,68.8,-9.8,100% Guaranteed (0.0% loss),Validated in LEAN / VectorBT
 "68-Crypto Hourly (15,000h)",Generation 3: Level-10 Omega-Frontier (Theorems 1-45),4.15,3.76,3.7609,3.7546,3.7255,3.5651,84.8,-9.81,100% Guaranteed (+0.14% profit minimum),Ready for CCXT Live Testnet (Active Frontier)
 Macro Multimodal Daily Panel (Price+Vol+MCap+T-Bill),Macro Cross-Asset Lead-Lag + Smart Money Bilinear,1.21,1.09,1.046,1.049,1.056,1.057,10.6,-13.21,100% Guaranteed (0.0% loss),Daily Macro Positioning (Institutional Benchmark)
-"Global 2,000-Market Universe + 50 Macro Channels",Bipartite Low-Rank SVD Lead-Lag + SOTA-Apex (1.0x),10.45,10.38,7.922,7.919,7.908,7.86,16.06,-0.64,100% Guaranteed (0.0% loss),Global Exascale Engine (UK Institutional Tier)

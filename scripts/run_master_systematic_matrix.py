@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Master Systematic Execution Matrix Runner.
+"""Master Systematic Execution Matrix Runner (100% Real Historical Data Only).
 
-Systematizes all evaluation modalities recognized by UK Quantitative Finance scientists:
+Strict Zero-Simulation Mandate:
+  - All synthetic/toy data generators (e.g. rng.standard_normal) are strictly disqualified.
+  - Only physically verified historical data panels on disk are certified.
+
+Universes Evaluated:
+  - Row 1: 68-Crypto Hourly Panel (15,000h) — Price-Only Baseline
+  - Row 2: 68-Crypto Hourly Panel (15,000h) — Exogenous Sovereign (Theorems 1-34)
+  - Row 3: 68-Crypto Hourly Panel (15,000h) — Level-10 Omega-Frontier (Theorems 1-45)
+  - Row 4: Macro Multimodal Daily Panel (Price + Vol + MCap + 3M US Treasury Bill)
+
+Evaluation Modalities:
   1. Causal Research Backtest
   2. Third-Party Paper-Trading Audit (0m Instant)
   3. Third-Party Paper-Trading Audit (3m Broker Latency)
   4. Third-Party Paper-Trading Audit (15m TWAP Execution)
   5. Third-Party Paper-Trading Audit (60m Full Next Candle)
   6. Live Demo / Exchange Testnet Harness (CCXT / Orderbook Depth)
-
-Across all Asset Universes:
-  - Row 1: 68-Crypto Hourly Panel (15,000h) — Price-Only Baseline
-  - Row 2: 68-Crypto Hourly Panel (15,000h) — Exogenous Sovereign (Theorems 1-34)
-  - Row 3: 68-Crypto Hourly Panel (15,000h) — Level-10 Omega-Frontier (Theorems 1-45)
-  - Row 4: Macro Multimodal Daily Panel (Price + Vol + MCap + 3M US Treasury Bill)
-  - Row 5: Global 2,000-Market Universe + 50 Exogenous Macroeconomic Channels
-
-Fills ALL empty cells and writes the authoritative Master Matrix to docs/ and results/.
 """
 from __future__ import annotations
 
@@ -37,10 +38,8 @@ from leadlag.alpha.sota_engine import (
     SOTALeadLagEngine,
     _clean_panel_df,
     compute_composite_reality_friction,
-    generate_global_2000_market_panel,
     load_multimodal_daily_panel,
     run_multimodal_daily_backtest,
-    precompute_bipartite_low_rank_2000_signals,
     run_third_party_paper_trading_audit,
 )
 
@@ -105,7 +104,7 @@ def evaluate_positions_under_friction(
 
 def main() -> None:
     print("=" * 80)
-    print("EXECUTING MASTER SYSTEMATIC EXECUTION MATRIX & FILLING ALL EMPTY CELLS")
+    print("EXECUTING MASTER SYSTEMATIC EXECUTION MATRIX (100% REAL HISTORICAL PANELS ONLY)")
     print("=" * 80)
 
     docs_dir = ROOT / "docs"
@@ -116,9 +115,9 @@ def main() -> None:
     matrix_records = []
 
     # -------------------------------------------------------------------------
-    # 1. 68-Crypto Hourly Panel (15,000h)
+    # 1. 68-Crypto Hourly Panel (15,000h) — Real Authentic Data
     # -------------------------------------------------------------------------
-    print("\n[Universe 1/3] Processing 68-Crypto Hourly Real Panel (15,000 Hours)...")
+    print("\n[Universe 1/2] Processing 68-Crypto Hourly Real Panel (15,000 Hours)...")
     raw_dir = ROOT / "raw_data"
     df_p = _clean_panel_df(raw_dir / "1H_prices_20250811.csv")
     df_tail = df_p.iloc[-15000:]
@@ -144,19 +143,9 @@ def main() -> None:
     # Read existing 68-crypto third party audit summary
     tp_path = docs_dir / "third_party_audit" / "third_party_audit_summary.json"
     tp_data = json.loads(tp_path.read_text(encoding="utf-8")) if tp_path.exists() else {}
-
-    # Extract Level-10 from tp_data
     l10_data = tp_data.get("Level10_Omega_Frontier_Theorems_1_to_45", {})
 
-    delays = [
-        ("0m_Instant", 0.0),
-        ("3m_Broker_Latency", 0.05),
-        ("15m_TWAP_Execution", 0.25),
-        ("60m_Full_Next_Candle", 1.00),
-    ]
-
     # Row 1: Price-Only Baseline
-    res_pure_0m = run_third_party_paper_trading_audit(prices_68, cfg_pure, execution_delay_fraction=0.0)
     res_pure_15m = run_third_party_paper_trading_audit(prices_68, cfg_pure, execution_delay_fraction=0.25)
     res_pure_60m = run_third_party_paper_trading_audit(prices_68, cfg_pure, execution_delay_fraction=1.00)
     matrix_records.append({
@@ -211,11 +200,10 @@ def main() -> None:
     # -------------------------------------------------------------------------
     # 2. Multimodal Daily Macro Panel (Price + Vol + MCap + 3M T-Bill)
     # -------------------------------------------------------------------------
-    print("\n[Universe 2/3] Processing Macro Multimodal Daily Panel (Filling Empty Paper-Trading Cells)...")
+    print("\n[Universe 2/2] Processing Macro Multimodal Daily Panel (Filling Empty Paper-Trading Cells)...")
     res_mm_base = run_multimodal_daily_backtest(ROOT)
     df_mm_p = load_multimodal_daily_panel(ROOT)["prices"]
 
-    # Fill paper-trading cells for Multimodal Daily
     mm_pos = res_mm_base.positions
     mm_pt_0m = evaluate_positions_under_friction(mm_pos, df_mm_p, delay_fraction=0.0, periods_per_year=365)
     mm_pt_3m = evaluate_positions_under_friction(mm_pos, df_mm_p, delay_fraction=0.05, periods_per_year=365)
@@ -238,72 +226,11 @@ def main() -> None:
     })
 
     # -------------------------------------------------------------------------
-    # 3. Global 2,000-Market Universe + 50 Exogenous Macro Channels
-    # -------------------------------------------------------------------------
-    print("\n[Universe 3/3] Processing Global 2,000-Market Universe + 50 Exogenous Macro Channels...")
-    bundle_2000 = generate_global_2000_market_panel(ROOT, n_trad=2000, m_exo=50, n_steps=600, seed=2026)
-    df_2000_p = bundle_2000["prices"]
-
-    z_2000, snr_2000 = precompute_bipartite_low_rank_2000_signals(
-        bundle_2000["R_trad"],
-        bundle_2000["Y_exo"],
-        candidates=(6, 12, 18, 24, 36),
-        stride=3,
-        n_anchors=bundle_2000["n_anchors"],
-    )
-
-    top_k = 25
-    cfg_2000 = SOTAConfig(
-        candidates=(6, 12, 18, 24, 36),
-        rebal_steps=3,
-        top_k=top_k,
-        retain_bonus=1.5,
-        step_alpha=0.50,
-        consensus_min=0.10,
-        spread_min=2.5,
-        periods_per_year=365,
-        vol_fast_window=6,
-        vol_slow_window=24,
-        strict_meta_warmup=True,
-        meta_warmup_cycles=14,
-        sparse_sharpe_thresh=0.50,
-        zero_loss_shield=True,
-        ignition_wait_cycles=26,
-        ignition_equity_thresh=1.025,
-        leverage=1.0,  # Strict sovereign 1.0x (No artificial 62x leverage!)
-    )
-    eng_2000 = SOTALeadLagEngine(cfg_2000)
-    eng_2000.precompute_horizon_signals = lambda lr, stride=3: (z_2000, snr_2000)
-    res_2000 = eng_2000.run_backtest(df_2000_p)
-
-    # Fill paper-trading cells for Global 2,000
-    pos_2000 = res_2000.positions
-    g2000_pt_0m = evaluate_positions_under_friction(pos_2000, df_2000_p, delay_fraction=0.0, periods_per_year=365)
-    g2000_pt_3m = evaluate_positions_under_friction(pos_2000, df_2000_p, delay_fraction=0.05, periods_per_year=365)
-    g2000_pt_15m = evaluate_positions_under_friction(pos_2000, df_2000_p, delay_fraction=0.25, periods_per_year=365)
-    g2000_pt_60m = evaluate_positions_under_friction(pos_2000, df_2000_p, delay_fraction=1.00, periods_per_year=365)
-
-    matrix_records.append({
-        "Asset_Universe": "Global 2,000-Market Universe + 50 Macro Channels",
-        "Model_Architecture": "Bipartite Low-Rank SVD Lead-Lag + SOTA-Apex (1.0x)",
-        "Backtest_Gross_Sharpe": round(res_2000.gross_sharpe, 2),
-        "Backtest_Net_Sharpe": round(res_2000.net_sharpe, 2),
-        "PaperTrading_0m_NetSharpe": g2000_pt_0m["net_sharpe"],
-        "PaperTrading_3m_NetSharpe": g2000_pt_3m["net_sharpe"],
-        "PaperTrading_15m_NetSharpe": g2000_pt_15m["net_sharpe"],
-        "PaperTrading_60m_NetSharpe": g2000_pt_60m["net_sharpe"],
-        "PaperTrading_15m_CAGR": g2000_pt_15m["cagr_pct"],
-        "PaperTrading_15m_MaxDD": g2000_pt_15m["max_drawdown_pct"],
-        "Principal_Preservation": "100% Guaranteed (0.0% loss)",
-        "Live_Demo_Status": "Global Exascale Engine (UK Institutional Tier)",
-    })
-
-    # -------------------------------------------------------------------------
-    # Format and Output the Master Execution Matrix
+    # Format and Output the Master Execution Matrix (100% Real Historical Data Only)
     # -------------------------------------------------------------------------
     df_matrix = pd.DataFrame(matrix_records)
     print("\n" + "=" * 80)
-    print("MASTER SYSTEMATIC EXECUTION MATRIX (ALL EMPTY CELLS FILLED)")
+    print("MASTER SYSTEMATIC EXECUTION MATRIX (100% REAL HISTORICAL DATA ONLY)")
     print("=" * 80)
     print(df_matrix.to_string(index=False))
 
